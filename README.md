@@ -11,17 +11,19 @@ Chromascope is a modern, responsive beauty application designed to revolutionize
 Chromascope solves the common challenge of finding beauty products that are both aesthetically pleasing and safe for specific skin types. The application bridges the gap between digital discovery and physical safety by analyzing product ingredients against user-specific concerns (e.g., acne-prone, sensitive skin) while allowing users to visualize products in real-time.
 
 ### **Core Workflow**
-1.  **Personalized Onboarding**: Users define their skin type and specific ingredient concerns.
-2.  **Color Analysis**: Identification of the user's seasonal color palette (e.g., Cool Winter, Warm Autumn).
-3.  **Discovery**: Browsing a curated product catalog with safety verdicts.
-4.  **Try-On**: Visualizing shades using Augmented Reality.
-5.  **Safety Engine**: Real-time filtering of products based on ingredient compatibility.
+
+1. **Personalized Onboarding**: Users define their skin type and specific ingredient concerns.
+2. **Color Analysis**: Identification of the user's seasonal color palette (e.g., Cool Winter, Warm Autumn).
+3. **Discovery**: Browsing a curated product catalog with safety verdicts.
+4. **Try-On**: Visualizing shades using Augmented Reality.
+5. **Safety Engine**: Real-time filtering of products based on ingredient compatibility.
 
 ---
 
 ## 2. Features
 
 ### **Frontend Features**
+
 - **🎨 Seasonal Color Analysis**: Interactive quiz and palette matching.
 - **💄 AR Virtual Try-On**: Real-time shade visualization (Camera-based).
 - **📱 Responsive Mobile-First UI**: Seamless experience across all devices.
@@ -29,12 +31,14 @@ Chromascope solves the common challenge of finding beauty products that are both
 - **🌗 Glassmorphic Design**: Modern, premium aesthetic with blur effects.
 
 ### **Backend Features**
+
 - **🛡️ Safety Engine**: Advanced logic for ingredient-skin type compatibility.
 - **🔍 Fuzzy Matching**: Intelligent INCI name matching using RapidFuzz.
 - **🔥 Firebase Integration**: Real-time Firestore database and Cloud Storage.
 - **🚀 FastAPI Performance**: High-speed asynchronous API endpoints.
 
 ### **Authentication & Personalization**
+
 - **👤 User Profiles**: Save skin profiles and favorite products.
 - **📝 Onboarding Flow**: Multi-step setup for personalized results.
 
@@ -43,6 +47,7 @@ Chromascope solves the common challenge of finding beauty products that are both
 ## 3. Tech Stack
 
 ### **Frontend**
+
 - **React 19**: Component-based UI library.
 - **Vite**: Ultra-fast build tool.
 - **Tailwind CSS**: Modern styling framework.
@@ -52,6 +57,7 @@ Chromascope solves the common challenge of finding beauty products that are both
 - **Lucide React**: Premium icon set.
 
 ### **Backend**
+
 - **Python 3.x**: Core programming language.
 - **FastAPI**: Modern, fast (high-performance) web framework.
 - **Firebase Admin SDK**: For Firestore and Storage access.
@@ -59,6 +65,7 @@ Chromascope solves the common challenge of finding beauty products that are both
 - **Uvicorn**: ASGI server implementation.
 
 ### **Tools & Services**
+
 - **Firebase**: Database and cloud services.
 - **Git/GitHub**: Version control.
 - **Claude Code/Antigravity**: Development assistance.
@@ -95,6 +102,7 @@ Chromascope/
 ## 5. Frontend Setup Guide
 
 ### **Installation**
+
 1. Navigate to the frontend directory:
    ```bash
    cd frontend
@@ -105,16 +113,21 @@ Chromascope/
    ```
 
 ### **Development**
+
 Run the development server:
+
 ```bash
 npm run dev
 ```
+
 The app will be available at `http://localhost:5173`.
 
 ### **Environment Variables**
+
 The frontend communicates with the backend via a hardcoded `API_BASE_URL` in `src/services/`. For production, ensure this points to your deployed API.
 
 ### **Build**
+
 ```bash
 npm run build
 ```
@@ -124,6 +137,7 @@ npm run build
 ## 6. Backend Setup Guide
 
 ### **Installation**
+
 1. Navigate to the backend directory:
    ```bash
    cd backend
@@ -139,45 +153,51 @@ npm run build
    ```
 
 ### **Firebase Configuration**
+
 1. Place your `serviceAccountKey.json` in the `backend/` directory.
 2. Ensure the `.env` file in the root directory contains the necessary Firebase credentials.
 
 ### **Run API Server**
+
 ```bash
 uvicorn app.api.api:app --reload
 ```
+
 The API documentation (Swagger) will be available at `http://localhost:8000/docs`.
 
 ---
 
 ## 7. Frontend Routes Documentation
 
-| Route | Page Component | Description |
-|-------|----------------|-------------|
-| `/` | `SplashPage` | Landing page with product overview. |
-| `/auth` | `AuthPage` | Login and Registration. |
-| `/home` | `HomePage` | Main dashboard and personalized feed. |
-| `/onboarding` | `OnboardingPage` | Skin type and concern selection. |
-| `/ar-tryon` | `ARTryOnPage` | Real-time virtual try-on interface. |
-| `/color-analysis`| `ColorAnalysisPage` | Start of the seasonal color test. |
-| `/palette-product`| `PaletteGuideProductPage` | Recommendations based on color palette. |
-| `/ingredient-filter`| `IngredientFilterPage` | Deep analysis of product ingredients. |
-| `/profile` | `ProfilePage` | User account settings and saved items. |
-| `/admin` | `AdminDatabasePage` | Admin dashboard for catalog management. |
+| Route                  | Page Component              | Description                             |
+| ---------------------- | --------------------------- | --------------------------------------- |
+| `/`                  | `SplashPage`              | Landing page with product overview.     |
+| `/auth`              | `AuthPage`                | Login and Registration.                 |
+| `/home`              | `HomePage`                | Main dashboard and personalized feed.   |
+| `/onboarding`        | `OnboardingPage`          | Skin type and concern selection.        |
+| `/ar-tryon`          | `ARTryOnPage`             | Real-time virtual try-on interface.     |
+| `/color-analysis`    | `ColorAnalysisPage`       | Start of the seasonal color test.       |
+| `/palette-product`   | `PaletteGuideProductPage` | Recommendations based on color palette. |
+| `/ingredient-filter` | `IngredientFilterPage`    | Deep analysis of product ingredients.   |
+| `/profile`           | `ProfilePage`             | User account settings and saved items.  |
+| `/admin`             | `AdminDatabasePage`       | Admin dashboard for catalog management. |
 
 ---
 
 ## 8. Backend API Documentation
 
 ### **General Endpoints**
+
 - `GET /`: Health check status.
 
 ### **Product Endpoints**
+
 - `GET /api/products`: Fetches all products from Firestore.
 - `GET /api/ingredients`: Returns the full ingredient safety database.
 
 ### **Safety Engine**
-- `POST /api/run-filter`: 
+
+- `POST /api/run-filter`:
   - **Purpose**: Runs the safety filtering logic for a list of products.
   - **Request Body**:
     ```json
@@ -201,13 +221,6 @@ The API documentation (Swagger) will be available at `http://localhost:8000/docs
 
 ---
 
-## 10. Future Improvements
-- [ ] **AI-Powered Shade Matching**: Automate seasonal color detection using facial recognition.
-- [ ] **Community Reviews**: Allow users to share safety experiences for specific products.
-- [ ] **Barcode Scanner**: Enable real-time ingredient analysis by scanning physical products.
-- [ ] **Social Integration**: Share seasonal palettes and try-on looks.
+## License
 
----
-
-## 11. License
 This project is licensed under the MIT License - see the `LICENSE` file for details.
