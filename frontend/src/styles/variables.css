@@ -1,0 +1,146 @@
+/* ============================================================
+   CHROMASCOPE DESIGN SYSTEM — variables.css
+   Generated from official Style Guide
+   ============================================================ */
+
+/* ── Google Fonts ─────────────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=MuseoModerno:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap");
+:root {
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-heading: "MuseoModerno", serif;
+  --font-body: "Google Sans Flex", sans-serif;
+
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-5xl: 3rem; /* 48px */
+
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 900;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+  --leading-loose: 1.8;
+
+  /* ── Primary Colors ─────────────────────────────────────── */
+  --color-primary: #7700cf; /* primary purple */
+  --color-primary-dark: #5500a0; /* darker shade for hover */
+  --color-primary-darker: #3d007a; /* pressed state */
+  --color-primary-light: #f4e5ff; /* tint / surface */
+  --color-primary-lightest: #faf4ff; /* subtle bg */
+
+  --color-black: #121212;
+  --color-white: #ffffff;
+
+  /* ── Secondary Colors ───────────────────────────────────── */
+  --color-secondary: #ba6cf4; /* soft purple accent */
+  --color-secondary-dark: #9b4dd4;
+  --color-secondary-light: #faf4ff;
+
+  --color-gray: #575654; /* body text secondary */
+  --color-gray-light: #8a8a88;
+  --color-gray-lighter: #d1d1cf;
+  --color-gray-lightest: #f5f5f4;
+
+  /* ── Semantic Colors ────────────────────────────────────── */
+  --color-success: #1d9e75;
+  --color-success-light: #e1f5ee;
+  --color-warning: #ba7517;
+  --color-warning-light: #faeeda;
+  --color-danger: #a32d2d;
+  --color-danger-light: #fcebeb;
+  --color-info: #185fa5;
+  --color-info-light: #e6f1fb;
+
+  /* ── Background Surfaces ────────────────────────────────── */
+  --bg-page: #ffffff;
+  --bg-surface: #faf4ff; /* card / panel background */
+  --bg-elevated: #f4e5ff; /* slightly elevated surface */
+  --bg-overlay: rgba(119, 0, 207, 0.08); /* purple tint overlay */
+
+  /* ── Text ───────────────────────────────────────────────── */
+  --text-primary: #121212;
+  --text-secondary: #575654;
+  --text-tertiary: #8a8a88;
+  --text-on-primary: #ffffff;
+  --text-on-secondary: #121212;
+  --text-link: #7700cf;
+  --text-link-hover: #5500a0;
+
+  /* ── Borders ────────────────────────────────────────────── */
+  --border-color: rgba(119, 0, 207, 0.15);
+  --border-color-medium: rgba(119, 0, 207, 0.3);
+  --border-color-strong: rgba(119, 0, 207, 0.5);
+  --border-color-muted: rgba(87, 86, 84, 0.15);
+
+  /* ── Border Radius ──────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* ── Spacing Scale ──────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ── Shadows ────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(119, 0, 207, 0.08);
+  --shadow-md: 0 4px 16px rgba(119, 0, 207, 0.12);
+  --shadow-lg: 0 8px 32px rgba(119, 0, 207, 0.18);
+  --shadow-xl: 0 16px 48px rgba(119, 0, 207, 0.22);
+  --shadow-card: 0 2px 12px rgba(18, 18, 18, 0.08);
+
+  /* ── Glass / Frosted ────────────────────────────────────── */
+  --glass-bg: rgba(244, 229, 255, 0.55);
+  --glass-border: rgba(119, 0, 207, 0.2);
+  --glass-blur: blur(12px);
+
+  /* ── Transitions ────────────────────────────────────────── */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+  --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1440px;
+
+  --navbar-height: 64px;
+  --sidebar-width: 240px;
+
+  /* ── Z-index ────────────────────────────────────────────── */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

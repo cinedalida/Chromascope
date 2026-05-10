@@ -1,0 +1,392 @@
+/* ============================================================
+   CHROMASCOPE DESIGN SYSTEM — components.css
+   Reusable component base styles
+   ============================================================ */
+
+@reference "tailwindcss";
+
+@layer components {
+  /* ── Page Layout Shell ───────────────────────────────────── */
+  /* Applied to <main> on every inner page (inside MainLayout).
+     MainLayout's wrapper already adds pt-16 for the fixed 64px navbar.
+     page-shell just adds consistent horizontal + vertical content padding. */
+  .page-shell {
+    @apply px-8 pb-8;
+  }
+
+  /* ── Page-level card / panel surface ─────────────────────── */
+  /* Soft white card used for major content sections on pages. */
+  .page-card {
+    @apply bg-white rounded-2xl p-6 shadow-sm;
+    border: 1px solid rgba(209, 209, 207, 0.4); /* --color-gray-lighter at 40% */
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply inline-flex items-center justify-center gap-2 text-base font-medium leading-none px-6 py-3 rounded-full transition-all duration-200 ease-in-out whitespace-nowrap select-none;
+  }
+
+  .btn:active {
+    @apply scale-95;
+  }
+
+  .btn-primary {
+    @apply text-white shadow-md;
+    background-color: #7700cf;
+  }
+
+  .btn-primary:hover {
+    background-color: #5500a0;
+    @apply shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply text-base;
+    color: #121212;
+    background-color: #f4e5ff;
+  }
+
+  .btn-secondary:hover {
+    background-color: #faf4ff;
+  }
+
+  .btn-outline {
+    @apply bg-transparent;
+    color: #7700cf;
+    border: 1px solid rgba(119, 0, 112, 207);
+  }
+
+  .btn-outline:hover {
+    background-color: #f4e5ff;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent;
+    color: #575654;
+  }
+
+  .btn-ghost:hover {
+    background-color: #faf4ff;
+    color: #121212;
+  }
+
+  .btn-sm {
+    @apply text-sm px-4 py-2;
+  }
+
+  .btn-lg {
+    @apply text-lg px-8 py-4;
+  }
+
+  .btn-icon {
+    @apply w-10 h-10 p-0 rounded-full;
+  }
+
+  .btn:disabled {
+    @apply opacity-45 cursor-not-allowed;
+  }
+
+  /* ── Cards ───────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-lg p-6;
+    border: 1px solid rgba(119, 0, 207, 0.15);
+    box-shadow: 0 2px 12px rgba(18, 18, 18, 0.08);
+  }
+
+  .card-surface {
+    @apply rounded-lg p-6;
+    background-color: #faf4ff;
+    border: 1px solid rgba(119, 0, 207, 0.15);
+  }
+
+  .card-elevated {
+    @apply bg-white rounded-lg p-6 shadow-lg;
+  }
+
+  .card-glass {
+    @apply backdrop-blur-md rounded-lg p-6;
+    background-color: rgba(244, 229, 255, 0.55);
+    border: 1px solid rgba(119, 0, 112, 207, 0.2);
+  }
+
+  .card-hover {
+    @apply transition-all duration-200;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-1 shadow-xl;
+  }
+
+  /* ── Badges ──────────────────────────────────────────────── */
+  .badge {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full;
+  }
+
+  .badge-primary {
+    @apply text-xs;
+    background-color: #f4e5ff;
+    color: #5500a0;
+  }
+
+  .badge-secondary {
+    @apply text-xs;
+    background-color: #faf4ff;
+    color: #9b4dd4;
+  }
+
+  .badge-success {
+    @apply text-xs;
+    background-color: #e1f5ee;
+    color: #1d9e75;
+  }
+
+  .badge-warning {
+    @apply text-xs;
+    background-color: #faeeda;
+    color: #ba7517;
+  }
+
+  .badge-danger {
+    @apply text-xs;
+    background-color: #fcebeb;
+    color: #a32d2d;
+  }
+
+  .badge-info {
+    @apply text-xs;
+    background-color: #e6f1fb;
+    color: #185fa5;
+  }
+
+  .badge-gray {
+    @apply text-xs;
+    background-color: #f5f5f4;
+    color: #575654;
+  }
+
+  /* ── Form inputs ─────────────────────────────────────────── */
+  .input {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply w-full text-base bg-white rounded-sm px-4 py-3 outline-none transition-all duration-200;
+    color: #121212;
+    border: 1px solid rgba(119, 0, 112, 207, 0.15);
+  }
+
+  .input::placeholder {
+    color: #8a8a88;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: #7700cf;
+    box-shadow: 0 0 0 4px rgba(119, 0, 112, 207, 0.1);
+  }
+
+  .input:disabled {
+    @apply cursor-not-allowed opacity-60;
+    background-color: rgba(244, 229, 255, 0.5);
+  }
+
+  .input-label {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply block text-sm font-medium mb-2;
+    color: #121212;
+  }
+
+  .input-error {
+    border-color: #a32d2d;
+  }
+
+  .input-error:focus {
+    box-shadow: 0 0 0 3px rgba(163, 45, 45, 0.12);
+  }
+
+  .input-hint {
+    @apply text-xs mt-1;
+    color: #d1d1cf;
+  }
+
+  .input-error-msg {
+    @apply text-xs mt-1;
+    color: #a32d2d;
+  }
+
+  /* ── Tags / Chips ────────────────────────────────────────── */
+  .tag {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply inline-flex items-center gap-2 text-sm font-medium px-3 py-1 rounded-full border;
+    background-color: #f4e5ff;
+    color: #5500a0;
+    border-color: rgba(119, 0, 112, 207, 0.15);
+  }
+
+  .tag-removable button {
+    @apply flex items-center bg-transparent border-none text-inherit opacity-60 text-sm p-0 leading-none transition-opacity duration-200;
+  }
+
+  .tag-removable button:hover {
+    @apply opacity-100;
+  }
+
+  /* ── Progress bar ────────────────────────────────────────── */
+  .progress {
+    @apply w-full h-1.5 rounded-full overflow-hidden;
+    background-color: #f4e5ff;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-400;
+    background-color: #7700cf;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .divider {
+    @apply border-t my-6;
+    border-color: rgba(87, 86, 84, 0.15);
+  }
+
+  /* ── Avatar ──────────────────────────────────────────────── */
+  .avatar {
+    font-family: "MuseoModerno", serif;
+    @apply flex items-center justify-center rounded-full font-bold overflow-hidden shrink-0;
+    background-color: #f4e5ff;
+    color: #121212;
+  }
+
+  .avatar-sm {
+    @apply w-8 h-8 text-sm;
+  }
+
+  .avatar-md {
+    @apply w-12 h-12 text-lg;
+  }
+
+  .avatar-lg {
+    @apply w-16 h-16 text-2xl;
+  }
+
+  .avatar-xl {
+    @apply w-24 h-24 text-3xl;
+  }
+
+  /* ── Swatch ──────────────────────────────────────────────── */
+  .swatch {
+    @apply rounded-xs inline-block shrink-0;
+    border: 1.5px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .swatch-sm {
+    @apply w-6 h-6;
+  }
+
+  .swatch-md {
+    @apply w-10 h-10;
+  }
+
+  .swatch-lg {
+    @apply w-16 h-16 rounded-sm;
+  }
+
+  .swatch-xl {
+    @apply w-24 h-24 rounded-md;
+  }
+
+  /* ── Loading spinner ─────────────────────────────────────── */
+  .spinner {
+    @apply w-6 h-6 rounded-full;
+    border: 2.5px solid #f4e5ff;
+    border-top-color: #7700cf;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .spinner-sm {
+    @apply w-4 h-4 border-2;
+  }
+
+  .spinner-lg {
+    @apply w-10 h-10 border-[3px];
+  }
+
+  /* ── Modal backdrop ──────────────────────────────────────── */
+  .modal-backdrop {
+    @apply fixed inset-0 backdrop-blur-sm flex items-center justify-center p-6 z-500;
+    background-color: rgba(18, 18, 18, 0.5);
+  }
+
+  .modal {
+    @apply bg-white rounded-xl p-8 shadow-xl w-full max-w-130 relative z-400;
+  }
+
+  /* ── Toast ───────────────────────────────────────────────── */
+  .toast {
+    @apply flex items-center gap-3 px-5 py-3 rounded-md text-sm shadow-xl max-w-90;
+    background-color: #121212;
+    color: #ffffff;
+  }
+
+  .toast-success {
+    background-color: #1d9e75;
+  }
+
+  .toast-warning {
+    background-color: #ba7517;
+  }
+
+  .toast-danger {
+    background-color: #a32d2d;
+  }
+
+  /* ── Typography helpers ──────────────────────────────────── */
+  .heading-hero {
+    font-family: "MuseoModerno", serif;
+    @apply text-5xl font-black leading-tight;
+    color: #121212;
+  }
+
+  .heading-section {
+    font-family: "MuseoModerno", serif;
+    @apply text-3xl font-bold leading-snug;
+  }
+
+  .text-label {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply text-sm font-medium tracking-[0.04em] uppercase;
+    color: #575654;
+  }
+
+  .text-caption {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply text-xs leading-normal;
+    color: #d1d1cf;
+  }
+
+  /* ── Color utility classes ───────────────────────────────── */
+  .text-primary-color {
+    color: #7700cf;
+  }
+
+  .text-secondary-color {
+    color: #ba6cf4;
+  }
+
+  .bg-primary {
+    background-color: #7700cf;
+    color: #ffffff;
+  }
+
+  .bg-primary-light {
+    background-color: #f4e5ff;
+  }
+
+  .bg-surface {
+    background-color: #faf4ff;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,80 @@
+/* ============================================================
+   CHROMASCOPE DESIGN SYSTEM — globals.css
+   Base resets and global styles
+   ============================================================ */
+
+@import "./variables.css";
+@reference "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Global button reset — remove native browser border/outline ── */
+  button {
+    border: 0;
+  }
+
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  html {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "MuseoModerno", serif;
+    @apply font-bold leading-tight;
+  }
+
+  p {
+    font-family: "Google Sans Flex", sans-serif;
+    @apply leading-relaxed;
+    color: #575654;
+  }
+
+  a {
+    @apply transition-colors;
+    color: #121212;
+  }
+
+  a:hover {
+    color: #5500a0;
+  }
+
+  ::selection {
+    background-color: #f4e5ff;
+    color: #3d007a;
+  }
+}
+
+/* ── Unlayered: beats browser :focus-visible outline unconditionally ── */
+button:focus,
+button:focus-visible,
+button:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Global: prevent horizontal overflow on all pages ── */
+html, body {
+  overflow-x: hidden;
+}
+
+/* ── Page shell: consistent responsive padding for all inner pages ── */
+@layer components {
+  .page-shell {
+    @apply min-h-screen px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10;
+  }
+}
