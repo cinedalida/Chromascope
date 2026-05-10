@@ -141,3 +141,20 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python / Backend
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Sensitive Keys & Data
+serviceAccountKey.js
+serviceAccountKey.json
+backend/serviceAccountKey.json
+*.xlsx
+Chromascope_file.xlsx
+
+# OS files
+.DS_Store
+Thumbs.db
