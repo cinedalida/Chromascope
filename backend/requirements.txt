@@ -1,0 +1,10 @@
+# Chromascope Safety Engine
+# Install: pip install -r requirements.txt
+
+# Core
+fastapi>=0.100.0           # API framework
+uvicorn>=0.22.0            # ASGI server to run FastAPI
+firebase-admin>=6.0.0      # Firebase Firestore + Storage
+
+# Optional but recommended
+rapidfuzz>=3.0.0           # Fuzzy INCI matching (handles label typos/variations)
