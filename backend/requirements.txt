@@ -8,3 +8,15 @@ firebase-admin>=6.0.0      # Firebase Firestore + Storage
 
 # Optional but recommended
 rapidfuzz>=3.0.0           # Fuzzy INCI matching (handles label typos/variations)
+
+# --- AI & Computer Vision ---
+torch>=2.3.0
+torchvision>=0.18.0
+timm>=0.9.16 
+open_clip_torch
+torchmetrics==1.4.0
+Pillow
+numpy
+pandas
+opencv-python
+pyfacer
