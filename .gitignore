@@ -158,3 +158,6 @@ Chromascope_file.xlsx
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ignore weights
+*.pth
