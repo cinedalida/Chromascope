@@ -1,20 +1,58 @@
 // ColorAnalysisProcessingPage shows progress while the analysis engine runs.
 
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Microscope, Check, Loader2, X, Fingerprint } from "lucide-react";
 
 export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const image = location.state?.image;
+  const [currentStep, setCurrentStep] = useState(0); // Optional: to animate steps
+
 
   useEffect(() => {
-    // Simulate API processing delay before transitioning to the results/subtype page
-    const timer = setTimeout(() => {
-      navigate("/color-analysis/subtype");
-    }, 3000);
+    // If someone bypasses the upload page, kick them back
+    if (!image) {
+      navigate("/color-analysis");
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [navigate]);
+    const runAnalysis = async () => {
+      try {
+        // 1. Convert Base64 Data URL to a Blob
+        const response = await fetch(image);
+        const blob = await response.blob();
+        
+        // 2. Prepare FormData for the backend
+        const formData = new FormData();
+        formData.append("file", blob, "upload.png");
+
+        setCurrentStep(1); // Moving to Extracting Features
+
+        // 3. Call your FastAPI endpoint (adjust URL if port differs)
+        const apiRes = await fetch("http://localhost:8000/api/analyze-color", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!apiRes.ok) throw new Error("Analysis failed");
+        
+        const data = await apiRes.json();
+        setCurrentStep(2); // Complete
+        
+        // 4. Navigate to results page with the real data!
+        navigate("/color-analysis/subtype", { state: { analysisResult: data } });
+
+      } catch (error) {
+        console.error("Pipeline error:", error);
+        alert("There was an error analyzing your image. Please try again.");
+        navigate("/color-analysis");
+      }
+    };
+
+    runAnalysis();
+  }, [navigate, image]);
 
   return (
     <main className="page-shell bg-[#FAF4FF] font-body text-black flex flex-col items-center justify-center">

@@ -1,6 +1,7 @@
 // ColorAnalysisSubtypePage shows the subtype-specific results after analysis.
 
 import React from "react";
+import { useLocation, Navigate } from "react-router-dom";
 import {
   Dna,
   Sparkles,
@@ -12,6 +13,18 @@ import {
 } from "lucide-react";
 
 export function ColorAnalysisSubtypePage() {
+  const location = useLocation();
+  const result = location.state?.analysisResult;
+
+   // Fallback in case a user navigates directly to this URL without analyzing
+  if (!result) {
+    return <Navigate to="/color-analysis" replace />;
+  }
+
+  // Destructure the payload from your pipeline.py
+  const { season, confidence, lab_color } = result;
+
+
   const palette = [
     { name: "Royal Amethyst", hex: "bg-[#6D28D9]", subtype: "Core" },
     { name: "Deep Sapphire", hex: "bg-[#1E40AF]", subtype: "Accent" },
@@ -32,13 +45,14 @@ export function ColorAnalysisSubtypePage() {
               Genomic Color Profile
             </span>
           </div>
+          {/* Inject Dynamic Season Here */}
           <h1 className="font-heading text-4xl font-bold text-black italic">
-            Subtype Analysis: Bright Winter
+            Subtype Analysis: {season}
           </h1>
           <p className="text-gray-light max-w-2xl text-lg">
             High contrast and cool-toned saturation. Your subtype thrives on
             clarity and vivid pigments that mirror your natural biometric
-            intensity.
+            intensity. (AI Confidence: {confidence.toFixed(1)}%)
           </p>
         </header>
 

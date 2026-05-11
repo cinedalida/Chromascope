@@ -198,7 +198,7 @@ export function ColorAnalysisPage() {
             </div>
 
             <button 
-              onClick={() => navigate("/color-analysis/processing")}
+              onClick={() => navigate("/color-analysis/processing", { state: { image: uploadedImage } })}
               disabled={!uploadedImage}
               className="w-full py-4 bg-[#7700CF] text-white rounded-full font-bold shadow-lg hover:bg-[#5C00A3] transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >

@@ -1,6 +1,12 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+import io
+from PIL import Image
+
 from ..core.engine import ChromascopeSafetyEngine
+from ..core.skin_analysis.pipeline import AnalyzerPipeline
+
+
 
 app = FastAPI()
 
@@ -12,6 +18,8 @@ app.add_middleware(
 )
 
 engine = ChromascopeSafetyEngine()
+print("Initializing ML Pipeline...")
+analyzer = AnalyzerPipeline()
 
 @app.get("/api/products")
 async def get_all_products():
@@ -32,6 +40,24 @@ async def run_safety_logic(request: Request):
             category=data.get("category"),
         )
         return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze-color")
+async def analyze_color(file: UploadFile = File(...)):
+    try:
+        # Read the uploaded file into memory
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        
+        # Run the ML pipeline
+        result = analyzer.analyze(image)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+            
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

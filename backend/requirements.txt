@@ -20,3 +20,9 @@ numpy
 pandas
 opencv-python
 pyfacer
+scikit-learn
+scikit-image
+
+
+# Additional
+python-multipart
