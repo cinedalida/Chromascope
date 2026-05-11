@@ -157,6 +157,12 @@ npm run build
 1. Place your `serviceAccountKey.json` in the `backend/` directory.
 2. Ensure the `.env` file in the root directory contains the necessary Firebase credentials.
 
+### **ML Configuration**
+1. Get the weights folder at: [Weights Link](https://drive.google.com/drive/folders/1QBDaRbK5rdIFNH8_7SN4uKwkTrC4NUjp?usp=sharing)
+1. Place the weights folder in the `backend/app/core/skin_analysis/ml/` directory.
+
+
+
 ### **Run API Server**
 
 ```bash
