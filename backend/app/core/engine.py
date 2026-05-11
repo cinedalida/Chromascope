@@ -14,7 +14,7 @@ class ChromascopeSafetyEngine:
             fuzzy_threshold=fuzzy_threshold,
         )
 
-    def filter(self, skin_type: str, concerns: list = None, avoid_ingredients: list = None, category: str = None, show_excluded: bool = True) -> list:
+    def filter(self, skin_type: str, concerns: list = None, avoid_ingredients: list = None, category: str = None, show_excluded: bool = True, products_list: list = None) -> list:
         concerns = concerns or []
         avoid_ingredients = avoid_ingredients or []
 
@@ -22,11 +22,16 @@ class ChromascopeSafetyEngine:
             raise ValueError(f"Invalid skin_type '{skin_type}'. Choose from: {VALID_SKIN_TYPES}")
 
         concerns = [c for c in concerns if c in VALID_CONCERNS]
-        avoid_ingredients = [a for a in avoid_ingredients if a in VALID_AVOID]
+        
+        products = products_list if products_list is not None else self.db.products
 
-        products = self.db.products
-        if category:
-            products = [p for p in products if p.get("category") == category]
+        if category and category.lower() != "all":
+            search_cat = category.lower().replace("-", "")
+            products = [
+                p for p in products 
+                if search_cat in str(p.get("category")).lower().replace("-", "") 
+                or str(p.get("category")).lower().replace("-", "") in search_cat
+            ]
 
         return self._filter.filter_products(
             products=products,
@@ -36,12 +41,12 @@ class ChromascopeSafetyEngine:
             show_excluded=show_excluded,
         )
 
-    def get_safe_products(self, skin_type, concerns=None, avoid_ingredients=None, category=None) -> list:
-        return [r for r in self.filter(skin_type, concerns, avoid_ingredients, category)
-                if r["verdict"] == "safe"]
+    def get_safe_products(self, skin_type: str, concerns: list = None, avoid_ingredients: list = None, category: str = None) -> list:
+        results = self.filter(skin_type, concerns, avoid_ingredients, category)
+        return [r for r in results if r["verdict"] == "safe"]
 
-    def get_summary(self, results) -> dict:
+    def get_summary(self, results: list) -> dict:
         return get_summary(results)
 
-    def print_results(self, results) -> None:
+    def print_results(self, results: list) -> None:
         print_results(results)

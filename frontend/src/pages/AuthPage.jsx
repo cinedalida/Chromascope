@@ -1,209 +1,152 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Mail, Lock } from "lucide-react";
+import { ArrowRight, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import { auth } from "../firebase"; 
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 export function AuthPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
-  const handleSignIn = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      console.log("Sign in with:", email, password);
-      navigate("/home");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setError("");
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      console.log("Sign in with Google");
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
       navigate("/home");
+    } catch (err) {
+      setError("Invalid email or password. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="fixed inset-0 w-screen h-screen m-0 p-0 flex bg-white font-body overflow-hidden z-50" style={{ overscrollBehavior: 'none' }}>
-      {/* Left Side - Design/Visual */}
+    <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-[#FAF4FF] p-0 font-body [-webkit-tap-highlight-color:transparent]">
+      {/* Left Side - Visual Branding (EXACT DESIGN PRESERVED) */}
       <div
-        className="hidden lg:flex lg:flex-1 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #7700CF 0%, #BA6CF4 100%)",
-        }}
+        className="relative hidden overflow-hidden lg:flex lg:flex-1"
+        style={{ background: "linear-gradient(135deg, #5A009D 0%, #9D4EDD 100%)" }}
       >
-        {/* Background Logo */}
         <div className="absolute inset-0 flex items-end justify-center">
-          <img
-            src="/src/assets/logos/chro-glass-white.png"
-            alt="Chromascope Glass Logo"
-            className="w-[85%] h-auto object-contain opacity-40"
-          />
+          <img src="/src/assets/logos/chro-glass-white.png" alt="Logo" className="h-auto w-[85%] object-contain opacity-20 mix-blend-overlay" />
         </div>
-
-        {/* Gradient background decorations */}
-        <div
-          className="absolute top-0 left-1/4 opacity-20 rounded-full"
-          style={{
-            width: "500px",
-            height: "500px",
-            background:
-              "radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 70%)",
-            filter: "blur(100px)",
-          }}
+        
+        <motion.div 
+          animate={{ opacity: [0.15, 0.25, 0.15] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-[10%] left-[10%] rounded-full bg-white blur-[120px]" 
+          style={{ width: "600px", height: "600px" }} 
         />
-        <div
-          className="absolute bottom-0 right-1/4 opacity-30 rounded-full"
-          style={{
-            width: "400px",
-            height: "400px",
-            background:
-              "radial-gradient(circle, rgba(219,183,255,1) 0%, rgba(219,183,255,0) 70%)",
-            filter: "blur(80px)",
-          }}
+        <motion.div 
+          animate={{ opacity: [0.2, 0.35, 0.2] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute -bottom-[10%] right-[10%] rounded-full bg-[#E0AAFF] blur-[100px]" 
+          style={{ width: "500px", height: "500px" }} 
         />
 
-        {/* Content Overlay */}
-        <div className="relative z-10 flex h-full flex-col px-10 py-12 w-full">
-          {/* Logo + Heading + Subheading (centered vertically) */}
+        <div className="relative z-10 flex h-full w-full flex-col px-10 py-12">
           <div className="flex flex-1 items-center justify-center">
-            <div className="flex flex-col items-center space-y-4 max-w-lg">
-              {/* Logo */}
-              <motion.img
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8 }}
-                src="/src/assets/logos/chro-round-icon.png"
-                alt="Chromascope Round Icon"
-                className="h-20 w-20 opacity-95"
-              />
-
-              {/* Main Text */}
-              <motion.h2
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.1 }}
-                className="font-heading text-5xl font-black tracking-tight text-center text-white"
-              >
-                Chromascope
-              </motion.h2>
-
-              {/* Subheading */}
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-lg leading-relaxed text-center text-white/85"
-              >
-                Experience strong-grade skin analysis powered by advanced color
-                science and personalized AI-driven beauty insights.
-              </motion.p>
+            <div className="flex max-w-lg flex-col items-center space-y-6">
+              <img src="/src/assets/logos/chro-round-icon.png" alt="Icon" className="h-24 w-24 opacity-95 drop-shadow-2xl" />
+              <h2 className="text-center font-heading text-5xl font-bold tracking-tight text-white drop-shadow-sm">Chromascope</h2>
+              <p className="text-center text-lg leading-relaxed text-white/90">Experience clinical-grade skin analysis powered by advanced color science and personalized AI-driven beauty insights.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Form */}
-      <div className="flex-1 flex flex-col relative bg-white overflow-y-auto">
-        {/* Top Left Logo — visible on mobile, hidden on lg (left panel takes over) */}
-        <div className="lg:hidden flex items-center gap-2 text-[#6800B8] font-heading font-bold text-lg px-6 pt-8 pb-2">
-          <img src="/src/assets/logos/chro-round-icon.png" alt="Logo" className="w-6 h-6" style={{ filter: "invert(17%) sepia(90%) saturate(4529%) hue-rotate(272deg) brightness(81%) contrast(115%)" }} />
+      {/* Right Side - Login Form (EXACT DESIGN PRESERVED) */}
+      <div className="relative flex flex-1 flex-col overflow-y-auto bg-white">
+        
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#E5D5F5]/60 blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
+
+        <div className="relative z-10 flex items-center gap-2 px-6 pb-2 pt-8 font-heading text-lg font-bold text-[#6800B8] lg:hidden">
+          <img src="/src/assets/logos/chro-round-icon.png" alt="Logo" className="h-6 w-6" style={{ filter: "invert(17%) sepia(90%) saturate(4529%) hue-rotate(272deg) brightness(81%) contrast(115%)" }} />
           Chromascope
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:p-12 w-full">
-          <div className="w-full max-w-[440px] mx-auto">
+        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:p-12">
+          <div className="mx-auto w-full max-w-[440px]">
             <header className="mb-8 text-center">
-              <h2 className="text-[22px] font-heading font-medium text-[#374151]">Welcome Back</h2>
-              <p className="text-[15px] text-[#4B5563] mt-2">Sign in to access your clinical dashboard</p>
+              <h2 className="font-heading text-3xl font-bold text-[#111827]">Welcome Back</h2>
+              <p className="mt-2 text-[15px] text-[#4B5563]">Sign in to access your clinical dashboard</p>
             </header>
 
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="bg-[#FAEDFF] p-6 sm:p-8 lg:p-10 rounded-2xl border border-primary-light/10 shadow-sm"
-            >
-              <form onSubmit={handleSignIn} className="space-y-6">
+            <div className="rounded-[24px] border border-[#E5D5F5] bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8 lg:p-10">
+              <form onSubmit={handleLogin} className="space-y-6">
                 <div>
-                  <label className="text-[14px] text-[#4B5563] block mb-2 font-medium">Email Address</label>
+                  <label className="mb-1.5 block font-medium text-[14px] text-[#4B5563]">Email Address</label>
                   <div className="relative flex items-center">
-                    <Mail size={18} className="absolute left-0 text-[#6B7280]" strokeWidth={1.5} />
+                    <div className="absolute left-4 flex h-full items-center text-[#9CA3AF]">
+                      <Mail size={18} strokeWidth={2} />
+                    </div>
                     <input
                       type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-8 py-2 bg-transparent border-b border-[#9CA3AF] focus:border-[#6800B8] transition-colors outline-none text-[15px] text-[#374151] placeholder:text-[#9CA3AF]"
-                      placeholder="name@company.com"
                       required
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full rounded-2xl border border-gray-200 bg-gray-50/50 py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10"
+                      placeholder="name@company.com"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="text-[14px] text-[#4B5563] font-medium">Password</label>
-                    <a href="#forgot" className="text-[14px] text-[#6800B8] hover:text-[#4A0082] transition-colors font-medium">Forgot?</a>
+                  <div className="mb-1.5 flex items-end justify-between">
+                    <label className="font-medium text-[14px] text-[#4B5563]">Password</label>
+                    <button type="button" className="font-medium text-[13px] text-[#7700CF] hover:underline focus:outline-none">Forgot password?</button>
                   </div>
                   <div className="relative flex items-center">
-                    <Lock size={18} className="absolute left-0 text-[#6B7280]" strokeWidth={1.5} />
+                    <div className="absolute left-4 flex h-full items-center text-[#9CA3AF]">
+                      <Lock size={18} strokeWidth={2} />
+                    </div>
                     <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-8 py-2 bg-transparent border-b border-[#9CA3AF] focus:border-[#6800B8] transition-colors outline-none text-[15px] text-[#374151] placeholder:text-[#9CA3AF] tracking-widest font-medium"
-                      placeholder="••••••••"
+                      type={showPassword ? "text" : "password"}
                       required
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      className={`w-full rounded-2xl border border-gray-200 bg-gray-50/50 py-3.5 pl-11 pr-12 font-medium ${!showPassword && formData.password ? 'tracking-widest' : 'tracking-normal'} text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10`}
+                      placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 flex h-full items-center text-[#9CA3AF] focus:outline-none"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
+                  {error && <p className="mt-2 text-xs text-rose-500 flex items-center gap-1"><AlertCircle size={14}/> {error}</p>}
                 </div>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full mt-4 bg-[#7700CF] text-white py-3.5 rounded-full font-medium text-[15px] flex items-center justify-center gap-2 hover:bg-[#5C00A3] transition-all disabled:opacity-50 shadow-md"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7700CF] py-4 font-medium text-[15px] text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] active:scale-[0.98] disabled:opacity-70 focus:outline-none"
                 >
-                  {isLoading ? "Authenticating..." : "Log in"}
+                  {isLoading ? "Signing in..." : "Log in"}
                   {!isLoading && <ArrowRight size={18} />}
                 </button>
               </form>
-
-              <div className="my-8 flex items-center gap-4">
-                <div className="flex-1 h-px bg-[#D1D5DB]" />
-                <span className="text-[13px] text-[#6B7280] uppercase tracking-wide font-medium">OR CONTINUE WITH</span>
-                <div className="flex-1 h-px bg-[#D1D5DB]" />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 py-3 bg-transparent border border-[#D1D5DB] rounded-xl hover:bg-white/50 transition-all font-medium text-[15px] text-[#374151]"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-                Continue with Google
-              </button>
-            </motion.div>
-
-            <p className="mt-8 text-center text-[15px] font-medium text-[#4B5563]">
-              Don't have an account? <a href="#request" className="text-[#6800B8] hover:underline">Request Access</a>
-            </p>
-
-            {/* Footer Links */}
-            <div className="mt-10 lg:mt-16 flex flex-wrap justify-center gap-4 sm:gap-6 text-[11px] text-[#6B7280] uppercase tracking-wide">
-              <a href="#privacy" className="hover:text-[#6800B8] transition-colors">Privacy Policy</a>
-              <a href="#terms" className="hover:text-[#6800B8] transition-colors">Terms of Service</a>
-              <a href="#support" className="hover:text-[#6800B8] transition-colors">Support</a>
             </div>
+
+            <p className="mt-8 text-center font-medium text-[15px] text-[#4B5563]">
+              Don't have an account? 
+              <button 
+                onClick={() => navigate("/register")} 
+                className="ml-1 font-semibold text-[#7700CF] hover:underline"
+              >
+                Request Access
+              </button>
+            </p>
           </div>
         </div>
       </div>

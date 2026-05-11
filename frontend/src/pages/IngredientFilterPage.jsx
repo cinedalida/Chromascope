@@ -1,427 +1,239 @@
-// IngredientFilterPage enables ingredient safety filtering for cosmetic products.
-
 import React, { useState, useEffect } from "react";
-import { filterIngredients } from "../services/ingredientService";
+import { runFilter } from "../services/productService"; 
 import { useUserStore } from "../store/userStore";
 import {
   Search,
   Filter,
   X,
-  ShieldCheck,
-  AlertTriangle,
-  Info,
   ChevronLeft,
   ChevronRight,
   Eye,
   Sparkles,
+  User,
+  Bell
 } from "lucide-react";
-import productImageMap from "../data/productImageMap.json";
 
 export function IngredientFilterPage() {
   const user = useUserStore((state) => state.user);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [skinType, setSkinType] = useState("sensitive");
-  const [concerns, setConcerns] = useState(["sensitive", "eczema"]);
-  const [avoidIngredients, setAvoidIngredients] = useState(["fragrance", "parabens"]);
+  
+  const [skinType, setSkinType] = useState("Normal"); 
+  const [avoidIngredients, setAvoidIngredients] = useState([]);
+  const [category, setCategory] = useState("Face");
+  
+  const categories = ["Face", "Cheeks", "Lips", "Eyes", "Multiuse", "Concealer"];
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
-  const [triggerFetch, setTriggerFetch] = useState(0);
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const cleanPath = (url) => {
+    if (!url) return "/placeholder.png";
+    return url.startsWith("/public/") ? url.replace("/public/", "/") : url;
+  };
+
   useEffect(() => {
     if (user) {
-      if (user.skinType) setSkinType(user.skinType.toLowerCase());
-      if (user.concerns && user.concerns.length > 0) setConcerns(user.concerns.map(c => c.toLowerCase()));
-      if (user.avoidIngredients && user.avoidIngredients.length > 0) setAvoidIngredients(user.avoidIngredients.map(a => a.toLowerCase()));
+      const detectedSkinType = user.skin_type || user.skin_profile?.base_type || "Normal";
+      setSkinType(detectedSkinType);
+
+      const detectedIngredients = user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [];
+      setAvoidIngredients(detectedIngredients);
     }
   }, [user]);
 
   useEffect(() => {
-    async function loadFilteredProducts() {
+    if (!user) return; 
+    async function loadData() {
       setLoading(true);
-      const results = await filterIngredients({
-        skin_type: skinType,
-        concerns,
-        avoid_ingredients: avoidIngredients
-      });
-      setProducts(results);
-      setLoading(false);
+      try {
+        const results = await runFilter({
+          skin_type: skinType,
+          avoid_ingredients: avoidIngredients,
+          category: category
+        });
+        setProducts(results.safety_results || []);
+      } catch (err) {
+        console.error("Database sync error:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-    loadFilteredProducts();
-  }, [triggerFetch]); // Only fetch on initial load or when triggerFetch increments
+    loadData();
+  }, [user, category, skinType, avoidIngredients]);
 
-  const handleFilterSubmit = () => {
-    setAppliedSearchQuery(searchQuery);
-    setCurrentPage(1);
-    setTriggerFetch(t => t + 1);
-  };
+  const filteredProducts = products.filter(p => 
+    p.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleRemoveAvoid = (item) => {
-    setAvoidIngredients(prev => prev.filter(i => i !== item));
-  };
-
-  const handleClearAll = () => {
-    setAvoidIngredients([]);
-    setSkinType("");
-  };
-
-  const insightText = concerns.length > 0
-    ? `Your profile suggests a focus on ${concerns.join(' and ')}.`
-    : "Your profile suggests a balanced skincare approach.";
-
-  const displayProducts = products.filter(p => {
-    if (!appliedSearchQuery) return true;
-    const q = appliedSearchQuery.toLowerCase();
-    return (
-      (p.product_name && p.product_name.toLowerCase().includes(q)) ||
-      (p.brand && p.brand.toLowerCase().includes(q)) ||
-      (p.full_inci_list && p.full_inci_list.toLowerCase().includes(q))
-    );
-  });
+  const currentItems = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <main className="page-shell font-body text-black bg-primary-lightest">
-      <section className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
-        <header className="space-y-2">
-          <h1 className="font-heading text-4xl font-bold text-black">
-            Scientific Filter
-          </h1>
-          <p className="text-gray max-w-2xl text-lg">
-            Analyze and filter product catalogs based on your unique skin
-            profile and clinical ingredient constraints. Our AI detects
-            potential allergens in real-time.
-          </p>
+    <div className="flex min-h-screen bg-[#FDFBFF] font-sans text-[#1F1924]">
+      <main className="flex-1 p-8 lg:p-12 pt-8">
+        
+        <header className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span className="text-[#7700CF]">Chromascope</span>
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-500">Clinical synthesis</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <button className="text-gray-400 hover:text-[#7700CF] transition-colors"><Bell size={20} /></button>
+            <div className="w-8 h-8 rounded-full bg-[#F3E8FF] flex items-center justify-center text-[#7700CF]"><User size={18} /></div>
+          </div>
         </header>
 
-        {/* Main Grid Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Sidebar (3/12 on lg) */}
-          <aside className="col-span-1 lg:col-span-3 space-y-6">
-            {/* Active Filters Card */}
-            <div className="page-card">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="font-heading font-semibold text-lg">
-                  Active Filters
-                </h3>
+        <section className="max-w-[1200px] mx-auto">
+          <div className="mb-10">
+            <h1 className="text-4xl font-bold tracking-tight mb-3 text-[#1F1924]">Scientific Filter</h1>
+            <p className="text-gray-500 max-w-2xl leading-relaxed">
+              Real-time cross-referencing of 248+ active clinical formulations against your biometric profile.
+            </p>
+          </div>
+
+          <div className="space-y-6 mb-10">
+            <div className="flex flex-wrap items-center p-1 bg-white border border-[#F0E6FA] rounded-2xl w-fit shadow-sm gap-1">
+              {categories.map((cat) => (
                 <button
-                  onClick={handleClearAll}
-                  className="text-primary text-xs font-bold hover:underline">
-                  Clear All
+                  key={cat}
+                  onClick={() => { setCategory(cat); setCurrentPage(1); }}
+                  className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${category === cat ? "bg-[#25004D] text-white shadow-lg" : "text-gray-400 hover:bg-purple-50"}`}
+                >
+                  {cat}
                 </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {avoidIngredients.map((item, idx) => (
-                  <FilterBadge
-                    key={idx}
-                    label={`${item.toUpperCase()}-FREE`}
-                    color="bg-primary-light text-primary"
-                    onRemove={() => handleRemoveAvoid(item)}
-                  />
-                ))}
-                {skinType && (
-                  <FilterBadge
-                    label={`${skinType.toUpperCase()} SKIN`}
-                    color="bg-[#FFE9D5] text-warning"
-                    onRemove={() => setSkinType("")}
-                  />
-                )}
-              </div>
+              ))}
             </div>
 
-            {/* Skin Profile Insight Card */}
-            <div className="bg-primary-lightest p-6 rounded-xl">
-              <h3 className="font-heading font-semibold text-lg mb-3">
-                Skin Profile Insight
-              </h3>
-              <p className="text-sm text-gray mb-6 leading-relaxed capitalize">
-                {insightText}
-              </p>
-              <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-primary">
-                <div className="flex items-center gap-2 text-primary mb-2">
-                  <Sparkles size={14} fill="currentColor" />
-                  <span className="font-bold text-[10px] uppercase tracking-widest">
-                    Clinical AI Tip
-                  </span>
-                </div>
-                <p className="text-[11px] text-black leading-normal">
-                  Prioritize products with Niacinamide but ensure it is below 5%
-                  concentration for your reactive skin type.
-                </p>
-              </div>
-            </div>
-          </aside>
-
-          {/* Right Column: Main Area (9/12 on lg) */}
-          <div className="col-span-1 lg:col-span-9 space-y-6">
-            {/* Controls: Search and Filter */}
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="relative flex-1 w-full">
-                <Search
-                  className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-light"
-                  size={20}
-                />
-                <input
-                  type="text"
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#7700CF]" size={20} />
+                <input 
+                  type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ingredient or brand..."
-                  className="w-full max-w-[600px] pl-14 pr-6 py-4 rounded-full bg-white border border-gray-lighter focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-primary-light text-black placeholder-gray-light font-medium shadow-sm transition-all m-0"
-                  style={{ borderStyle: 'solid' }}
+                  placeholder={`Search ${category} database...`} 
+                  className="w-full pl-14 pr-6 py-4 bg-white rounded-full border border-[#F0E6FA] shadow-sm outline-none focus:border-[#7700CF] transition-all" 
                 />
               </div>
-
-              <button
-                onClick={handleFilterSubmit}
-                className="shrink-0 whitespace-nowrap bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-full font-bold flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1">
-                <Filter size={20} strokeWidth={3} />
-                Filter Results
+              <button className="bg-[#5500A0] text-white px-10 py-4 rounded-full font-bold shadow-lg flex items-center gap-2 hover:bg-[#440080] transition-all">
+                <Filter size={18} /> Filter Results
               </button>
             </div>
+          </div>
 
-            {/* Product Table */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="overflow-x-auto w-full">
-                <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
-                <thead>
-                  <tr className="border-b border-gray-lightest text-[10px] uppercase tracking-[0.2em] text-gray-light">
-                    <th className="px-6 py-5 font-bold">Product</th>
-                    <th className="px-6 py-5 font-bold text-center">
-                      Season Tags
-                    </th>
-                    <th className="px-6 py-5 font-bold">Ingredients Preview</th>
-                    <th className="px-6 py-5 font-bold text-center">Status</th>
-                    <th className="px-6 py-5 font-bold text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-lightest text-sm">
-                  {loading ? (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-10 text-center text-gray-light">
-                        Analyzing formulation data...
-                      </td>
-                    </tr>
-                  ) : displayProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
-                    const seasons = Array.isArray(item.season_tags)
-                      ? item.season_tags
-                      : typeof item.season_tags === "string" && item.season_tags
-                        ? item.season_tags.split(",").map(s => s.trim())
-                        : ["All Seasons"];
-
-                    const statusMap = {
-                      safe: "Safe",
-                      caution: "Caution",
-                      excluded: "Flagged"
-                    };
-                    const displayStatus = statusMap[item.verdict] || "Unknown";
-
-                    const sku = item.product_id || item.sku;
-                    const imageSrc = sku ? productImageMap[sku] : null;
-
-                    return (
-                      <tr
-                        key={item.product_id}
-                        className="hover:bg-primary-lightest/40 transition-colors group"
-                      >
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-4">
-                            {imageSrc ? (
-                              <img 
-                                src={imageSrc} 
-                                alt={item.product_name} 
-                                className="w-12 h-12 rounded-lg object-cover shadow-sm bg-white shrink-0"
-                              />
-                            ) : (
-                              <div
-                                className="w-12 h-12 rounded-lg shadow-inner flex items-center justify-center bg-gray-lightest shrink-0 overflow-hidden"
-                                style={item.hex_color ? { backgroundColor: item.hex_color } : {}}
-                              />
-                            )}
-                            <div>
-                              <div className="font-bold text-black max-w-[200px] truncate">
-                                {item.product_name}
-                              </div>
-                              <div className="text-xs text-primary font-medium">
-                                {item.brand}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-wrap gap-1 justify-center">
-                            {seasons.map((season) => (
-                              <span
-                                key={season}
-                                className={`text-[9px] font-extrabold px-2 py-0.5 rounded uppercase ${season.toLowerCase() === "summer"
-                                  ? "bg-primary-light text-primary"
-                                  : season.toLowerCase() === "spring"
-                                    ? "bg-[#FFE9D5] text-warning"
-                                    : "bg-gray-lightest text-gray"
-                                  }`}
-                              >
-                                {season}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="text-xs text-gray-light truncate max-w-[200px]" title={item.full_inci_list}>
-                            {item.full_inci_list || "No ingredients listed"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <StatusPill type={displayStatus} />
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                          <button className="text-gray-lighter group-hover:text-primary transition-colors">
-                            <Eye size={20} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="px-6 py-4 border-t border-gray-lightest bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <span className="text-xs font-bold text-gray-light text-center sm:text-left">
-                  Showing {displayProducts.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(currentPage * itemsPerPage, displayProducts.length)} of {displayProducts.length} products
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <PaginationBtn
-                    icon={<ChevronLeft size={16} />}
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1 || loading}
-                  />
-
-                  {(() => {
-                    const totalPages = Math.ceil(displayProducts.length / itemsPerPage) || 1;
-                    let buttons = [];
-
-                    if (totalPages <= 5) {
-                      for (let i = 1; i <= totalPages; i++) {
-                        buttons.push(<PaginationBtn key={i} label={i} active={currentPage === i} onClick={() => setCurrentPage(i)} />);
-                      }
-                    } else {
-                      if (currentPage <= 3) {
-                        for (let i = 1; i <= 4; i++) buttons.push(<PaginationBtn key={i} label={i} active={currentPage === i} onClick={() => setCurrentPage(i)} />);
-                        buttons.push(<span key="e1" className="text-gray-lighter px-2">...</span>);
-                        buttons.push(<PaginationBtn key={totalPages} label={totalPages} onClick={() => setCurrentPage(totalPages)} />);
-                      } else if (currentPage >= totalPages - 2) {
-                        buttons.push(<PaginationBtn key={1} label="1" onClick={() => setCurrentPage(1)} />);
-                        buttons.push(<span key="e1" className="text-gray-lighter px-2">...</span>);
-                        for (let i = totalPages - 3; i <= totalPages; i++) buttons.push(<PaginationBtn key={i} label={i} active={currentPage === i} onClick={() => setCurrentPage(i)} />);
-                      } else {
-                        buttons.push(<PaginationBtn key={1} label="1" onClick={() => setCurrentPage(1)} />);
-                        buttons.push(<span key="e1" className="text-gray-lighter px-2">...</span>);
-                        buttons.push(<PaginationBtn key={currentPage - 1} label={currentPage - 1} onClick={() => setCurrentPage(currentPage - 1)} />);
-                        buttons.push(<PaginationBtn key={currentPage} label={currentPage} active={true} onClick={() => setCurrentPage(currentPage)} />);
-                        buttons.push(<PaginationBtn key={currentPage + 1} label={currentPage + 1} onClick={() => setCurrentPage(currentPage + 1)} />);
-                        buttons.push(<span key="e2" className="text-gray-lighter px-2">...</span>);
-                        buttons.push(<PaginationBtn key={totalPages} label={totalPages} onClick={() => setCurrentPage(totalPages)} />);
-                      }
-                    }
-                    return buttons;
-                  })()}
-
-                  <PaginationBtn
-                    icon={<ChevronRight size={16} />}
-                    onClick={() => setCurrentPage(Math.min(Math.ceil(displayProducts.length / itemsPerPage), currentPage + 1))}
-                    disabled={currentPage === Math.ceil(displayProducts.length / itemsPerPage) || loading || displayProducts.length === 0}
-                  />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <aside className="lg:col-span-3 space-y-6">
+              <div className="bg-white p-7 rounded-[32px] border border-[#F0E6FA] shadow-sm">
+                <h3 className="font-bold text-lg mb-6">Active Filters</h3>
+                <div className="flex flex-col gap-2">
+                  {avoidIngredients.map((ing) => (
+                    <div key={ing} className="bg-[#F8F2FF] text-[#7700CF] px-4 py-2 rounded-full text-[11px] font-bold border border-[#E9D5FF] flex justify-between items-center">
+                      {ing.toUpperCase()}-FREE <X size={12} className="cursor-pointer" />
+                    </div>
+                  ))}
+                  <div className="bg-[#FFF6ED] text-[#EA580C] px-4 py-2 rounded-full text-[11px] font-bold border border-[#FED7AA]">
+                    {skinType.toUpperCase()} SKIN
+                  </div>
                 </div>
               </div>
-            </div>
+            </aside>
 
-            {/* Bottom Status Legend */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <LegendCard
-                icon={<ShieldCheck size={20} className="text-success" />}
-                title="Clinically Validated"
-                desc="Ingredients matches your biocompatibility profile at 95%+"
-                dotColor="bg-success"
-              />
-              <LegendCard
-                icon={<AlertTriangle size={20} className="text-warning" />}
-                title="Irritant Detected"
-                desc="Contains specific allergens flagged in your profile settings."
-                dotColor="bg-warning"
-              />
-              <LegendCard
-                icon={<Info size={20} className="text-primary" />}
-                title="Unknown Profile"
-                desc="Product requires patch test due to rare molecular compound."
-                dotColor="bg-primary"
-              />
+            <div className="lg:col-span-9">
+              <div className="bg-white rounded-[32px] border border-[#F0E6FA] shadow-sm overflow-hidden">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-[#F0E6FA] text-[10px] uppercase tracking-widest text-gray-400 font-bold">
+                      <th className="px-8 py-6">Product</th>
+                      <th className="px-4 py-6">Season Tags</th>
+                      <th className="px-4 py-6">Ingredients Preview</th>
+                      <th className="px-4 py-6">Status</th>
+                      <th className="px-6 py-6 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {loading ? (
+                      <tr><td colSpan="5" className="py-20 text-center"><Sparkles className="animate-spin mx-auto text-[#7700CF]" /></td></tr>
+                    ) : currentItems.length === 0 ? (
+                      <tr><td colSpan="5" className="py-20 text-center text-gray-400 font-medium">No compatible products found in this category.</td></tr>
+                    ) : currentItems.map((item) => {
+                      const seasons = Array.isArray(item.season_tags) 
+                        ? item.season_tags 
+                        : item.season_tags?.split(",").map(s => s.trim()) || ["Universal"];
+
+                      return (
+                        <tr key={item.product_id} className="hover:bg-[#FAF9FF] transition-colors border-b last:border-none border-[#F8F4FF]">
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <img src={cleanPath(item.image_url)} className="w-12 h-12 rounded-2xl object-cover bg-gray-50" alt="Product" />
+                              <div>
+                                <div className="font-bold text-[#1F1924] truncate max-w-[150px]">{item.product_name}</div>
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{item.brand}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-5">
+                            <div className="flex flex-wrap gap-1">
+                              {seasons.map(tag => (
+                                <span key={tag} className="bg-[#F3E8FF] text-[#7700CF] text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-5">
+                            <p className="text-[11px] text-gray-400 line-clamp-1 max-w-[180px]">
+                              {item.full_inci_list || "No ingredient data available."}
+                            </p>
+                          </td>
+                          <td className="px-4 py-5">
+                            <StatusBadge type={item.verdict} />
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <button className="text-gray-300 hover:text-[#7700CF]"><Eye size={20} /></button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <footer className="flex items-center justify-between px-8 py-6 bg-[#FCFAFF] border-t border-[#F0E6FA]">
+                  <div className="text-xs font-medium text-gray-400">
+                    Showing {filteredProducts.length === 0 ? 0 : (currentPage-1)*10+1}-{Math.min(currentPage*10, filteredProducts.length)} of {filteredProducts.length} products
+                  </div>
+                  <div className="flex gap-2">
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)} className="p-2 text-gray-300 hover:text-[#7700CF] disabled:opacity-20"><ChevronLeft size={20} /></button>
+                    <button className="w-8 h-8 rounded-lg text-xs font-bold bg-[#25004D] text-white">{currentPage}</button>
+                    <button disabled={currentPage * 10 >= filteredProducts.length} onClick={() => setCurrentPage(currentPage + 1)} className="p-2 text-gray-300 hover:text-[#7700CF] disabled:opacity-20"><ChevronRight size={20} /></button>
+                  </div>
+                </footer>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
   );
 }
 
-// Internal Helper Components
-function FilterBadge({ label, color, onRemove }) {
-  return (
-    <span
-      className={`${color} px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 tracking-wider transition-hover hover:brightness-95 cursor-default`}
-    >
-      {label} {onRemove && <X size={10} className="cursor-pointer" onClick={onRemove} />}
-    </span>
-  );
-}
+function StatusBadge({ type }) {
+  const verdict = type?.toLowerCase();
+  const isSafe = verdict === 'safe';
+  const isExcluded = verdict === 'excluded';
 
-function StatusPill({ type }) {
-  const isSafe = type === "Safe";
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${isSafe ? "bg-[#E8F5F1] text-success" : type === "Caution" ? "bg-[#FFF4E5] text-warning" : "bg-red-50 text-red-600"
-        }`}
-    >
-      <div
-        className={`w-1.5 h-1.5 rounded-full ${isSafe ? "bg-success" : type === "Caution" ? "bg-warning" : "bg-red-500"}`}
-      />
-      {type}
-    </span>
-  );
-}
+  const styles = isSafe 
+    ? 'bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]' 
+    : isExcluded 
+      ? 'bg-rose-50 border-rose-100 text-rose-600'
+      : 'bg-[#FFFBEB] border-[#FEF3C7] text-[#D97706]';
 
-function PaginationBtn({ label, icon, active, disabled, onClick }) {
   return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={`w-8 h-8 rounded-md flex items-center justify-center transition-all text-xs font-bold ${active
-        ? "bg-primary text-white"
-        : "text-gray-light hover:bg-gray-lightest"
-        } ${disabled ? "opacity-25" : ""}`}
-    >
-      {label || icon}
-    </button>
-  );
-}
-
-function LegendCard({ icon, title, desc, dotColor }) {
-  return (
-    <div className="page-card flex gap-4">
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-lightest/50`}
-      >
-        {icon}
-      </div>
-      <div>
-        <h4 className="font-bold text-sm text-black mb-1 flex items-center gap-2">
-          {title}
-        </h4>
-        <p className="text-[11px] text-gray leading-tight">{desc}</p>
-      </div>
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${styles}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${isSafe ? 'bg-[#10B981]' : isExcluded ? 'bg-rose-600' : 'bg-[#F59E0B]'}`} />
+      <span className="text-[10px] font-black uppercase tracking-widest">{type || 'Caution'}</span>
     </div>
   );
 }

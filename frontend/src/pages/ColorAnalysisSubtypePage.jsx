@@ -1,7 +1,5 @@
-// ColorAnalysisSubtypePage shows the subtype-specific results after analysis.
-
 import React from "react";
-import { useLocation, Navigate } from "react-router-dom";
+import { useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
   Dna,
   Sparkles,
@@ -10,7 +8,6 @@ import {
   ScanFace
 } from "lucide-react";
 
-// The Database of 12 Seasons mapping pipeline output to UI data
 const SEASON_DATABASE = {
   "Bright Spring": {
     colors: ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
@@ -89,6 +86,7 @@ const SEASON_DATABASE = {
 const PALETTE_LABELS = ["Core", "Accent", "Contrast", "Light", "Neutral", "Base", "Pop", "Deep"];
 
 export function ColorAnalysisSubtypePage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const result = location.state?.analysisResult;
 
@@ -98,15 +96,12 @@ export function ColorAnalysisSubtypePage() {
 
   const { season, confidence, lab_color } = result;
   const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
-
-  // Convert LAB array [L, a, b] to a playable Hex code
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
 
   return (
     <main className="page-shell bg-[#FAF9FF] font-body text-black">
       <section className="max-w-7xl mx-auto space-y-8">
         
-        {/* Header Section */}
         <header className="space-y-2">
           <div className="flex items-center gap-3 text-primary">
             <Dna size={20} />
@@ -124,7 +119,6 @@ export function ColorAnalysisSubtypePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Column: Raw Skin Shade */}
           <aside className="col-span-1 lg:col-span-4 space-y-6">
             <div className="page-card space-y-6 text-center flex flex-col items-center py-10">
               <div className="flex items-center gap-2 mb-2 text-gray-dark">
@@ -138,12 +132,10 @@ export function ColorAnalysisSubtypePage() {
                 Extracted directly from your facial map using our clinical AI segmentation model.
               </p>
 
-              {/* The Dynamic Skin Swatch */}
               <div 
                 className="w-32 h-32 rounded-full shadow-lg border-4 border-white relative group"
                 style={{ backgroundColor: skinHex }}
               >
-                {/* Glow Effect behind the circle */}
                 <div 
                   className="absolute inset-0 rounded-full blur-xl opacity-40 -z-10 group-hover:opacity-60 transition-opacity"
                   style={{ backgroundColor: skinHex }}
@@ -162,7 +154,6 @@ export function ColorAnalysisSubtypePage() {
               </div>
             </div>
 
-            {/* Dynamic Tip Card */}
             <div className="bg-primary text-white p-6 rounded-2xl shadow-md relative overflow-hidden group">
               <Sparkles className="absolute -right-4 -top-4 w-24 h-24 text-white/10 rotate-12 transition-transform group-hover:rotate-45" />
               <h4 className="font-heading font-bold text-lg mb-2">
@@ -171,13 +162,15 @@ export function ColorAnalysisSubtypePage() {
               <p className="text-white/80 text-xs leading-relaxed">
                 {profileData.tip}
               </p>
-              <button className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:gap-3 transition-all">
+              <button 
+                onClick={() => navigate("/ingredient-filter")}
+                className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:gap-3 transition-all"
+              >
                 Shop Curated Products <ArrowRight size={14} />
               </button>
             </div>
           </aside>
 
-          {/* Right Column: Palette Discovery */}
           <div className="col-span-1 lg:col-span-8 space-y-6">
             <div className="page-card">
               <div className="flex justify-between items-center mb-8">
@@ -191,7 +184,6 @@ export function ColorAnalysisSubtypePage() {
                 </div>
               </div>
 
-              {/* Dynamic Swatch Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
                 {profileData.colors.map((hex, idx) => (
                   <div key={idx} className="group cursor-pointer">
@@ -217,17 +209,18 @@ export function ColorAnalysisSubtypePage() {
               </div>
             </div>
 
-            {/* Dynamic Seasonal Transition Card */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <TransitionCard
                 title="Sister Season"
                 season={profileData.sister}
                 desc="Your closest neighboring palette, sharing similar depth and clarity."
+                onClick={() => navigate("/ingredient-filter")}
               />
               <TransitionCard
                 title="Contrast Season"
                 season={profileData.contrastSeason}
                 desc="Opposite temperature but shared intensity. Use for unexpected styling."
+                onClick={() => navigate("/ingredient-filter")}
               />
             </div>
           </div>
@@ -237,10 +230,12 @@ export function ColorAnalysisSubtypePage() {
   );
 }
 
-// Helper Components
-function TransitionCard({ title, season, desc }) {
+function TransitionCard({ title, season, desc, onClick }) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-primary-light/10 shadow-sm hover:border-primary-light/40 transition-colors cursor-pointer">
+    <div 
+      onClick={onClick}
+      className="bg-white p-5 rounded-2xl border border-primary-light/10 shadow-sm hover:border-primary-light/40 transition-colors cursor-pointer"
+    >
       <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">
         {title}
       </p>
@@ -252,9 +247,6 @@ function TransitionCard({ title, season, desc }) {
   );
 }
 
-// ---------------------------------------------------------
-// Color Math: Converts CIELAB (L*, a*, b*) directly to a Hex String
-// ---------------------------------------------------------
 function labToHex(l, a, b) {
   let y = (l + 16) / 116,
       x = a / 500 + y,
