@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService"; 
 import { useUserStore } from "../store/userStore";
 import {
@@ -18,6 +19,7 @@ import {
 
 export function IngredientFilterPage() {
   const user = useUserStore((state) => state.user);
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [colorMatches, setColorMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -251,7 +253,13 @@ export function IngredientFilterPage() {
                             <StatusBadge type={item.verdict} />
                           </td>
                           <td className="px-6 py-5 text-right">
-                            <button className="text-gray-200 group-hover:text-primary transition-all p-2"><Eye size={18} /></button>
+                            <button 
+                              onClick={() => navigate("/ar-tryon", { state: { product: item } })}
+                              className="text-gray-200 group-hover:text-primary transition-all p-2"
+                              title="Try on"
+                            >
+                              <Eye size={18} />
+                            </button>
                           </td>
                         </tr>
                       );

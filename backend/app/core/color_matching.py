@@ -60,32 +60,69 @@ def delta_e_ciede2000(lab1: tuple, lab2: tuple) -> float:
     SH = 1 + 0.015 * Cp_avg * T
     return round(math.sqrt((dLp/SL)**2 + (dCp/SC)**2 + (dHp/SH)**2), 2)
 
-def _resolve_season_code(seasonal_label: str) -> str:
-    """Translate 'Soft Autumn' → 'au-soft', or pass through if already a code."""
+def _resolve_season_code(seasonal_label: str) -> tuple:
+    """
+    Translate 'Soft Autumn' → ('au-soft', 'au').
+    Returns (full_code, family_prefix) so we can match both exact and broad.
+    """
     if not seasonal_label:
-        return ""
-    return SEASON_CODE_MAP.get(seasonal_label.lower().strip(), seasonal_label.lower().strip())
+        return ("", "")
+    code = SEASON_CODE_MAP.get(seasonal_label.lower().strip(), seasonal_label.lower().strip())
+    family = code.split("-")[0] if "-" in code else code   # "au-soft" → "au"
+    return (code, family)
 
 def _product_season_codes(product: dict) -> list:
-    """Return all season codes on the product as a lowercase list."""
+    """
+    Return all season codes/families on the product as a lowercase list.
+    Handles both structured code lists and Firestore prose strings like
+    'Warm shades: SP/AU. Cool: SU/WI'.
+    """
+    import re
+    codes = []
+
+    # 1. Resolve season_tag_computed (stored as full label e.g. "Light Spring")
+    computed = product.get("season_tag_computed", "")
+    if computed:
+        resolved = SEASON_CODE_MAP.get(computed.lower().strip())
+        if resolved:
+            codes.append(resolved)               # e.g. "sp-light"
+            codes.append(resolved.split("-")[0]) # e.g. "sp"
+
+    # 2. Parse season_tags — handles both list and prose string
     tags = product.get("season_tags", "")
     if isinstance(tags, list):
-        return [t.lower().strip() for t in tags if t]
-    if isinstance(tags, str) and tags:
-        return [t.lower().strip() for t in tags.split(",") if t.strip()]
-    # Fallback to computed single tag
-    computed = product.get("season_tag_computed", "")
-    return [computed.lower().strip()] if computed else []
+        for t in tags:
+            r = SEASON_CODE_MAP.get(t.lower().strip())
+            if r:
+                codes.append(r)
+                codes.append(r.split("-")[0])
+            else:
+                codes.append(t.lower().strip())
+    elif isinstance(tags, str) and tags:
+        # Try comma-separated code list first ("AU-SOFT, SP-LIGHT, ...")
+        parts = [p.strip().lower() for p in tags.split(",") if p.strip()]
+        if all(p in SEASON_CODE_MAP.values() or len(p) <= 8 for p in parts):
+            for p in parts:
+                r = SEASON_CODE_MAP.get(p, p)
+                codes.append(r)
+                codes.append(r.split("-")[0] if "-" in r else r)
+        # Extract 2-letter season abbreviations from prose ("Warm shades: SP/AU. Cool: SU/WI")
+        families = re.findall(r'\b(SP|AU|SU|WI)\b', tags, re.IGNORECASE)
+        codes.extend([f.lower() for f in families])
+
+    return list(set(codes))
 
 def run_color_matching(products: list, seasonal_label: str, user_lab: tuple, category: str) -> list:
     scored = []
     is_face = category.lower() == "face"
-    user_code = _resolve_season_code(seasonal_label)
+    user_code, user_family = _resolve_season_code(seasonal_label)
 
     for p in products:
         product_codes = _product_season_codes(p)
-        is_season = bool(user_code and user_code in product_codes)
+        # Match on exact code (e.g. "au-soft") OR season family (e.g. "au")
+        is_season = bool(user_code and (user_code in product_codes or user_family in product_codes))
         item = {**p, "is_season_match": is_season}
+
 
         # Only calculate color distance for face products
         if is_face:

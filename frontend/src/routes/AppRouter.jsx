@@ -76,6 +76,7 @@ export default function AppRouter() {
           }
         />
         
+        {/* HIDDEN — re-enable when Palette Guide is ready
         <Route
           path="/palette-product"
           element={
@@ -84,7 +85,8 @@ export default function AppRouter() {
             </MainLayout>
           }
         />
-        
+        */}
+
         <Route
           path="/ingredient-filter"
           element={
