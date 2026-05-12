@@ -60,6 +60,10 @@ app.add_middleware(
 engine = ChromascopeSafetyEngine()
 analyzer = AnalyzerPipeline()
 
+@app.get("/")
+async def root():
+    return {"status": "Chromascope Safety API is running", "database": "Firebase Firestore"}
+
 @app.get("/api/products")
 async def get_all_products():
     docs = db.collection("products").stream()
@@ -68,10 +72,6 @@ async def get_all_products():
 @app.get("/api/ingredients")
 async def get_all_ingredients():
     return list(engine.db.ingredient_db.values())
-
-@app.get("/")
-async def root():
-    return {"status": "Chromascope Safety API is running", "database": "Firebase Firestore"}
 
 @app.patch("/api/user/profile")
 async def update_user_profile(
@@ -97,7 +97,7 @@ async def update_user_profile(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/run-filter")
-async def run_safety_logic(
+async def run_safety_and_color_logic(
     request_data: FilterRequest, 
     user_id: str = Depends(get_current_user)
 ):
@@ -111,7 +111,7 @@ async def run_safety_logic(
             "multiuse": "Multi-Use"   
         }
         raw_cat = request_data.category.lower()
-        target_cat = category_map.get(raw_cat, raw_cat)
+        target_cat = category_map.get(raw_cat, request_data.category.capitalize())
         
         product_docs = db.collection("products").where("category", "==", target_cat).stream()
         category_products = []
@@ -122,45 +122,29 @@ async def run_safety_logic(
 
         user_ref = db.collection("users").document(user_id)
         user_doc = user_ref.get()
-        profile = {
-            "skin_type": "normal",
-            "concerns": [],
-            "avoid_ingredients": [],
-            "user_lab": None,
-            "seasonal_label": None
-        }
+        user_profile = user_doc.to_dict() if user_doc.exists else {}
 
-        if user_doc.exists:
-            raw_user_data = user_doc.to_dict()
-            skin_profile = raw_user_data.get("skin_profile", {})
-            profile["skin_type"] = raw_user_data.get("skin_type") or skin_profile.get("base_type")
-            profile["concerns"] = raw_user_data.get("concerns") or skin_profile.get("primary_concerns", [])
-            profile["avoid_ingredients"] = raw_user_data.get("avoid_ingredients") or skin_profile.get("blacklisted_ingredients", [])
-            profile["user_lab"] = raw_user_data.get("user_lab")
-            profile["seasonal_label"] = raw_user_data.get("seasonal_label")
-
-        skin_type = normalize_label(request_data.skin_type or profile.get("skin_type"))
-        concerns = [normalize_label(c) for c in (request_data.concerns or profile.get("concerns", []))]
-        avoid_ingredients = [normalize_label(a) for a in (request_data.avoid_ingredients or profile.get("avoid_ingredients", []))]
+        skin_type = normalize_label(request_data.skin_type or user_profile.get("skin_type", "normal"))
+        concerns = [normalize_label(c) for c in (request_data.concerns or user_profile.get("concerns", []))]
+        avoid_ingredients = [normalize_label(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))]
         
-        if skin_type == "sensitive":
-            skin_type = "normal"
+        engine_skin_type = "normal" if skin_type == "sensitive" else skin_type
         
         results = engine.filter(
             products_list=category_products, 
-            skin_type=skin_type,
+            skin_type=engine_skin_type,
             concerns=concerns,
             avoid_ingredients=avoid_ingredients,
-            category=request_data.category,
+            category=target_cat,
         )
         
         safe_only = [r for r in results if r.get("verdict") == "safe"]
         
         color_matched = []
-        user_lab = request_data.user_lab or profile.get("user_lab")
-        ui_season = request_data.seasonal_label or profile.get("seasonal_label")
+        user_lab = request_data.user_lab or user_profile.get("user_lab")
+        ui_season = request_data.seasonal_label or user_profile.get("seasonal_label")
 
-        if ui_season and safe_only:
+        if safe_only:
             try:
                 internal_season_code = SEASON_MAP.get(ui_season, "WI-TRUE")
                 user_lab_tuple = tuple(user_lab) if user_lab else None
@@ -169,14 +153,16 @@ async def run_safety_logic(
                     safe_products=safe_only,
                     seasonal_label=internal_season_code,
                     user_lab=user_lab_tuple,
-                    category=request_data.category,
+                    category=target_cat,
+                    top_k=10
                 )
             except Exception as match_err:
-                print(f" [WARNING] Color matching failed: {match_err}")
+                print(f" [WARNING] Color matching pipeline failed: {match_err}")
         
         return {
             "safety_results": results,
             "color_matched": color_matched,
+            "match_count": len(color_matched),
             "active_profile": {
                 "skin_type": skin_type,
                 "seasonal_label": ui_season
@@ -184,8 +170,8 @@ async def run_safety_logic(
         }
 
     except Exception as e:
-        print(f" [ERROR] API Crash (User: {user_id}): {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f" [ERROR] API Integration Crash (User: {user_id}): {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="Safety and Color matching logic integration failed.")
 
 @app.post("/api/analyze-color")
 async def analyze_color(
@@ -200,5 +186,5 @@ async def analyze_color(
             raise HTTPException(status_code=400, detail=result["error"])
         return result
     except Exception as e:
-        print(f" [ERROR] Analysis Crash (User: {user_id}): {traceback.format_exc()}")
+        print(f" [ERROR] Analysis Pipeline Crash (User: {user_id}): {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

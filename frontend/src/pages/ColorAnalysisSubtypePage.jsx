@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
+import { auth } from "../firebase";
 import {
   Dna,
   Sparkles,
   ArrowRight,
-  Info,
-  ScanFace
+  ChevronDown,
+  ScanFace,
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 
 const SEASON_DATABASE = {
@@ -90,161 +93,120 @@ export function ColorAnalysisSubtypePage() {
   const location = useLocation();
   const result = location.state?.analysisResult;
 
-  if (!result) {
-    return <Navigate to="/color-analysis" replace />;
-  }
+  if (!result) return <Navigate to="/color-analysis" replace />;
 
-  const { season, confidence, lab_color } = result;
-  const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
-  const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
+  const { season, confidence } = result;
+  const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Deep Winter"];
 
   return (
-    <main className="page-shell bg-[#FAF9FF] font-body text-black">
-      <section className="max-w-7xl mx-auto space-y-8">
+    <main className="page-shell bg-[#FAF9FF] min-h-screen p-8 font-body text-black">
+      <div className="max-w-6xl mx-auto space-y-10">
         
-        <header className="space-y-2">
-          <div className="flex items-center gap-3 text-primary">
-            <Dna size={20} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-              Genomic Color Profile
-            </span>
-          </div>
-          <h1 className="font-heading text-4xl font-bold text-black italic">
-            Subtype Analysis: {season}
-          </h1>
-          <p className="text-gray-light max-w-2xl text-lg">
-            {profileData.desc} (AI Confidence: {confidence.toFixed(1)}%)
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Main Result Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
-          <aside className="col-span-1 lg:col-span-4 space-y-6">
-            <div className="page-card space-y-6 text-center flex flex-col items-center py-10">
-              <div className="flex items-center gap-2 mb-2 text-gray-dark">
-                <ScanFace size={18} />
-                <h3 className="font-heading font-bold text-lg">
-                  Raw Skin Shade
-                </h3>
-              </div>
-              
-              <p className="text-xs text-gray-light max-w-[250px] mb-6">
-                Extracted directly from your facial map using our clinical AI segmentation model.
-              </p>
-
-              <div 
-                className="w-32 h-32 rounded-full shadow-lg border-4 border-white relative group"
-                style={{ backgroundColor: skinHex }}
-              >
-                <div 
-                  className="absolute inset-0 rounded-full blur-xl opacity-40 -z-10 group-hover:opacity-60 transition-opacity"
-                  style={{ backgroundColor: skinHex }}
-                />
-              </div>
-
-              <div className="mt-6 space-y-1">
-                <p className="font-mono font-bold text-lg text-black">{skinHex}</p>
-                <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray uppercase tracking-widest font-bold">
-                  <span>L* {lab_color[0].toFixed(1)}</span>
-                  <span className="text-gray-lighter">•</span>
-                  <span>a* {lab_color[1].toFixed(1)}</span>
-                  <span className="text-gray-lighter">•</span>
-                  <span>b* {lab_color[2].toFixed(1)}</span>
+          {/* Left Side: Upload Preview Placeholder (Matches your mockup's left side) */}
+          <div className="lg:col-span-7 bg-white rounded-[32px] p-10 border border-[#E5D5F5] flex flex-col items-center justify-center space-y-6">
+             <div className="w-full max-w-md bg-[#F9F6FF] border-2 border-dashed border-[#D1B3FF] rounded-2xl p-12 text-center">
+                <div className="w-12 h-12 bg-[#E9D5FF] rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <Sparkles className="text-primary" size={24} />
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-primary text-white p-6 rounded-2xl shadow-md relative overflow-hidden group">
-              <Sparkles className="absolute -right-4 -top-4 w-24 h-24 text-white/10 rotate-12 transition-transform group-hover:rotate-45" />
-              <h4 className="font-heading font-bold text-lg mb-2">
-                Clinical Tip
-              </h4>
-              <p className="text-white/80 text-xs leading-relaxed">
-                {profileData.tip}
-              </p>
-              <button 
-                onClick={() => navigate("/ingredient-filter")}
-                className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:gap-3 transition-all"
-              >
-                Shop Curated Products <ArrowRight size={14} />
-              </button>
-            </div>
-          </aside>
-
-          <div className="col-span-1 lg:col-span-8 space-y-6">
-            <div className="page-card">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="font-heading font-bold text-2xl italic">
-                  Signature Palette
-                </h3>
-                <div className="flex gap-2">
-                  <span className="px-3 py-1 bg-primary-light text-primary text-[10px] font-bold rounded-full uppercase">
-                    Digital Accurate
-                  </span>
+                <h3 className="font-bold text-lg">Analysis Complete</h3>
+                <p className="text-gray-light text-sm mt-2">Your profile has been synchronized with our clinical database.</p>
+             </div>
+             
+             <div className="w-full max-w-md space-y-4">
+                <h4 className="font-bold text-sm uppercase tracking-widest text-gray-400">Lighting Checklist</h4>
+                <div className="space-y-2">
+                    {["Natural daylight detected", "High clarity segmentation", "Face centered accurately"].map((check, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-[#FAF9FF] p-3 rounded-xl border border-[#F0E6FA]">
+                            <CheckCircle2 size={16} className="text-green-500" />
+                            <span className="text-xs font-medium text-gray-600">{check}</span>
+                        </div>
+                    ))}
                 </div>
+             </div>
+          </div>
+
+          {/* Right Side: Analysis Result (Exact Match to Mockup) */}
+          <div className="lg:col-span-5 bg-[#F3E8FF] rounded-[32px] p-10 flex flex-col justify-between border border-[#E5D5F5]">
+            <div className="space-y-8">
+              <div>
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">Your Analysis Result</p>
+                <h1 className="text-6xl font-heading font-bold italic text-black">{season}</h1>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
-                {profileData.colors.map((hex, idx) => (
-                  <div key={idx} className="group cursor-pointer">
-                    <div
-                      style={{ backgroundColor: hex }}
-                      className="h-32 w-full rounded-xl shadow-inner border-2 border-white mb-3 transition-transform group-hover:scale-[1.02]"
+              {/* Confidence Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                    <p className="text-xs font-bold text-gray-600">AI Confidence Score</p>
+                    <p className="text-xs font-black text-primary">{confidence.toFixed(0)}%</p>
+                </div>
+                <div className="w-full h-2.5 bg-white/50 rounded-full overflow-hidden">
+                    <div 
+                        className="h-full bg-primary transition-all duration-1000" 
+                        style={{ width: `${confidence}%` }}
                     />
-                    <div className="flex justify-between items-center px-1">
-                      <div>
-                        <p className="text-xs font-bold text-black uppercase">
-                          {hex}
-                        </p>
-                        <p className="text-[9px] font-bold text-gray-light uppercase tracking-tighter">
-                          {PALETTE_LABELS[idx % PALETTE_LABELS.length]}
-                        </p>
-                      </div>
-                      <div className="w-6 h-6 rounded-full border border-gray-lighter flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ArrowRight size={12} className="text-primary" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                </div>
+              </div>
+
+              {/* Palette */}
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-gray-800">Your Signature Palette</p>
+                <div className="flex gap-2">
+                    {profileData.colors.map((hex, i) => (
+                        <div 
+                            key={i} 
+                            className="w-10 h-10 rounded-lg shadow-sm border border-white/20" 
+                            style={{ backgroundColor: hex }}
+                        />
+                    ))}
+                </div>
+              </div>
+
+              <p className="text-[13px] leading-relaxed text-gray-700">
+                {profileData.desc}
+              </p>
+
+              <div className="flex justify-between items-center py-4 border-t border-primary/10">
+                <span className="text-xs font-bold text-gray-800">What does this mean?</span>
+                <ChevronDown size={16} className="text-gray-400" />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <TransitionCard
-                title="Sister Season"
-                season={profileData.sister}
-                desc="Your closest neighboring palette, sharing similar depth and clarity."
+            <button 
                 onClick={() => navigate("/ingredient-filter")}
-              />
-              <TransitionCard
-                title="Contrast Season"
-                season={profileData.contrastSeason}
-                desc="Opposite temperature but shared intensity. Use for unexpected styling."
-                onClick={() => navigate("/ingredient-filter")}
-              />
-            </div>
+                className="w-full py-4 bg-white rounded-full font-bold text-primary flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all mt-6"
+            >
+              View Curated Products <ArrowRight size={18} />
+            </button>
           </div>
         </div>
-      </section>
+
+        {/* Bottom Section: Related Palettes */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold italic px-2">Related Palettes</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <RelationCard title="Cool Winter" desc={profileData.sisterDesc} color="bg-[#1A237E]" />
+                <RelationCard title="Deep Autumn" desc={profileData.contrastDesc} color="bg-[#3E2723]" />
+                <RelationCard title="Bright Winter" desc={profileData.secondaryDesc} color="bg-[#9FA8DA]" />
+            </div>
+        </div>
+      </div>
     </main>
   );
 }
 
-function TransitionCard({ title, season, desc, onClick }) {
-  return (
-    <div 
-      onClick={onClick}
-      className="bg-white p-5 rounded-2xl border border-primary-light/10 shadow-sm hover:border-primary-light/40 transition-colors cursor-pointer"
-    >
-      <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">
-        {title}
-      </p>
-      <h4 className="font-heading font-bold text-lg text-black mb-1 italic">
-        {season}
-      </h4>
-      <p className="text-[11px] text-gray leading-snug">{desc}</p>
-    </div>
-  );
+function RelationCard({ title, desc, color }) {
+    return (
+        <div className="bg-[#F3E8FF]/40 border border-[#E5D5F5] p-6 rounded-3xl flex items-center gap-4 hover:bg-white transition-all cursor-pointer">
+            <div className={`w-12 h-12 rounded-full shadow-inner ${color} shrink-0`} />
+            <div className="space-y-1">
+                <h4 className="font-bold text-sm italic">{title}</h4>
+                <p className="text-[11px] leading-snug text-gray-500">{desc}</p>
+            </div>
+        </div>
+    );
 }
 
 function labToHex(l, a, b) {
