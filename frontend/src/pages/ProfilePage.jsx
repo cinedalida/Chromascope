@@ -2,127 +2,165 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
 import { auth, db } from "../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { 
+  LogOut, ShieldCheck, Dna, Palette, Target, Lock, 
+  AlertCircle, Edit2, X, Check, CheckCircle2, XCircle, RefreshCw
+} from "lucide-react";
 
-const skinTypes = ["OILY", "DRY", "NORMAL", "COMBO", "SENSITIVE"];
+const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne Prone"];
 
-const allergenToggles = [
-  { label: "Parabens", active: true },
-  { label: "Sulfates (SLS/SLES)", active: false },
-  { label: "Synthetic Fragrance", active: true },
-  { label: "Retinoids / Vitamin A", active: false },
+const SKIN_CONCERNS = [
+  "Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", 
+  "Metal allergy", "Melasma", "PIH / Dark spots"
 ];
 
-const focusAreas = [
-  "Hyperpigmentation",
-  "Fine Lines & Wrinkles",
-  "Acne & Congestion",
-  "Rosacea / Redness",
-  "Large Pores",
-  "Elasticity Loss",
-  "Dullness",
+const INGREDIENTS_TO_AVOID = [
+  "Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", 
+  "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", 
+  "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", 
+  "Phthalates", "Metallic Pigments", "MI / MIT", "PPD"
 ];
+
+const SEASON_PALETTES = {
+  "Bright Spring": ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
+  "True Spring": ["#FF8C42", "#FFCA3A", "#E07A5F", "#F4A261", "#E63946"],
+  "Light Spring": ["#FFB5A7", "#FFDDD2", "#B5EAD7", "#FEC89A", "#FFCBF2"],
+  "Light Summer": ["#CBAACB", "#ADEFD1", "#F2C4CE", "#B5C7D3", "#C9D5E0"],
+  "True Summer": ["#D4A5A5", "#A8DADC", "#B8B0C8", "#C77DFF", "#E0AFA0"],
+  "Soft Summer": ["#B5838D", "#9B8EA0", "#A7C5BD", "#C4A882", "#D8A7B1", "#D88090", "#D87090", "#D06878"],
+  "Soft Autumn": ["#C8956C", "#A0785A", "#D4A373", "#9B7240", "#BC8A5F"],
+  "True Autumn": ["#B5451B", "#E07B39", "#9C6B30", "#6B4226", "#C0392B"],
+  "Deep Autumn": ["#7B2D00", "#5C2018", "#8B4513", "#6B3A2A", "#9B2335", "#3A2818"],
+  "Deep Winter": ["#1C1C3A", "#2D1B33", "#3D0C11", "#0A0A2E", "#4A0E4E", "#302010", "#403020"],
+  "True Winter": ["#0D0D0D", "#FFFFFF", "#E63946", "#3A86FF", "#8338EC"],
+  "Bright Winter": ["#FF006E", "#3A86FF", "#8338EC", "#06D6A0", "#FB5607", "#C94060", "#E04868"]
+};
+
+// Utility to convert LAB array to Hex for raw skin shade display
+function labToHex(l, a, b) {
+  let y = (l + 16) / 116,
+      x = a / 500 + y,
+      z = y - b / 200;
+
+  x = 0.95047 * (Math.pow(x, 3) > 0.008856 ? Math.pow(x, 3) : (x - 16 / 116) / 7.787);
+  y = 1.00000 * (Math.pow(y, 3) > 0.008856 ? Math.pow(y, 3) : (y - 16 / 116) / 7.787);
+  z = 1.08883 * (Math.pow(z, 3) > 0.008856 ? Math.pow(z, 3) : (z - 16 / 116) / 7.787);
+
+  let r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+  let g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+  let bl = x * 0.0557 + y * -0.2040 + z * 1.0570;
+
+  r = r > 0.0031308 ? 1.055 * Math.pow(r, 1 / 2.4) - 0.055 : 12.92 * r;
+  g = g > 0.0031308 ? 1.055 * Math.pow(g, 1 / 2.4) - 0.055 : 12.92 * g;
+  bl = bl > 0.0031308 ? 1.055 * Math.pow(bl, 1 / 2.4) - 0.055 : 12.92 * bl;
+
+  r = Math.max(0, Math.min(1, r)) * 255;
+  g = Math.max(0, Math.min(1, g)) * 255;
+  bl = Math.max(0, Math.min(1, bl)) * 255;
+
+  const toHex = c => Math.round(c).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(bl)}`.toUpperCase();
+}
 
 export function ProfilePage() {
   const navigate = useNavigate();
-  const updateProfile = useUserStore((state) => state.updateProfile);
-  const user = useUserStore((state) => state.user);
+  const updateStoreProfile = useUserStore((state) => state.updateProfile);
 
-  const [fullName, setFullName] = useState("");
-  const [dob, setDob] = useState({ mm: "", dd: "", yyyy: "" });
-  const [melaninTier, setMelaninTier] = useState("");
-  const [selectedSkinType, setSelectedSkinType] = useState("OILY");
-  const [allergens, setAllergens] = useState(allergenToggles);
-  const [ingredientSearch, setIngredientSearch] = useState("");
-  const [addedIngredients, setAddedIngredients] = useState(["Phenoxyethanol"]);
-  const [selectedFocusAreas, setSelectedFocusAreas] = useState([
-    "Hyperpigmentation",
-    "Acne & Congestion",
-  ]);
-
+  // UI State
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      if (user.display_name) setFullName(user.display_name);
-      if (user.dob) setDob(user.dob);
-      if (user.melanin_tier) setMelaninTier(user.melanin_tier);
+  // Form State
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [selectedSkinType, setSelectedSkinType] = useState("Normal");
+  const [selectedConcerns, setSelectedConcerns] = useState([]);
+  const [selectedAvoidIngredients, setSelectedAvoidIngredients] = useState([]);
+  const [aiConsent, setAiConsent] = useState(false);
+  
+  // Color Analysis Data State
+  const [seasonalLabel, setSeasonalLabel] = useState(null);
+  const [confidence, setConfidence] = useState(null);
+  const [skinHex, setSkinHex] = useState(null);
 
-      const detectedSkinType = user.skin_type || user.skin_profile?.base_type;
-      if (detectedSkinType) setSelectedSkinType(detectedSkinType.toUpperCase());
+  // Direct Firestore Fetch
+  const fetchUserData = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
 
-      if (user.concerns) setSelectedFocusAreas(user.concerns);
-
-      const ingredients = user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients;
-      if (ingredients) {
-        setAllergens((prev) =>
-          prev.map((a) => ({
-            ...a,
-            active: ingredients.includes(a.label),
-          }))
-        );
+    try {
+      if (currentUser.email) setEmail(currentUser.email);
+      
+      const docRef = doc(db, "users", currentUser.uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
         
-        const toggleLabels = allergenToggles.map((t) => t.label);
-        setAddedIngredients(
-          ingredients.filter((i) => !toggleLabels.includes(i))
-        );
+        setFullName(data.display_name || "");
+        setSelectedSkinType(data.skin_type || "Normal");
+        setSelectedConcerns(data.concerns || []);
+        setSelectedAvoidIngredients(data.avoid_ingredients || []);
+        setAiConsent(data.ai_model_consent || false);
+
+        // Map Analysis Results directly from DB
+        setSeasonalLabel(data.seasonal_label || null);
+        setConfidence(data.season_confidence_level || null);
+        
+        if (data.user_lab && data.user_lab.length >= 3) {
+          setSkinHex(labToHex(data.user_lab[0], data.user_lab[1], data.user_lab[2]));
+        }
       }
-    }
-  }, [user]);
-
-  const toggleAllergen = (index) => {
-    setAllergens((prev) =>
-      prev.map((a, i) => (i === index ? { ...a, active: !a.active } : a)),
-    );
-  };
-
-  const addIngredient = () => {
-    const trimmed = ingredientSearch.trim();
-    if (trimmed && !addedIngredients.includes(trimmed)) {
-      setAddedIngredients((prev) => [...prev, trimmed]);
-      setIngredientSearch("");
+    } catch (error) {
+      console.error("Error fetching user data directly from Firestore:", error);
     }
   };
 
-  const removeIngredient = (ingredient) => {
-    setAddedIngredients((prev) => prev.filter((i) => i !== ingredient));
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchUserData();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleCancelEdit = () => {
+    fetchUserData(); // Pull fresh data to reset form
+    setIsEditing(false);
   };
 
-  const toggleFocusArea = (area) => {
-    setSelectedFocusAreas((prev) =>
-      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area],
-    );
+  const toggleArrayItem = (setter, array, item) => {
+    const normalizedItem = item.toLowerCase();
+    if (array.some(i => i.toLowerCase() === normalizedItem)) {
+      setter(array.filter((i) => i.toLowerCase() !== normalizedItem));
+    } else {
+      setter([...array, item]);
+    }
   };
 
-  const activeAllergens = allergens.filter((a) => a.active);
-
-  const handleSaveAndContinue = async () => {
+  const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("No authenticated user found");
 
-      const finalAvoidIngredients = [
-        ...activeAllergens.map((a) => a.label),
-        ...addedIngredients,
-      ];
-
       const profileData = {
         display_name: fullName,
-        dob: dob,
-        melanin_tier: melaninTier,
         skin_type: selectedSkinType,
-        concerns: selectedFocusAreas,
-        avoid_ingredients: finalAvoidIngredients,
-        profile_completed: true,
+        concerns: selectedConcerns,
+        avoid_ingredients: selectedAvoidIngredients,
+        ai_model_consent: aiConsent,
         updated_at: new Date().toISOString()
       };
 
       const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, profileData);
 
-      updateProfile(profileData);
-      navigate("/ingredient-filter");
+      updateStoreProfile(profileData);
+      setIsEditing(false);
     } catch (error) {
       console.error(error);
       alert("Error saving profile: " + error.message);
@@ -131,204 +169,347 @@ export function ProfilePage() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  const currentSeasonColors = seasonalLabel && SEASON_PALETTES[seasonalLabel] 
+    ? SEASON_PALETTES[seasonalLabel] 
+    : [];
+
   return (
     <main className="min-h-screen bg-surface">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-20">
-        <div className="flex flex-col lg:flex-row gap-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-10">
+        
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="font-heading text-3xl font-bold text-[#1F1924]">Your Profile</h1>
+            <p className="text-[#4C4354] mt-1">Manage your health data, skin profile, and privacy settings.</p>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 font-bold rounded-full hover:bg-red-100 transition-colors self-start sm:self-auto"
+          >
+            <LogOut size={18} />
+            Log Out
+          </button>
+        </header>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          
+          {/* LEFT COLUMN: Data Entry / View */}
           <div className="flex-1 space-y-6">
-            <div>
-              <h1 className="font-heading text-[28px] font-bold leading-[34px] tracking-[-2%] text-[#1F1924]">
-                Patient Onboarding
-              </h1>
-              <p className="mt-1 text-sm leading-5 text-[#4C4354]">
-                Precision profile for dermatological synthesis.
-              </p>
+            
+            {/* Action Bar for Modes */}
+            <div className="flex items-center justify-between bg-white px-6 py-4 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="font-heading text-xl font-bold text-[#1F1924]">
+                {isEditing ? "Editing Profile Data" : "Active Profile Data"}
+              </h2>
+              
+              {!isEditing ? (
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 text-sm font-bold text-[#7700CF] bg-[#F5EAF9] px-4 py-2 rounded-full hover:bg-[#EADFEE] transition-colors"
+                >
+                  <Edit2 size={16} /> Edit Data
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleCancelEdit}
+                    disabled={isLoading}
+                    className="flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-gray-700 px-3 py-2 disabled:opacity-50"
+                  >
+                    <X size={16} /> Cancel
+                  </button>
+                  <button 
+                    onClick={handleSaveProfile}
+                    disabled={isLoading}
+                    className="flex items-center gap-1 text-sm font-bold text-white bg-[#7700CF] hover:bg-[#5C00A3] px-4 py-2 rounded-full transition-colors disabled:opacity-50 shadow-md"
+                  >
+                    {isLoading ? "Saving..." : <><Check size={16} /> Save</>}
+                  </button>
+                </div>
+              )}
             </div>
 
-            <section className="page-card">
-              <div className="mb-6 flex items-center gap-3">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 flex-shrink-0 text-[#7700CF]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <h2 className="font-heading text-[22px] font-bold leading-7 text-[#1F1924]">
-                  Patient Biometrics
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="mb-2 block text-xs font-medium uppercase tracking-[8%] text-[#4C4354]">FULL LEGAL NAME</label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Julianne Sterling"
-                    className="w-full border-b border-b-[#CFC2D7] bg-transparent px-3 pb-2.5 pt-2 text-sm text-[#1F1924] placeholder:text-[#6B7280] outline-none transition focus:border-b-[#7700CF]"
-                  />
-                </div>
-
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="mb-2 block text-xs font-medium uppercase tracking-[8%] text-[#4C4354]">DATE OF BIRTH</label>
-                  <div className="flex items-center border-b border-b-[#CFC2D7] px-3 pb-2 pt-2">
-                    <div className="flex flex-1 items-center gap-1 text-sm text-[#1F1924]">
-                      <input type="text" value={dob.mm} onChange={(e) => setDob((p) => ({ ...p, mm: e.target.value }))} placeholder="mm" maxLength={2} className="w-7 bg-transparent text-center outline-none" />
-                      <span className="text-[#1F1924]">/</span>
-                      <input type="text" value={dob.dd} onChange={(e) => setDob((p) => ({ ...p, dd: e.target.value }))} placeholder="dd" maxLength={2} className="w-7 bg-transparent text-center outline-none" />
-                      <span className="text-[#1F1924]">/</span>
-                      <input type="text" value={dob.yyyy} onChange={(e) => setDob((p) => ({ ...p, yyyy: e.target.value }))} placeholder="yyyy" maxLength={4} className="w-10 bg-transparent text-center outline-none" />
-                    </div>
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 text-[#CFC2D7]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                  </div>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="mb-2 block text-xs font-medium uppercase tracking-[8%] text-[#4C4354]">ETHNIC ORIGIN / MELANIN TIER</label>
-                  <div className="relative flex items-center border-b border-b-[#CFC2D7]">
-                    <select
-                      value={melaninTier}
-                      onChange={(e) => setMelaninTier(e.target.value)}
-                      className="w-full appearance-none bg-transparent px-3 pb-2.5 pt-2 text-sm text-[#1F1924] outline-none"
-                    >
-                      <option value="" disabled>Select your skin response</option>
-                      <option value="Type I">Type I: Highly Sensitive, Always Burns</option>
-                      <option value="Type II">Type II: Sensitive, Often Burns</option>
-                      <option value="Type III">Type III: Normal, Sometimes Burns</option>
-                      <option value="Type IV">Type IV: Olive, Rarely Burns</option>
-                      <option value="Type V">Type V: Brown, Very Rarely Burns</option>
-                      <option value="Type VI">Type VI: Dark, Never Burns</option>
-                    </select>
-                    <svg viewBox="0 0 24 24" className="pointer-events-none absolute right-3 h-4 w-4 text-[#CFC2D7]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="page-card">
-              <div className="mb-6 flex items-center gap-3">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 flex-shrink-0 text-[#7700CF]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                <h2 className="font-heading text-[22px] font-bold leading-7 text-[#1F1924]">Primary Skin Classification</h2>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {skinTypes.map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setSelectedSkinType(type)}
-                    className={`rounded-2xl border-2 px-8 py-4 text-[10px] font-bold uppercase tracking-wide transition ${selectedSkinType === type ? "border-[#7700CF] bg-[#7700CF]/5 text-[#7700CF]" : "border-transparent bg-[#F5EAF9] text-[#7E7386] hover:bg-[#EADFEE]"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="page-card">
-              <div className="mb-6 flex items-center gap-3">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 flex-shrink-0 text-[#7700CF]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <h2 className="font-heading text-[22px] font-bold leading-7 text-[#1F1924]">Ingredient Allergens</h2>
-              </div>
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="space-y-4">
-                  {allergens.map((allergen, index) => (
-                    <div key={allergen.label} className="flex cursor-pointer items-center justify-between" onClick={() => toggleAllergen(index)}>
-                      <span className="text-sm font-medium text-[#1F1924]">{allergen.label}</span>
-                      <span className={`inline-flex h-5 w-10 items-center rounded-full px-0.5 transition-colors ${allergen.active ? "bg-[#7700CF]" : "bg-[#CFC2D7]"}`}>
-                        <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${allergen.active ? "translate-x-[18px]" : "translate-x-[2px]"}`} />
-                      </span>
-                    </div>
-                  ))}
+            {/* General Settings */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 transition-all">
+              <h3 className="font-heading text-lg font-bold text-[#1F1924] mb-4">Account Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Full Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full border-b-2 border-gray-200 bg-transparent px-2 py-2 text-sm outline-none focus:border-[#7700CF] transition-colors"
+                    />
+                  ) : (
+                    <p className="font-medium text-[#111827] px-2 py-2">{fullName || "Not set"}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="mb-4 block text-xs font-medium uppercase tracking-[8%] text-[#4C4354]">SPECIFIC INGREDIENT SEARCH</label>
-                  <div className="flex items-center gap-2">
-                    <input type="text" value={ingredientSearch} onChange={(e) => setIngredientSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addIngredient()} placeholder="Add ingredient to avoid..." className="flex-1 rounded-xl border border-[#F3E8FF] bg-[#FBF0FF] px-4 py-2.5 text-sm outline-none focus:border-[#7700CF]" />
-                    <button onClick={addIngredient} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#7700CF] text-white hover:bg-[#5500A0] transition"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg></button>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Email Address</label>
+                  <p className="font-medium text-gray-500 px-2 py-2 bg-gray-50 rounded-lg">{email || "Loading..."}</p>
+                  {isEditing && <p className="text-xs text-gray-400 mt-1 pl-2">Email cannot be changed.</p>}
+                </div>
+              </div>
+            </section>
+
+            {/* Skin Profile */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <h3 className="font-heading text-lg font-bold text-[#1F1924] mb-4">Skin Profile</h3>
+              
+              <div className="mb-6">
+                <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Base Skin Type</label>
+                {isEditing ? (
+                  <div className="flex flex-wrap gap-2">
+                    {SKIN_TYPES.map((type) => {
+                      const isActive = selectedSkinType?.toLowerCase() === type.toLowerCase();
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => setSelectedSkinType(type)}
+                          className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${
+                            isActive 
+                              ? "bg-[#7700CF] text-white border-[#7700CF]" 
+                              : "bg-[#F5EAF9] text-[#4C4354] border-transparent hover:bg-[#EADFEE]"
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {addedIngredients.map((ingredient) => (
-                      <span key={ingredient} className="inline-flex items-center gap-1.5 rounded-full border border-[#F3E8FF] bg-[#EADFEE] px-3 py-1.5 text-[11px] font-bold text-[#1F1924]">
+                ) : (
+                  <span className="inline-block bg-[#F5EAF9] text-[#7700CF] font-bold px-4 py-2 rounded-full text-sm capitalize">
+                    {selectedSkinType || "Not Logged"}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Active Conditions / Concerns</label>
+                {isEditing ? (
+                  <div className="flex flex-wrap gap-2">
+                    {SKIN_CONCERNS.map((concern) => {
+                      // Case insensitive matching to handle DB normalization
+                      const isActive = selectedConcerns.some(c => c.toLowerCase() === concern.toLowerCase());
+                      return (
+                        <button
+                          key={concern}
+                          onClick={() => toggleArrayItem(setSelectedConcerns, selectedConcerns, concern)}
+                          className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${
+                            isActive 
+                              ? "bg-[#111827] text-white border-[#111827]" 
+                              : "bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200"
+                          }`}
+                        >
+                          {concern}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedConcerns && selectedConcerns.length > 0 ? (
+                      selectedConcerns.map(concern => (
+                        <span key={concern} className="bg-[#111827] text-white px-4 py-2 rounded-full text-sm font-semibold capitalize">
+                          {concern}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No specific conditions logged.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Ingredients */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle size={20} className={isEditing ? "text-orange-500" : "text-gray-400"} />
+                <h3 className="font-heading text-lg font-bold text-[#1F1924]">Ingredients to Filter</h3>
+              </div>
+              
+              {isEditing ? (
+                <>
+                  <p className="text-sm text-gray-500 mb-4">Select the ingredients you need our safety engine to block during product recommendations.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {INGREDIENTS_TO_AVOID.map((ingredient) => {
+                      const isBlocked = selectedAvoidIngredients.some(i => i.toLowerCase() === ingredient.toLowerCase());
+                      return (
+                        <button
+                          key={ingredient}
+                          onClick={() => toggleArrayItem(setSelectedAvoidIngredients, selectedAvoidIngredients, ingredient)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                            isBlocked 
+                              ? "bg-orange-50 text-orange-700 border-orange-200" 
+                              : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+                          }`}
+                        >
+                          {ingredient}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedAvoidIngredients && selectedAvoidIngredients.length > 0 ? (
+                    selectedAvoidIngredients.map(ingredient => (
+                      <span key={ingredient} className="bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-lg text-sm font-medium capitalize">
                         {ingredient}
-                        <button onClick={() => removeIngredient(ingredient)} className="text-[#7E7386] hover:text-[#1F1924]"><svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
                       </span>
-                    ))}
-                  </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No ingredients blocked.</p>
+                  )}
                 </div>
+              )}
+            </section>
+
+            {/* Data Privacy */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck size={20} className="text-green-600" />
+                <h3 className="font-heading text-lg font-bold text-[#1F1924]">Data Privacy & Ethics</h3>
+              </div>
+              
+              <div className="flex items-start justify-between gap-4 mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div>
+                  <h4 className="font-bold text-sm text-[#111827]">Contribute to Science</h4>
+                  <p className="text-xs text-gray-500 mt-1 max-w-md">
+                    Allow Chromascope to use your completely anonymized portrait data to train and improve our skin-tone AI model engine.
+                  </p>
+                </div>
+                
+                {isEditing ? (
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={aiConsent}
+                      onChange={(e) => setAiConsent(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7700CF]"></div>
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {aiConsent ? (
+                      <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full">
+                        <CheckCircle2 size={14} /> Consented
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-200 px-3 py-1.5 rounded-full">
+                        <XCircle size={14} /> Opted Out
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </section>
 
-            <section className="page-card">
-              <div className="mb-6 flex items-center gap-3">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 flex-shrink-0 text-[#7700CF]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                <h2 className="font-heading text-[22px] font-bold leading-7 text-[#1F1924]">Pathological Focus Areas</h2>
-              </div>
-              <div className="flex max-w-[600px] flex-wrap gap-2.5">
-                {focusAreas.map((area) => (
-                  <button
-                    key={area}
-                    onClick={() => toggleFocusArea(area)}
-                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] transition ${selectedFocusAreas.includes(area) ? "bg-[#7700CF] text-white" : "bg-[#F5EAF9] text-[#4C4354] hover:bg-[#EADFEE]"}`}
-                  >
-                    {selectedFocusAreas.includes(area) && <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-                    {area}
-                  </button>
-                ))}
-              </div>
-            </section>
           </div>
 
-          <div className="w-full lg:w-[312px] shrink-0 space-y-6">
-            <div className="relative overflow-hidden rounded-2xl bg-[#7700CF] p-6 shadow-xl">
-              <div className="pointer-events-none absolute -top-10 right-[-16px] h-32 w-32 rounded-full bg-white/10 blur-[64px]" />
-              <div className="relative z-10 space-y-6">
-                <h3 className="font-heading text-lg font-bold text-white">Profile Summary</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-b-white/20 pb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[10%] text-white/70">SKIN TYPE</span>
-                    <span className="text-base font-medium text-white">{selectedSkinType}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-b-white/20 pb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[10%] text-white/70">MELANIN TIER</span>
-                    <span className="text-base font-medium text-white">{melaninTier || "Not set"}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="block text-[10px] font-bold uppercase tracking-[10%] text-white/70">ACTIVE ALLERGENS</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {activeAllergens.slice(0, 2).map((a) => (
-                        <span key={a.label} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] text-white">{a.label}</span>
-                      ))}
+          {/* RIGHT COLUMN: Color Analysis Block (Always View-Only) */}
+          <div className="w-full lg:w-[400px] shrink-0 space-y-6 self-start sticky top-6">
+            <div className="bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 rounded-[32px] shadow-xl text-white relative overflow-hidden flex flex-col transition-all">
+              <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#7700CF] rounded-full blur-[80px] opacity-40 pointer-events-none" />
+              
+              <div className="flex items-center gap-2 text-[#C084FC] mb-6">
+                <Dna size={20} />
+                <span className="text-xs font-black uppercase tracking-widest">Skin Analysis Result</span>
+              </div>
+
+              {seasonalLabel ? (
+                <div className="flex flex-col relative z-10">
+                  <h3 className="font-heading text-4xl font-bold italic mb-6">
+                    {seasonalLabel}
+                  </h3>
+
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-400 font-medium">Engine Confidence</span>
+                        <span className="font-bold">{confidence ? `${Number(confidence).toFixed(1)}%` : "N/A"}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#C084FC] to-white rounded-full"
+                          style={{ width: confidence ? `${confidence}%` : '0%' }}
+                        />
+                      </div>
                     </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-3">Signature Palette</span>
+                      <div className="flex flex-wrap gap-2">
+                        {currentSeasonColors.map((hex, i) => (
+                          <div
+                            key={i}
+                            style={{ backgroundColor: hex }}
+                            className="w-10 h-10 rounded-full shadow-md border-2 border-white/80 hover:scale-110 transition-transform cursor-default"
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {skinHex && (
+                      <div className="bg-white/15 p-4 rounded-2xl flex items-center justify-between border border-white/10 backdrop-blur-md">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 rounded-full border-2 border-white shadow-inner" 
+                            style={{ backgroundColor: skinHex }} 
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-white">Raw Facial Shade</p>
+                            <p className="text-[10px] text-gray-300 uppercase tracking-wider mt-0.5">Raw Hex Signature</p>
+                          </div>
+                        </div>
+                        <span className="font-mono text-sm font-bold text-white bg-white/20 px-3 py-1 rounded-lg border border-white/20 shadow-sm">{skinHex}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Re-analysis Button */}
+                  <button 
+                    onClick={() => navigate("/color-analysis")}
+                    className="mt-8 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-full font-bold flex items-center justify-center gap-2 transition-colors text-sm shadow-sm"
+                  >
+                    <RefreshCw size={16} />
+                    Retake Diagnostics
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 relative z-10 py-6">
+                  <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                    <Lock size={24} className="text-gray-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl mb-2">Analysis Pending</h3>
+                    <p className="text-gray-400 text-sm mb-6">You haven't run the AI color engine on your features yet.</p>
+                    <button 
+                      onClick={() => navigate("/color-analysis")}
+                      className="bg-white text-[#111827] px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-105 transition-transform mx-auto"
+                    >
+                      <Palette size={18} />
+                      Run Diagnostics
+                    </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-primary-lightest p-6 text-center shadow-sm">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#57009A]/10 bg-white">
-                <span className="font-heading text-xl font-bold text-[#7700CF]">
-                  {fullName ? fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "JD"}
-                </span>
-              </div>
-              <p className="mt-4 text-sm font-medium text-[#1F1924]">Ready for molecular mapping</p>
-              <button
-                onClick={handleSaveAndContinue}
-                disabled={isLoading}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#7700CF] px-4 py-4 text-[15px] font-semibold text-white shadow-purple-600/20 transition hover:bg-[#5500A0] disabled:opacity-50"
-              >
-                {isLoading ? "Synchronizing..." : "Save & Continue"}
-                {!isLoading && <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>}
-              </button>
+              )}
             </div>
           </div>
+
         </div>
       </div>
     </main>
