@@ -6,9 +6,6 @@ import {
 } from "react-router-dom";
 import { SplashPage } from "../pages/SplashPage.jsx";
 import { AuthPage } from "../pages/AuthPage.jsx";
-import { RegisterPage } from "../pages/RegisterPage.jsx";
-import { ConcernPage } from "../pages/ConcernPage.jsx";   
-import { DataEthicsPage } from "../pages/DataEthicsPage.jsx";
 import { HomePage } from "../pages/HomePage.jsx";
 import { OnboardingPage } from "../pages/OnboardingPage.jsx";
 import { ARTryOnPage } from "../pages/ARTryOnPage.jsx";
@@ -29,11 +26,8 @@ export default function AppRouter() {
         {/* Splash & Auth Flow */}
         <Route path="/" element={<SplashPage />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/concerns" element={<ConcernPage />} />
-        <Route path="/ethics" element={<DataEthicsPage />} />
         
-        {/* Onboarding (No Sidebar) */}
+        {/* Onboarding (Contains Skin Type, Concerns, Ingredients, & Ethics Flow) */}
         <Route path="/onboarding" element={<OnboardingPage />} />
 
         {/* Main App Pages (With Sidebar/MainLayout) */}
@@ -119,6 +113,7 @@ export default function AppRouter() {
         />
         
         {/* Admin/Database Section */}
+        {/* Note: Wrap this with <AdminRoute> once your authService role management is ready */}
         <Route path="/admin" element={<AdminDatabasePage />} />
         
         {/* Fallback */}
