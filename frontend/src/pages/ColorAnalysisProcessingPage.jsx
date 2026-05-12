@@ -49,8 +49,7 @@ export function ColorAnalysisProcessingPage() {
             body: JSON.stringify({
               seasonal_label: data.seasonal_label || data.season,
               user_lab: data.user_lab || data.lab_color,
-              season_confidence_level: data.confidence, // Added this line so it saves!
-              skin_type: "normal"
+              season_confidence_level: data.confidence
             }),
           });
         }

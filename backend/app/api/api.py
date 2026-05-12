@@ -43,12 +43,11 @@ class ProfileUpdate(BaseModel):
     display_name: Optional[str] = None
     dob: Optional[str] = None
     melanin_tier: Optional[str] = None
-    skin_type: str
-    concerns: List[str] = []
-    avoid_ingredients: List[str] = []
+    skin_type: Optional[str] = None # <-- Changed to Optional
+    concerns: Optional[List[str]] = None # <-- Changed default from [] to None
+    avoid_ingredients: Optional[List[str]] = None # <-- Changed default from [] to None
     seasonal_label: Optional[str] = None     
     user_lab: Optional[List[float]] = None
-    # ✨ ADDED: Now the API accepts the confidence level
     season_confidence_level: Optional[float] = None 
 
 app = FastAPI()
@@ -89,17 +88,17 @@ async def update_user_profile(
             "display_name": data.display_name,
             "dob": data.dob,
             "melanin_tier": data.melanin_tier,
-            "skin_type": normalize_label(data.skin_type),
-            "concerns": [normalize_label(c) for c in data.concerns],
-            "avoid_ingredients": [normalize_label(a) for a in data.avoid_ingredients],
+            # Safely handle None values before normalizing
+            "skin_type": normalize_label(data.skin_type) if data.skin_type else None,
+            "concerns": [normalize_label(c) for c in data.concerns] if data.concerns is not None else None,
+            "avoid_ingredients": [normalize_label(a) for a in data.avoid_ingredients] if data.avoid_ingredients is not None else None,
             "seasonal_label": data.seasonal_label, 
             "user_lab": data.user_lab, 
-            # ✨ ADDED: Now saving it directly to Firestore
             "season_confidence_level": data.season_confidence_level,
             "profile_completed": True
         }
         
-        # This removes any None values before saving so we don't overwrite existing data with Nulls
+        # This removes any None values before saving so we don't overwrite existing data
         update_data = {k: v for k, v in update_data.items() if v is not None}
         user_ref.set(update_data, merge=True)
         
