@@ -29,6 +29,8 @@ export function IngredientFilterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const tableColSpan = category === "Face" ? 5 : 4;
+
   const cleanPath = (url) => {
     if (!url) return "/placeholder.png";
     return url.startsWith("/public/") ? url.replace("/public/", "/") : url;
@@ -46,7 +48,6 @@ export function IngredientFilterPage() {
     async function loadData() {
       setLoading(true);
       try {
-        console.log("[DEBUG] Sending user_lab to API:", user.user_lab);
         const results = await runFilter({
           skin_type: skinType,
           avoid_ingredients: avoidIngredients,
@@ -69,10 +70,18 @@ export function IngredientFilterPage() {
     loadData();
   }, [user, category, skinType, avoidIngredients]);
 
-  const filteredProducts = products.filter(p => 
-    p.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.brand?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const verdictOrder = { safe: 0, caution: 1, excluded: 2 };
+
+  const filteredProducts = products
+    .filter(p =>
+      p.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      const va = verdictOrder[a.verdict?.toLowerCase()] ?? 1;
+      const vb = verdictOrder[b.verdict?.toLowerCase()] ?? 1;
+      return va - vb;
+    });
 
   const currentItems = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -146,7 +155,7 @@ export function IngredientFilterPage() {
             </aside>
 
             <div className="lg:col-span-9 space-y-8">
-              {colorMatches.length > 0 && !searchQuery && (
+              {category === "Face" && colorMatches.length > 0 && !searchQuery && (
                 <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2 mb-4">
                     <Sparkles size={14} /> Biological Best Matches
@@ -182,16 +191,16 @@ export function IngredientFilterPage() {
                     <tr className="border-b border-[#F0E6FA] text-[10px] uppercase tracking-widest text-gray-400 font-black">
                       <th className="px-8 py-6">Formulation</th>
                       <th className="px-4 py-6">Season Profile</th>
-                      <th className="px-4 py-6">Accuracy</th>
+                      {category === "Face" && <th className="px-4 py-6">Accuracy</th>}
                       <th className="px-4 py-6">Status</th>
                       <th className="px-6 py-6 text-right font-bold">Inquiry</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm">
                     {loading ? (
-                      <tr><td colSpan="5" className="py-20 text-center"><Sparkles className="animate-spin mx-auto text-[#7700CF]" /></td></tr>
+                      <tr><td colSpan={tableColSpan} className="py-20 text-center"><Sparkles className="animate-spin mx-auto text-[#7700CF]" /></td></tr>
                     ) : currentItems.length === 0 ? (
-                      <tr><td colSpan="5" className="py-20 text-center text-gray-400 font-medium">No biometric matches found.</td></tr>
+                      <tr><td colSpan={tableColSpan} className="py-20 text-center text-gray-400 font-medium">No biometric matches found.</td></tr>
                     ) : currentItems.map((item) => {
                       const seasons = Array.isArray(item.season_tags) 
                         ? item.season_tags 
@@ -221,21 +230,23 @@ export function IngredientFilterPage() {
                               ))}
                             </div>
                           </td>
-                          <td className="px-4 py-5">
-                             {matchPercent ? (
-                               <div className="flex flex-col gap-1">
-                                  <span className="text-[10px] font-black text-primary">{matchPercent}% Match</span>
-                                  <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                     <div 
-                                        className="h-full bg-primary transition-all duration-1000" 
-                                        style={{ width: `${matchPercent}%` }}
-                                     />
-                                  </div>
-                               </div>
-                             ) : (
-                               <span className="text-[9px] font-bold text-gray-200">N/A</span>
-                             )}
-                          </td>
+                          {category === "Face" && (
+                            <td className="px-4 py-5">
+                               {matchPercent ? (
+                                 <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-primary">{matchPercent}% Match</span>
+                                    <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                       <div 
+                                          className="h-full bg-primary transition-all duration-1000" 
+                                          style={{ width: `${matchPercent}%` }}
+                                       />
+                                    </div>
+                                 </div>
+                               ) : (
+                                 <span className="text-[9px] font-bold text-gray-200">N/A</span>
+                               )}
+                            </td>
+                          )}
                           <td className="px-4 py-5">
                             <StatusBadge type={item.verdict} />
                           </td>
@@ -268,16 +279,22 @@ export function IngredientFilterPage() {
 
 function StatusBadge({ type }) {
   const verdict = type?.toLowerCase();
-  const isSafe = verdict === 'safe' || verdict === 'caution';
+  const isSafe = verdict === 'safe';
+  const isCaution = verdict === 'caution';
   const isExcluded = verdict === 'excluded';
-  const styles = isSafe 
-    ? 'bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]' 
-    : isExcluded 
+  const styles = isSafe
+    ? 'bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]'
+    : isExcluded
       ? 'bg-rose-50 border-rose-100 text-rose-600'
       : 'bg-[#FFFBEB] border-[#FEF3C7] text-[#D97706]';
+  const dotColor = isSafe
+    ? 'bg-[#10B981]'
+    : isExcluded
+      ? 'bg-rose-600'
+      : 'bg-[#F59E0B]';
   return (
     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-xl border ${styles}`}>
-      <div className={`w-1 h-1 rounded-full ${isSafe ? 'bg-[#10B981]' : isExcluded ? 'bg-rose-600' : 'bg-[#F59E0B]'}`} />
+      <div className={`w-1 h-1 rounded-full ${dotColor}`} />
       <span className="text-[9px] font-black uppercase tracking-widest">{type || 'Caution'}</span>
     </div>
   );

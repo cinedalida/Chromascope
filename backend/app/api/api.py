@@ -113,7 +113,6 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
         # Engine fields (verdict, etc.) take priority via right-side **r
         results = [{**product_lookup.get(r.get("product_id"), {}), **r} for r in results]
 
-        safe_only = [r for r in results if r.get("verdict") == "safe"]
         user_lab = request_data.user_lab or user_profile.get("user_lab")
         ui_season = request_data.seasonal_label or user_profile.get("seasonal_label")
 
@@ -121,7 +120,7 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
         try:
             user_lab_tuple = tuple(user_lab) if (user_lab and len(user_lab) == 3) else None
             color_matched = run_color_matching(
-                safe_products=safe_only, 
+                products=results,  # all verdicts — safe/caution/excluded sorted in color_matching
                 seasonal_label=ui_season, 
                 user_lab=user_lab_tuple, 
                 category=target_cat
@@ -129,7 +128,7 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
         except Exception as match_err:
             print(f"[FATAL] run_color_matching crashed: {match_err}")
             traceback.print_exc()
-            color_matched = safe_only
+            color_matched = results
 
         return {
             "safety_results": results, 

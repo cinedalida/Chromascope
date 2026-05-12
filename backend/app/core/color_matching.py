@@ -1,5 +1,25 @@
 import math
 
+# Maps human-readable seasonal labels → product season tag codes
+SEASON_CODE_MAP = {
+    # Autumn
+    "soft autumn":   "au-soft",
+    "true autumn":   "au-true",
+    "deep autumn":   "au-deep",
+    # Spring
+    "light spring":  "sp-light",
+    "true spring":   "sp-true",
+    "warm spring":   "sp-warm",
+    # Summer
+    "light summer":  "su-light",
+    "true summer":   "su-true",
+    "soft summer":   "su-soft",
+    # Winter
+    "deep winter":   "wi-deep",
+    "true winter":   "wi-true",
+    "bright winter": "wi-bright",
+}
+
 def delta_e_ciede2000(lab1: tuple, lab2: tuple) -> float:
     if not lab1 or not lab2: return 999
     L1, a1, b1 = lab1
@@ -23,38 +43,73 @@ def delta_e_ciede2000(lab1: tuple, lab2: tuple) -> float:
     dHp = 2 * math.sqrt(C1p * C2p) * math.sin(math.radians(dhp / 2))
     Lp_avg = (L1 + L2) / 2
     Cp_avg = (C1p + C2p) / 2
-    T = (1 - 0.17 * math.cos(math.radians(Lp_avg - 30)) +
-         0.24 * math.cos(math.radians(2 * Lp_avg)) +
-         0.32 * math.cos(math.radians(3 * Lp_avg + 6)) -
-         0.20 * math.cos(math.radians(4 * Lp_avg - 63)))
+    if C1p * C2p == 0:
+        hp_avg = h1p + h2p
+    elif abs(h1p - h2p) <= 180:
+        hp_avg = (h1p + h2p) / 2
+    elif h1p + h2p < 360:
+        hp_avg = (h1p + h2p + 360) / 2
+    else:
+        hp_avg = (h1p + h2p - 360) / 2
+    T = (1 - 0.17 * math.cos(math.radians(hp_avg - 30)) +
+          0.24 * math.cos(math.radians(2 * hp_avg)) +
+          0.32 * math.cos(math.radians(3 * hp_avg + 6)) -
+          0.20 * math.cos(math.radians(4 * hp_avg - 63)))
     SL = 1 + 0.015 * (Lp_avg - 50)**2 / math.sqrt(20 + (Lp_avg - 50)**2)
     SC = 1 + 0.045 * Cp_avg
     SH = 1 + 0.015 * Cp_avg * T
     return round(math.sqrt((dLp/SL)**2 + (dCp/SC)**2 + (dHp/SH)**2), 2)
 
-def run_color_matching(safe_products: list, seasonal_label: str, user_lab: tuple, category: str) -> list:
+def _resolve_season_code(seasonal_label: str) -> str:
+    """Translate 'Soft Autumn' → 'au-soft', or pass through if already a code."""
+    if not seasonal_label:
+        return ""
+    return SEASON_CODE_MAP.get(seasonal_label.lower().strip(), seasonal_label.lower().strip())
+
+def _product_season_codes(product: dict) -> list:
+    """Return all season codes on the product as a lowercase list."""
+    tags = product.get("season_tags", "")
+    if isinstance(tags, list):
+        return [t.lower().strip() for t in tags if t]
+    if isinstance(tags, str) and tags:
+        return [t.lower().strip() for t in tags.split(",") if t.strip()]
+    # Fallback to computed single tag
+    computed = product.get("season_tag_computed", "")
+    return [computed.lower().strip()] if computed else []
+
+def run_color_matching(products: list, seasonal_label: str, user_lab: tuple, category: str) -> list:
     scored = []
-    print(f"--- START MATCHING: {category} ---")
-    
-    for p in safe_products:
-        p_name = p.get("product_name", "")
-        if "VICE COSMETICS ONE & DONE BRONTOUR" in p_name.upper():
-            continue
-            
-        is_season = (str(seasonal_label).lower() == str(p.get("season_tag_computed")).lower())
+    is_face = category.lower() == "face"
+    user_code = _resolve_season_code(seasonal_label)
+
+    for p in products:
+        product_codes = _product_season_codes(p)
+        is_season = bool(user_code and user_code in product_codes)
         item = {**p, "is_season_match": is_season}
-        try:
-            L, a, b = p.get('lab_L'), p.get('lab_a'), p.get('lab_b')
-            if user_lab and L is not None:
-                prod_lab = (float(L), float(a or 0), float(b or 0))
-                if any(v != 0 for v in prod_lab):
-                    item["delta_e"] = delta_e_ciede2000(user_lab, prod_lab)
-                    print(f"[MATCH] {p_name} -> delta_e: {item['delta_e']}")
-        except Exception as e:
-            print(f"[ERROR] Math crash on {p_name}: {e}")
+
+        # Only calculate color distance for face products
+        if is_face:
+            try:
+                L, a, b = p.get('lab_L'), p.get('lab_a'), p.get('lab_b')
+                if user_lab and L is not None:
+                    prod_lab = (float(L), float(a or 0), float(b or 0))
+                    if any(v != 0 for v in prod_lab):
+                        item["delta_e"] = delta_e_ciede2000(user_lab, prod_lab)
+            except Exception:
+                pass
+
         scored.append(item)
-        
-    scored.sort(key=lambda x: (
-        x.get("delta_e", 999) * (0.5 if x.get("is_season_match", False) else 1.0)
-    ))
+
+    if is_face:
+        scored.sort(key=lambda x: (
+            x.get("delta_e", 999) * (0.5 if x.get("is_season_match", False) else 1.0)
+        ))
+    else:
+        # Lips, Eyes, etc. — season matches first, then by verdict (safe → caution → excluded)
+        verdict_order = {"safe": 0, "caution": 1, "excluded": 2}
+        scored.sort(key=lambda x: (
+            0 if x.get("is_season_match") else 1,
+            verdict_order.get(x.get("verdict", "").lower(), 1)
+        ))
+
     return scored
