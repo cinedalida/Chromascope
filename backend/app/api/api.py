@@ -46,6 +46,10 @@ class ProfileUpdate(BaseModel):
     skin_type: str
     concerns: List[str] = []
     avoid_ingredients: List[str] = []
+    seasonal_label: Optional[str] = None     
+    user_lab: Optional[List[float]] = None
+    # ✨ ADDED: Now the API accepts the confidence level
+    season_confidence_level: Optional[float] = None 
 
 app = FastAPI()
 db = firestore.client()
@@ -80,6 +84,7 @@ async def update_user_profile(
 ):
     try:
         user_ref = db.collection("users").document(user_id)
+        
         update_data = {
             "display_name": data.display_name,
             "dob": data.dob,
@@ -87,10 +92,17 @@ async def update_user_profile(
             "skin_type": normalize_label(data.skin_type),
             "concerns": [normalize_label(c) for c in data.concerns],
             "avoid_ingredients": [normalize_label(a) for a in data.avoid_ingredients],
+            "seasonal_label": data.seasonal_label, 
+            "user_lab": data.user_lab, 
+            # ✨ ADDED: Now saving it directly to Firestore
+            "season_confidence_level": data.season_confidence_level,
             "profile_completed": True
         }
+        
+        # This removes any None values before saving so we don't overwrite existing data with Nulls
         update_data = {k: v for k, v in update_data.items() if v is not None}
         user_ref.set(update_data, merge=True)
+        
         return {"status": "success", "message": "Profile updated"}
     except Exception as e:
         print(f" [ERROR] Profile Update Failed: {traceback.format_exc()}")

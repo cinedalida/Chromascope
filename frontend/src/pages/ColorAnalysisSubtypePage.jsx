@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+// ColorAnalysisSubtypePage shows the subtype-specific results after analysis.
+
+import React, { useEffect, useState } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
-import { auth } from "../firebase";
 import {
   Dna,
   Sparkles,
   ArrowRight,
-  ChevronDown,
   ScanFace,
-  CheckCircle2,
-  Loader2
+  Target,
+  ShieldCheck,
+  Droplet
 } from "lucide-react";
 
 const SEASON_DATABASE = {
@@ -89,124 +90,202 @@ const SEASON_DATABASE = {
 const PALETTE_LABELS = ["Core", "Accent", "Contrast", "Light", "Neutral", "Base", "Pop", "Deep"];
 
 export function ColorAnalysisSubtypePage() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const result = location.state?.analysisResult;
+  const [animateIn, setAnimateIn] = useState(false);
 
-  if (!result) return <Navigate to="/color-analysis" replace />;
+  useEffect(() => {
+    setAnimateIn(true);
+  }, []);
 
-  const { season, confidence } = result;
-  const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Deep Winter"];
+  if (!result) {
+    return <Navigate to="/color-analysis" replace />;
+  }
+
+  const { season, confidence, lab_color } = result;
+  const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
+
+  const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
 
   return (
-    <main className="page-shell bg-[#FAF9FF] min-h-screen p-8 font-body text-black">
-      <div className="max-w-6xl mx-auto space-y-10">
-        
-        {/* Main Result Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          
-          {/* Left Side: Upload Preview Placeholder (Matches your mockup's left side) */}
-          <div className="lg:col-span-7 bg-white rounded-[32px] p-10 border border-[#E5D5F5] flex flex-col items-center justify-center space-y-6">
-             <div className="w-full max-w-md bg-[#F9F6FF] border-2 border-dashed border-[#D1B3FF] rounded-2xl p-12 text-center">
-                <div className="w-12 h-12 bg-[#E9D5FF] rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="text-primary" size={24} />
-                </div>
-                <h3 className="font-bold text-lg">Analysis Complete</h3>
-                <p className="text-gray-light text-sm mt-2">Your profile has been synchronized with our clinical database.</p>
-             </div>
-             
-             <div className="w-full max-w-md space-y-4">
-                <h4 className="font-bold text-sm uppercase tracking-widest text-gray-400">Lighting Checklist</h4>
-                <div className="space-y-2">
-                    {["Natural daylight detected", "High clarity segmentation", "Face centered accurately"].map((check, i) => (
-                        <div key={i} className="flex items-center gap-3 bg-[#FAF9FF] p-3 rounded-xl border border-[#F0E6FA]">
-                            <CheckCircle2 size={16} className="text-green-500" />
-                            <span className="text-xs font-medium text-gray-600">{check}</span>
-                        </div>
-                    ))}
-                </div>
-             </div>
+    <main className="min-h-screen bg-gradient-to-br from-[#FAF9FF] via-[#F6F0FF] to-[#FAF9FF] font-body text-black pb-12">
+      <div className="bg-white/60 backdrop-blur-md border-b border-primary/10 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-primary">
+            <Dna size={24} className="animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
+              Chromascope Profile
+            </span>
           </div>
-
-          {/* Right Side: Analysis Result (Exact Match to Mockup) */}
-          <div className="lg:col-span-5 bg-[#F3E8FF] rounded-[32px] p-10 flex flex-col justify-between border border-[#E5D5F5]">
-            <div className="space-y-8">
-              <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">Your Analysis Result</p>
-                <h1 className="text-6xl font-heading font-bold italic text-black">{season}</h1>
-              </div>
-
-              {/* Confidence Bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-end">
-                    <p className="text-xs font-bold text-gray-600">AI Confidence Score</p>
-                    <p className="text-xs font-black text-primary">{confidence.toFixed(0)}%</p>
-                </div>
-                <div className="w-full h-2.5 bg-white/50 rounded-full overflow-hidden">
-                    <div 
-                        className="h-full bg-primary transition-all duration-1000" 
-                        style={{ width: `${confidence}%` }}
-                    />
-                </div>
-              </div>
-
-              {/* Palette */}
-              <div className="space-y-4">
-                <p className="text-xs font-bold text-gray-800">Your Signature Palette</p>
-                <div className="flex gap-2">
-                    {profileData.colors.map((hex, i) => (
-                        <div 
-                            key={i} 
-                            className="w-10 h-10 rounded-lg shadow-sm border border-white/20" 
-                            style={{ backgroundColor: hex }}
-                        />
-                    ))}
-                </div>
-              </div>
-
-              <p className="text-[13px] leading-relaxed text-gray-700">
-                {profileData.desc}
-              </p>
-
-              <div className="flex justify-between items-center py-4 border-t border-primary/10">
-                <span className="text-xs font-bold text-gray-800">What does this mean?</span>
-                <ChevronDown size={16} className="text-gray-400" />
-              </div>
-            </div>
-
-            <button 
-                onClick={() => navigate("/ingredient-filter")}
-                className="w-full py-4 bg-white rounded-full font-bold text-primary flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all mt-6"
-            >
-              View Curated Products <ArrowRight size={18} />
-            </button>
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-dark bg-white px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={16} className="text-green-500" />
+            Verified Analysis
           </div>
-        </div>
-
-        {/* Bottom Section: Related Palettes */}
-        <div className="space-y-6">
-            <h3 className="text-xl font-bold italic px-2">Related Palettes</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <RelationCard title="Cool Winter" desc={profileData.sisterDesc} color="bg-[#1A237E]" />
-                <RelationCard title="Deep Autumn" desc={profileData.contrastDesc} color="bg-[#3E2723]" />
-                <RelationCard title="Bright Winter" desc={profileData.secondaryDesc} color="bg-[#9FA8DA]" />
-            </div>
         </div>
       </div>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 space-y-8">
+        
+        <header className={`space-y-4 transition-all duration-1000 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+          <h1 className="font-heading text-5xl sm:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-[#7700CF] italic tracking-tight">
+            {season}
+          </h1>
+          <p className="text-gray-dark max-w-2xl text-lg sm:text-xl leading-relaxed">
+            {profileData.desc}
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <aside className={`col-span-1 lg:col-span-4 space-y-6 transition-all duration-1000 delay-150 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+            
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] shadow-sm border border-white flex flex-col items-center text-center relative overflow-hidden group">
+              <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              <div className="flex items-center gap-2 mb-2 text-primary">
+                <ScanFace size={20} />
+                <h3 className="font-heading font-bold text-xl text-[#111827]">
+                  Raw Skin Shade
+                </h3>
+              </div>
+              
+              <p className="text-xs text-gray mb-8 px-4 leading-relaxed">
+                Extracted directly from your facial map using our clinical AI segmentation model.
+              </p>
+
+              <div className="relative mb-8">
+                <div 
+                  className="w-36 h-36 rounded-full shadow-2xl border-4 border-white relative z-10 transition-transform duration-500 group-hover:scale-105"
+                  style={{ backgroundColor: skinHex }}
+                />
+                <div 
+                  className="absolute inset-0 rounded-full blur-[32px] opacity-40 -z-10 transition-all duration-500 group-hover:opacity-70 group-hover:blur-[40px] scale-110"
+                  style={{ backgroundColor: skinHex }}
+                />
+              </div>
+
+              <div className="space-y-2 bg-gray-50/50 w-full py-4 rounded-2xl border border-gray-100">
+                <p className="font-mono font-bold text-xl text-black">{skinHex}</p>
+                <div className="flex items-center justify-center gap-2 text-[10px] text-gray-dark uppercase tracking-widest font-bold">
+                  <span className="flex items-center gap-1"><Droplet size={10}/> L* {lab_color[0].toFixed(1)}</span>
+                  <span className="text-gray-lighter">•</span>
+                  <span>a* {lab_color[1].toFixed(1)}</span>
+                  <span className="text-gray-lighter">•</span>
+                  <span>b* {lab_color[2].toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-[#7700CF] to-[#5C00A3] text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden group transition-transform hover:-translate-y-1 duration-300">
+              <Sparkles className="absolute -right-6 -top-6 w-32 h-32 text-white/10 rotate-12 transition-transform duration-700 group-hover:rotate-45 group-hover:scale-110" />
+              <h4 className="font-heading font-bold text-xl mb-3 relative z-10">
+                Clinical Tip
+              </h4>
+              <p className="text-white/90 text-sm leading-relaxed relative z-10">
+                {profileData.tip}
+              </p>
+              <button 
+                onClick={() => navigate("/ingredient-filter")}
+                className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest bg-white text-primary hover:bg-gray-50 shadow-lg px-6 py-3.5 rounded-full transition-all group-hover:gap-3 w-fit relative z-10"
+              >
+                Shop Curated Products <ArrowRight size={14} />
+              </button>
+            </div>
+          </aside>
+
+          <div className={`col-span-1 lg:col-span-8 space-y-6 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+            
+            <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
+              <div className="flex justify-between items-end mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <Target size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
+                    <p className="text-[10px] text-gray uppercase tracking-wider">Model accuracy calculation</p>
+                  </div>
+                </div>
+                <p className="text-3xl font-black text-[#7700CF]">
+                  {confidence.toFixed(1)}%
+                </p>
+              </div>
+              <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#7700CF] via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
+                  style={{ width: animateIn ? `${confidence}%` : '0%' }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="font-heading font-bold text-2xl text-[#111827]">
+                  Signature Palette
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                {profileData.colors.map((hex, idx) => (
+                  <div key={idx} className="group cursor-pointer">
+                    <div
+                      style={{ backgroundColor: hex }}
+                      className="h-32 w-full rounded-2xl shadow-inner border-2 border-white/50 mb-3 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg group-hover:rounded-xl"
+                    />
+                    <div className="flex justify-between items-center px-1">
+                      <div>
+                        <p className="text-sm font-bold text-[#111827] uppercase">
+                          {hex}
+                        </p>
+                        <p className="text-[10px] font-bold text-gray uppercase tracking-widest">
+                          {PALETTE_LABELS[idx % PALETTE_LABELS.length]}
+                        </p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                        <ArrowRight size={14} className="text-primary" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <TransitionCard
+                title="Sister Season"
+                season={profileData.sister}
+                desc="Your closest neighboring palette, sharing similar depth and clarity."
+              />
+              <TransitionCard
+                title="Contrast Season"
+                season={profileData.contrastSeason}
+                desc="Opposite temperature but shared intensity. Use for unexpected styling."
+              />
+            </div>
+
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
 
-function RelationCard({ title, desc, color }) {
-    return (
-        <div className="bg-[#F3E8FF]/40 border border-[#E5D5F5] p-6 rounded-3xl flex items-center gap-4 hover:bg-white transition-all cursor-pointer">
-            <div className={`w-12 h-12 rounded-full shadow-inner ${color} shrink-0`} />
-            <div className="space-y-1">
-                <h4 className="font-bold text-sm italic">{title}</h4>
-                <p className="text-[11px] leading-snug text-gray-500">{desc}</p>
-            </div>
-        </div>
-    );
+function TransitionCard({ title, season, desc }) {
+  return (
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+          {title}
+        </p>
+        <ArrowRight size={14} className="text-gray-light group-hover:text-primary transition-colors" />
+      </div>
+      <h4 className="font-heading font-bold text-xl text-[#111827] mb-2">
+        {season}
+      </h4>
+      <p className="text-xs text-gray leading-relaxed">{desc}</p>
+    </div>
+  );
 }
 
 function labToHex(l, a, b) {
