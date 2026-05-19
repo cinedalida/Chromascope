@@ -1,15 +1,23 @@
+const API_BASE_URL = 'http://localhost:8000/api';
+
 /**
- * colorAnalysisService — FUTURE USE (ColorAnalysisPage → useColorAnalysis hook)
- *
- * Sends an image to the backend for seasonal color analysis and retrieves palette data.
- * analyzeColorImage() accepts a File and returns { season, profile, confidence }.
- * fetchSeasonPalette() retrieves hex colors for a given season label.
- * Replace stubs with real API integration (e.g. POST /api/color-analysis).
+ * Sends a selfie to the backend for ML analysis.
+ * Returns: { seasonal_label, user_lab, ... }
  */
 export async function analyzeColorImage(imageFile) {
-  return Promise.resolve({ season: "autumn", profile: "warm" });
-}
+  try {
+    const formData = new FormData();
+    formData.append('file', imageFile);
 
-export async function fetchSeasonPalette(season) {
-  return Promise.resolve(["#9B5DE5", "#F15BB5", "#00BBF9"]);
+    const response = await fetch(`${API_BASE_URL}/analyze-color`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Analysis failed');
+    return await response.json();
+  } catch (error) {
+    console.error('Error in color analysis:', error);
+    return { error: error.message };
+  }
 }

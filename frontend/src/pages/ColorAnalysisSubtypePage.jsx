@@ -1,16 +1,17 @@
 // ColorAnalysisSubtypePage shows the subtype-specific results after analysis.
 
-import React from "react";
-import { useLocation, Navigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
   Dna,
   Sparkles,
   ArrowRight,
-  Info,
-  ScanFace
+  ScanFace,
+  Target,
+  ShieldCheck,
+  Droplet
 } from "lucide-react";
 
-// The Database of 12 Seasons mapping pipeline output to UI data
 const SEASON_DATABASE = {
   "Bright Spring": {
     colors: ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
@@ -90,7 +91,13 @@ const PALETTE_LABELS = ["Core", "Accent", "Contrast", "Light", "Neutral", "Base"
 
 export function ColorAnalysisSubtypePage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const result = location.state?.analysisResult;
+  const [animateIn, setAnimateIn] = useState(false);
+
+  useEffect(() => {
+    setAnimateIn(true);
+  }, []);
 
   if (!result) {
     return <Navigate to="/color-analysis" replace />;
@@ -99,61 +106,69 @@ export function ColorAnalysisSubtypePage() {
   const { season, confidence, lab_color } = result;
   const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
 
-  // Convert LAB array [L, a, b] to a playable Hex code
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
 
   return (
-    <main className="page-shell bg-[#FAF9FF] font-body text-black">
-      <section className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header Section */}
-        <header className="space-y-2">
+    <main className="min-h-screen bg-gradient-to-br from-[#FAF9FF] via-[#F6F0FF] to-[#FAF9FF] font-body text-black pb-12">
+      <div className="bg-white/60 backdrop-blur-md border-b border-primary/10 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-primary">
-            <Dna size={20} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-              Genomic Color Profile
+            <Dna size={24} className="animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
+              Chromascope Profile
             </span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-black italic">
-            Subtype Analysis: {season}
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-dark bg-white px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={16} className="text-green-500" />
+            Verified Analysis
+          </div>
+        </div>
+      </div>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 space-y-8">
+        
+        <header className={`space-y-4 transition-all duration-1000 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+          <h1 className="font-heading text-5xl sm:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-[#7700CF] italic tracking-tight">
+            {season}
           </h1>
-          <p className="text-gray-light max-w-2xl text-lg">
-            {profileData.desc} (AI Confidence: {confidence.toFixed(1)}%)
+          <p className="text-gray-dark max-w-2xl text-lg sm:text-xl leading-relaxed">
+            {profileData.desc}
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Column: Raw Skin Shade */}
-          <aside className="col-span-1 lg:col-span-4 space-y-6">
-            <div className="page-card space-y-6 text-center flex flex-col items-center py-10">
-              <div className="flex items-center gap-2 mb-2 text-gray-dark">
-                <ScanFace size={18} />
-                <h3 className="font-heading font-bold text-lg">
+          <aside className={`col-span-1 lg:col-span-4 space-y-6 transition-all duration-1000 delay-150 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+            
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[32px] shadow-sm border border-white flex flex-col items-center text-center relative overflow-hidden group">
+              <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              <div className="flex items-center gap-2 mb-2 text-primary">
+                <ScanFace size={20} />
+                <h3 className="font-heading font-bold text-xl text-[#111827]">
                   Raw Skin Shade
                 </h3>
               </div>
               
-              <p className="text-xs text-gray-light max-w-[250px] mb-6">
+              <p className="text-xs text-gray mb-8 px-4 leading-relaxed">
                 Extracted directly from your facial map using our clinical AI segmentation model.
               </p>
 
-              {/* The Dynamic Skin Swatch */}
-              <div 
-                className="w-32 h-32 rounded-full shadow-lg border-4 border-white relative group"
-                style={{ backgroundColor: skinHex }}
-              >
-                {/* Glow Effect behind the circle */}
+              <div className="relative mb-8">
                 <div 
-                  className="absolute inset-0 rounded-full blur-xl opacity-40 -z-10 group-hover:opacity-60 transition-opacity"
+                  className="w-36 h-36 rounded-full shadow-2xl border-4 border-white relative z-10 transition-transform duration-500 group-hover:scale-105"
+                  style={{ backgroundColor: skinHex }}
+                />
+                <div 
+                  className="absolute inset-0 rounded-full blur-[32px] opacity-40 -z-10 transition-all duration-500 group-hover:opacity-70 group-hover:blur-[40px] scale-110"
                   style={{ backgroundColor: skinHex }}
                 />
               </div>
 
-              <div className="mt-6 space-y-1">
-                <p className="font-mono font-bold text-lg text-black">{skinHex}</p>
-                <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray uppercase tracking-widest font-bold">
-                  <span>L* {lab_color[0].toFixed(1)}</span>
+              <div className="space-y-2 bg-gray-50/50 w-full py-4 rounded-2xl border border-gray-100">
+                <p className="font-mono font-bold text-xl text-black">{skinHex}</p>
+                <div className="flex items-center justify-center gap-2 text-[10px] text-gray-dark uppercase tracking-widest font-bold">
+                  <span className="flex items-center gap-1"><Droplet size={10}/> L* {lab_color[0].toFixed(1)}</span>
                   <span className="text-gray-lighter">•</span>
                   <span>a* {lab_color[1].toFixed(1)}</span>
                   <span className="text-gray-lighter">•</span>
@@ -162,54 +177,73 @@ export function ColorAnalysisSubtypePage() {
               </div>
             </div>
 
-            {/* Dynamic Tip Card */}
-            <div className="bg-primary text-white p-6 rounded-2xl shadow-md relative overflow-hidden group">
-              <Sparkles className="absolute -right-4 -top-4 w-24 h-24 text-white/10 rotate-12 transition-transform group-hover:rotate-45" />
-              <h4 className="font-heading font-bold text-lg mb-2">
+            <div className="bg-gradient-to-br from-[#7700CF] to-[#5C00A3] text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden group transition-transform hover:-translate-y-1 duration-300">
+              <Sparkles className="absolute -right-6 -top-6 w-32 h-32 text-white/10 rotate-12 transition-transform duration-700 group-hover:rotate-45 group-hover:scale-110" />
+              <h4 className="font-heading font-bold text-xl mb-3 relative z-10">
                 Clinical Tip
               </h4>
-              <p className="text-white/80 text-xs leading-relaxed">
+              <p className="text-white/90 text-sm leading-relaxed relative z-10">
                 {profileData.tip}
               </p>
-              <button className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:gap-3 transition-all">
+              <button 
+                onClick={() => navigate("/ingredient-filter")}
+                className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest bg-white text-primary hover:bg-gray-50 shadow-lg px-6 py-3.5 rounded-full transition-all group-hover:gap-3 w-fit relative z-10"
+              >
                 Shop Curated Products <ArrowRight size={14} />
               </button>
             </div>
           </aside>
 
-          {/* Right Column: Palette Discovery */}
-          <div className="col-span-1 lg:col-span-8 space-y-6">
-            <div className="page-card">
+          <div className={`col-span-1 lg:col-span-8 space-y-6 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+            
+            <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
+              <div className="flex justify-between items-end mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <Target size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
+                    <p className="text-[10px] text-gray uppercase tracking-wider">Model accuracy calculation</p>
+                  </div>
+                </div>
+                <p className="text-3xl font-black text-[#7700CF]">
+                  {confidence.toFixed(1)}%
+                </p>
+              </div>
+              <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#7700CF] via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
+                  style={{ width: animateIn ? `${confidence}%` : '0%' }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
               <div className="flex justify-between items-center mb-8">
-                <h3 className="font-heading font-bold text-2xl italic">
+                <h3 className="font-heading font-bold text-2xl text-[#111827]">
                   Signature Palette
                 </h3>
-                <div className="flex gap-2">
-                  <span className="px-3 py-1 bg-primary-light text-primary text-[10px] font-bold rounded-full uppercase">
-                    Digital Accurate
-                  </span>
-                </div>
               </div>
 
-              {/* Dynamic Swatch Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
                 {profileData.colors.map((hex, idx) => (
                   <div key={idx} className="group cursor-pointer">
                     <div
                       style={{ backgroundColor: hex }}
-                      className="h-32 w-full rounded-xl shadow-inner border-2 border-white mb-3 transition-transform group-hover:scale-[1.02]"
+                      className="h-32 w-full rounded-2xl shadow-inner border-2 border-white/50 mb-3 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg group-hover:rounded-xl"
                     />
                     <div className="flex justify-between items-center px-1">
                       <div>
-                        <p className="text-xs font-bold text-black uppercase">
+                        <p className="text-sm font-bold text-[#111827] uppercase">
                           {hex}
                         </p>
-                        <p className="text-[9px] font-bold text-gray-light uppercase tracking-tighter">
+                        <p className="text-[10px] font-bold text-gray uppercase tracking-widest">
                           {PALETTE_LABELS[idx % PALETTE_LABELS.length]}
                         </p>
                       </div>
-                      <div className="w-6 h-6 rounded-full border border-gray-lighter flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ArrowRight size={12} className="text-primary" />
+                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                        <ArrowRight size={14} className="text-primary" />
                       </div>
                     </div>
                   </div>
@@ -217,7 +251,6 @@ export function ColorAnalysisSubtypePage() {
               </div>
             </div>
 
-            {/* Dynamic Seasonal Transition Card */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <TransitionCard
                 title="Sister Season"
@@ -230,6 +263,7 @@ export function ColorAnalysisSubtypePage() {
                 desc="Opposite temperature but shared intensity. Use for unexpected styling."
               />
             </div>
+
           </div>
         </div>
       </section>
@@ -237,24 +271,23 @@ export function ColorAnalysisSubtypePage() {
   );
 }
 
-// Helper Components
 function TransitionCard({ title, season, desc }) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-primary-light/10 shadow-sm hover:border-primary-light/40 transition-colors cursor-pointer">
-      <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">
-        {title}
-      </p>
-      <h4 className="font-heading font-bold text-lg text-black mb-1 italic">
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+          {title}
+        </p>
+        <ArrowRight size={14} className="text-gray-light group-hover:text-primary transition-colors" />
+      </div>
+      <h4 className="font-heading font-bold text-xl text-[#111827] mb-2">
         {season}
       </h4>
-      <p className="text-[11px] text-gray leading-snug">{desc}</p>
+      <p className="text-xs text-gray leading-relaxed">{desc}</p>
     </div>
   );
 }
 
-// ---------------------------------------------------------
-// Color Math: Converts CIELAB (L*, a*, b*) directly to a Hex String
-// ---------------------------------------------------------
 function labToHex(l, a, b) {
   let y = (l + 16) / 116,
       x = a / 500 + y,
