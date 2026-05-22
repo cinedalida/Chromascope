@@ -24,23 +24,23 @@ Chromascope solves the common challenge of finding beauty products that are both
 
 ### **Frontend Features**
 
-- **🎨 Seasonal Color Analysis**: Interactive quiz and palette matching.
-- **💄 AR Virtual Try-On**: Real-time shade visualization (Camera-based).
-- **📱 Responsive Mobile-First UI**: Seamless experience across all devices.
-- **✨ Micro-Animations**: Fluid transitions using Framer Motion.
-- **🌗 Glassmorphic Design**: Modern, premium aesthetic with blur effects.
+- **Seasonal Color Analysis**: Interactive quiz and palette matching.
+- **AR Virtual Try-On**: Real-time shade visualization (Camera-based).
+- **Responsive Mobile-First UI**: Seamless experience across all devices.
+- **Micro-Animations**: Fluid transitions using Framer Motion.
+- **Glassmorphic Design**: Modern, premium aesthetic with blur effects.
 
 ### **Backend Features**
 
-- **🛡️ Safety Engine**: Advanced logic for ingredient-skin type compatibility.
-- **🔍 Fuzzy Matching**: Intelligent INCI name matching using RapidFuzz.
-- **🔥 Firebase Integration**: Real-time Firestore database and Cloud Storage.
-- **🚀 FastAPI Performance**: High-speed asynchronous API endpoints.
+- **Safety Engine**: Advanced logic for ingredient-skin type compatibility.
+- **Fuzzy Matching**: Intelligent INCI name matching using RapidFuzz.
+- **Firebase Integration**: Real-time Firestore database and Cloud Storage.
+- **FastAPI Performance**: High-speed asynchronous API endpoints.
 
 ### **Authentication & Personalization**
 
-- **👤 User Profiles**: Save skin profiles and favorite products.
-- **📝 Onboarding Flow**: Multi-step setup for personalized results.
+- **User Profiles**: Save skin profiles and favorite products.
+- **Onboarding Flow**: Multi-step setup for personalized results.
 
 ---
 
@@ -158,10 +158,9 @@ npm run build
 2. Ensure the `.env` file in the root directory contains the necessary Firebase credentials.
 
 ### **ML Configuration**
+
 1. Get the weights folder at: [Weights Link](https://drive.google.com/drive/folders/1QBDaRbK5rdIFNH8_7SN4uKwkTrC4NUjp?usp=sharing)
 1. Place the weights folder in the `backend/app/core/skin_analysis/ml/` directory.
-
-
 
 ### **Run API Server**
 
@@ -175,8 +174,8 @@ The API documentation (Swagger) will be available at `http://localhost:8000/docs
 
 ## 7. Frontend Routes Documentation
 
-| Route                  | Page Component              | Description                             |
-| ---------------------- | --------------------------- | --------------------------------------- |
+| Route                | Page Component            | Description                             |
+| -------------------- | ------------------------- | --------------------------------------- |
 | `/`                  | `SplashPage`              | Landing page with product overview.     |
 | `/auth`              | `AuthPage`                | Login and Registration.                 |
 | `/home`              | `HomePage`                | Main dashboard and personalized feed.   |
