@@ -68,7 +68,7 @@ Chromascope solves the common challenge of finding beauty products that are both
 
 - **Firebase**: Database and cloud services.
 - **Git/GitHub**: Version control.
-- **Claude Code/Antigravity**: Development assistance.
+- **Claude Code/Antigravity/Cline/Copilot**: Development assistance.
 
 ---
 
