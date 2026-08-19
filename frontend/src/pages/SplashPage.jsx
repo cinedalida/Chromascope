@@ -1,160 +1,404 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, Play } from "lucide-react";
 import { SplashNavbar } from "../components/common/SplashNavbar.jsx";
-import { motion } from "framer-motion";
+import { SplashFooter } from "../components/common/SplashFooter.jsx";
+import { ScrollToTopButton } from "../components/common/ScrollToTopButton.jsx";
+import marbleBg from "../assets/images/MarbleBG.png";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
 };
 
 const staggerContainer = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.2 }
-  }
+    transition: { staggerChildren: 0.2 },
+  },
 };
+
+const heroFeatures = [
+  {
+    title: "Clinical Integrity",
+    description:
+      "Dermatologist-vetted algorithms ensuring safe and efficacious results.",
+    image: "/src/assets/images/clinical-integrity-img.png",
+  },
+  {
+    title: "AI Personalization",
+    description:
+      "Generative beauty regimens tailored to your skin's unique genetic markers.",
+    image: "/src/assets/images/ai-personalization-img.png",
+  },
+  {
+    title: "Ingredient Analysis",
+    description:
+      "Deep-scan imaging identifying ingredient interactions at a cellular level.",
+    image: "/src/assets/images/ingredient-analysis-img.png",
+  },
+];
+
+// The 12-season palette, grouped as it reads on screen: Winter/Spring on top, Autumn/Summer below.
+// Each group of 3 swatches shares a hover state that reveals its season name.
+const seasonGroups = [
+  { season: "Winter", colors: ["#362781", "#005F73", "#C80678"] },
+  { season: "Spring", colors: ["#E6334B", "#FFB813", "#F2E9AA"] },
+  { season: "Autumn", colors: ["#35450E", "#983A08", "#D0B116"] },
+  { season: "Summer", colors: ["#E1B0C5", "#1F8CAB", "#82CADD"] },
+];
+
+const tryOnSlides = [
+  {
+    image: "/src/assets/images/tryon-1.png",
+    caption:
+      "The virtual try-on lets users simulate exactly what a shade or product looks like on their own skin, in real time.",
+  },
+  {
+    image: "/src/assets/images/tryon-2.png",
+    caption:
+      "The scientific filter cross-checks every product against your restrictions, flagging anything that doesn't clear your clinical profile.",
+  },
+  {
+    image: "/src/assets/images/tryon-3.png",
+    caption:
+      "The product catalog stays organized by season and safety status, so recommendations always match who you actually are.",
+  },
+];
 
 export function SplashPage() {
   const navigate = useNavigate();
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSlide((i) => (i + 1) % tryOnSlides.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <main className="min-h-screen bg-[#FAF4FF] font-body relative overflow-hidden">
-      {/* Decorative background blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-lightest/60 blur-[100px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary-light/40 blur-[120px]" />
-
+    <main className="min-h-screen bg-[#FAF4FF] font-body">
       <SplashNavbar />
 
-      <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-8 sm:pb-24 lg:px-12 relative z-10">
-        <section id="home" className="mt-24 sm:mt-32 lg:mt-40 flex flex-col lg:flex-row items-center gap-10 lg:gap-8">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-            className="flex-1 space-y-8 lg:pr-12"
-          >
-            <motion.div variants={fadeUp} className="space-y-6">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/60 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-primary shadow-sm backdrop-blur-sm border border-white/40">
-                <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                Next-Gen Beauty Intelligence
-              </span>
-              <h1 className="text-5xl font-heading font-black tracking-tight text-primary sm:text-7xl leading-[1.1]">
-                Chromascope
-              </h1>
-              <p className="max-w-xl text-lg leading-relaxed text-gray-dark sm:text-xl font-medium">
-                Unlock deep personalization with AI-driven clinical mapping, cellular-level ingredient analysis, and hyper-realistic AR try-ons.
-              </p>
-            </motion.div>
-            <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row pt-4">
-              <button
-                onClick={() => navigate("/auth")}
-                className="group relative flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 font-bold text-white shadow-[0_8px_30px_rgb(20,5,37,0.3)] transition-all hover:-translate-y-1 hover:shadow-[0_12px_40px_rgb(20,5,37,0.4)] overflow-hidden"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                <span className="relative z-10 uppercase tracking-widest text-xs">Start Your Analysis</span>
-                <svg className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            </motion.div>
-          </motion.div>
+      <div className="relative z-10">
+        {/* ── Hero ── */}
+        <section id="home" className="relative isolate overflow-hidden">
+          {/* Decorative marble background, scoped to this section so it can't bleed into the next one. */}
+          <img
+            src={marbleBg}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+          />
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, rotate: -2 }}
-            animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            transition={{ duration: 1, delay: 0.2, type: "spring", stiffness: 100 }}
-            className="flex-1 w-full max-w-lg lg:max-w-none relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent rounded-[2.5rem] transform rotate-3 scale-105 -z-10" />
-            <img
-              src="/src/assets/images/splash-hero.png"
-              alt="Chromascope splash hero"
-              className="w-full rounded-[2.5rem] object-cover shadow-2xl border-4 border-white/50 backdrop-blur-sm"
-            />
-          </motion.div>
+          <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-24 text-center sm:px-8 sm:pt-32 sm:pb-44 lg:px-12 lg:pt-40 lg:pb-48">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={staggerContainer}
+              className="mx-auto flex max-w-4xl flex-col items-center"
+            >
+              <motion.h1
+                variants={fadeUp}
+                className="font-heading text-6xl font-black leading-none tracking-tight sm:text-7xl lg:text-8xl"
+              >
+                <motion.span
+                  className="bg-clip-text text-transparent [background-size:200%_100%]"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, #121212 0%, #121212 42%, #ffffff 50%, #121212 58%, #121212 100%)",
+                  }}
+                  animate={{ backgroundPositionX: ["150%", "-50%"] }}
+                  transition={{
+                    duration: 2.8,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                >
+                  Chromascope
+                </motion.span>
+              </motion.h1>
+              <motion.p
+                variants={fadeUp}
+                className="mt-6 max-w-2xl text-lg font-medium leading-relaxed text-gray sm:text-2xl"
+              >
+                Unlock the biological data beneath your surface.
+              </motion.p>
+              <motion.div variants={fadeUp} className="mt-8">
+                <motion.button
+                  onClick={() => navigate("/auth")}
+                  animate={{
+                    boxShadow: [
+                      "0 0 50px 6px rgba(119,0,207,0.15)",
+                      "0 0 90px 16px rgba(119,0,207,0.32)",
+                      "0 0 50px 6px rgba(119,0,207,0.15)",
+                    ],
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(120deg, var(--color-secondary) 0%, var(--color-primary-darker) 100%)",
+                  }}
+                  className="group relative flex h-14 items-center justify-center gap-2 rounded-full px-6 font-bold text-white transition-transform hover:-translate-y-1 overflow-hidden sm:px-10"
+                >
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                  <span className="relative z-10 whitespace-nowrap uppercase tracking-wide text-xs sm:tracking-widest sm:text-sm">
+                    Start Your Analysis
+                  </span>
+                  <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </div>
         </section>
 
+        {/* ── Get to know your palette ── */}
         <motion.section
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
           variants={staggerContainer}
-          id="features"
-          className="mt-32 grid gap-8 md:grid-cols-3"
+          className="relative bg-primary-light pb-20 pt-8 sm:pt-56 lg:pt-64"
         >
-          <motion.article variants={fadeUp} className="group relative bg-white/60 backdrop-blur-xl rounded-3xl p-8 shadow-sm border border-white/50 hover:bg-white transition-colors duration-300">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-lightest rounded-bl-full rounded-tr-3xl -z-10 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-md p-3 mb-6 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
-              <img
-                src="/src/assets/images/clinical-integrity-img.png"
-                alt="Clinical integrity"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h2 className="text-2xl font-heading font-black text-primary tracking-tight">
-              Clinical Integrity
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-dark font-medium">
-              Dermatologist-vetted algorithms ensure safe and highly efficacious results mapped to your skin.
-            </p>
-          </motion.article>
+          {/* Feature cards float on the seam between the hero above and this section — centered on
+              the boundary via translateY(-50%) so half sits in each section, whatever their height. */}
+          <div className="relative z-20 mx-auto max-w-5xl px-4 sm:absolute sm:inset-x-0 sm:top-0 sm:-translate-y-1/2 sm:px-8 lg:px-12">
+            <motion.div
+              id="features"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+              variants={staggerContainer}
+              className="grid gap-5 pb-8 sm:grid-cols-3 sm:pb-0"
+            >
+              {heroFeatures.map((feature) => (
+                <motion.article
+                  key={feature.title}
+                  variants={fadeUp}
+                  className="group relative flex flex-col items-center rounded-lg bg-white/70 p-5 text-center shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:shadow-[0_12px_40px_rgba(119,0,207,0.25)]"
+                >
+                  <div className="mb-2 h-20 w-20 transform transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 sm:h-24 sm:w-24">
+                    <img
+                      src={feature.image}
+                      alt=""
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <h3 className="font-heading text-sm font-bold text-black">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-gray">
+                    {feature.description}
+                  </p>
+                </motion.article>
+              ))}
+            </motion.div>
+          </div>
 
-          <motion.article variants={fadeUp} className="group relative bg-white/60 backdrop-blur-xl rounded-3xl p-8 shadow-sm border border-white/50 hover:bg-white transition-colors duration-300 mt-0 md:mt-8">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-secondary-light/20 rounded-bl-full rounded-tr-3xl -z-10 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-md p-3 mb-6 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
-              <img
-                src="/src/assets/images/ai-personalization-img.png"
-                alt="AI personalization"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h2 className="text-2xl font-heading font-black text-primary tracking-tight">
-              AI Personalization
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-dark font-medium">
-              Generative beauty regimens tailored seamlessly to your skin’s unique genetic markers.
-            </p>
-          </motion.article>
+          <div className="mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 sm:px-8 lg:flex-row lg:px-12">
+            <motion.div
+              variants={fadeUp}
+              className="flex-1 space-y-6 text-center lg:text-left"
+            >
+              <div>
+                <h2 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+                  Get to know your palette!
+                </h2>
+                <p className="mt-1 font-body text-xl italic text-gray">
+                  Your palette isn't just a color
+                </p>
+              </div>
+              <p className="text-lg leading-relaxed text-gray">
+                AI maps your undertone, contrast, and depth to place you within
+                the 12-season framework, then goes further: pinpointing your
+                exact subtype, its sister season for safe alternatives, and its
+                contrast season to know what to avoid.
+              </p>
+              <a
+                href="https://feelgoodcolors.com/seasonal-color-analysis/12-seasonal-color-system/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-2 bg-transparent font-body text-lg font-medium !text-primary no-underline transition-all duration-200 hover:scale-[1.03] hover:!text-primary-dark"
+              >
+                Read more about 12 Seasons
+                <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-1" />
+              </a>
+            </motion.div>
 
-          <motion.article variants={fadeUp} className="group relative bg-white/60 backdrop-blur-xl rounded-3xl p-8 shadow-sm border border-white/50 hover:bg-white transition-colors duration-300 mt-0 md:mt-16">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-light/20 rounded-bl-full rounded-tr-3xl -z-10 opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-md p-3 mb-6 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
-              <img
-                src="/src/assets/images/ingredient-analysis-img.png"
-                alt="Ingredient analysis"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h2 className="text-2xl font-heading font-black text-primary tracking-tight">
-              Ingredient Analysis
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-dark font-medium">
-              Deep-scan imaging identifying ingredient interactions at a true cellular level.
-            </p>
-          </motion.article>
+            <motion.div
+              variants={fadeUp}
+              className="grid w-full grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-lg lg:w-auto lg:flex-1"
+            >
+              {seasonGroups.map((group) => (
+                <div
+                  key={group.season}
+                  className="group relative grid grid-cols-3 gap-1"
+                >
+                  {group.colors.map((hex, i) => (
+                    <div
+                      key={`${hex}-${i}`}
+                      className="aspect-2/5 transition-transform duration-300 group-hover:scale-[1.03]"
+                      style={{ backgroundColor: hex }}
+                      role="img"
+                      aria-label={`${group.season} palette color ${hex}`}
+                    />
+                  ))}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-300 group-hover:bg-black/25 group-hover:opacity-100"
+                  >
+                    <span className="font-heading text-2xl italic tracking-wide text-white drop-shadow-md sm:text-3xl">
+                      {group.season.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </motion.section>
 
+        {/* ── Virtual Try-on and Safety Filter ── */}
         <motion.section
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 1 }}
-          id="demo"
-          className="mt-32 relative"
+          variants={staggerContainer}
+          className="bg-secondary-light py-20"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-primary/5 rounded-3xl -z-10" />
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-heading font-black tracking-tight text-primary">Experience the dashboard</h2>
-            <p className="mt-4 text-gray-dark text-lg font-medium">A unified hub for your entire beauty journey.</p>
+          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
+            <motion.h2
+              variants={fadeUp}
+              className="mb-12 text-center font-heading text-4xl font-black tracking-tight text-primary sm:text-5xl"
+            >
+              Virtual Try-On and a Safety Filter
+            </motion.h2>
+
+            <motion.div
+              variants={fadeUp}
+              className="relative left-1/2 right-1/2 mx-[-50vw] w-screen overflow-hidden py-8"
+              style={{
+                maskImage:
+                  "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
+                WebkitMaskImage:
+                  "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
+              }}
+            >
+              <motion.div
+                className="flex"
+                animate={{ x: `${-activeSlide * 55 + 22.5}%` }}
+                transition={{ duration: 0.7, ease: "easeInOut" }}
+              >
+                {tryOnSlides.map((slide, i) => (
+                  <div key={slide.image} className="w-[55%] shrink-0 px-3">
+                    <div
+                      className={`overflow-hidden rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] transition-all duration-500 ${
+                        i === activeSlide
+                          ? "scale-100 opacity-100"
+                          : "scale-95 opacity-40"
+                      }`}
+                    >
+                      <img
+                        src={slide.image}
+                        alt=""
+                        className="aspect-[4/3] w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp}
+              className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-4 text-center"
+            >
+              <div className="flex items-center gap-2">
+                {tryOnSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveSlide(i)}
+                    aria-label={`Show slide ${i + 1}`}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === activeSlide ? "w-16 bg-primary" : "w-7 bg-secondary"
+                    }`}
+                  />
+                ))}
+              </div>
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={activeSlide}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.4 }}
+                  className="text-lg leading-relaxed text-gray"
+                >
+                  {tryOnSlides[activeSlide].caption}
+                </motion.p>
+              </AnimatePresence>
+            </motion.div>
           </div>
-          <div className="flex justify-center px-4 sm:px-12">
-            <img
-              src="/src/assets/images/chroma-home-img.png"
-              alt="Chromascope home preview"
-              className="w-full max-w-5xl rounded-[2rem] shadow-[0_20px_50px_rgba(20,5,37,0.15)] border-8 border-white object-cover transform hover:scale-[1.01] transition-transform duration-500"
-            />
+        </motion.section>
+
+        {/* ── How does Chromascope work? ── */}
+        <motion.section
+          id="demo"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={staggerContainer}
+          className="bg-[#F8EFFF] py-20"
+        >
+          <div className="mx-auto max-w-5xl px-4 sm:px-8 lg:px-12">
+            <motion.div variants={fadeUp} className="mb-10 text-center">
+              <h2 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+                How does <span className="text-primary">Chromascope</span> work?
+              </h2>
+              <p className="mt-4 text-lg font-medium text-gray">
+                View the demonstration video here!
+              </p>
+            </motion.div>
+
+            <motion.a
+              href="https://youtu.be/YsNq9DVcJNE"
+              target="_blank"
+              rel="noopener noreferrer"
+              variants={fadeUp}
+              aria-label="Watch the Chromascope demo video on YouTube"
+              className="group relative block overflow-hidden rounded-3xl shadow-[0_20px_50px_rgba(20,5,37,0.15)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(20,5,37,0.28)]"
+            >
+              <img
+                src="/src/assets/images/chroma-home-img.png"
+                alt="Chromascope dashboard preview"
+                className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-[#2E1740] via-[#2E1740]/40 to-transparent p-8 sm:p-10">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/80">
+                  Chromascope Demo Video
+                </p>
+                <h3 className="mt-2 max-w-md font-heading text-2xl font-semibold text-white sm:text-3xl">
+                  Precision Visualization of Dermal Layers
+                </h3>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover:bg-black/15">
+                <span className="flex h-16 w-16 scale-75 items-center justify-center rounded-full bg-white/90 text-primary opacity-0 shadow-lg transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
+                  <Play className="ml-0.5 h-6 w-6 fill-current" />
+                </span>
+              </div>
+            </motion.a>
           </div>
         </motion.section>
       </div>
+
+      <SplashFooter />
+      <ScrollToTopButton targetId="home" />
     </main>
   );
 }
