@@ -152,6 +152,7 @@ __pycache__/
 serviceAccountKey.js
 serviceAccountKey.json
 backend/serviceAccountKey.json
+backend/generate_serviceaccount.py
 *.xlsx
 Chromascope_file.xlsx
 
