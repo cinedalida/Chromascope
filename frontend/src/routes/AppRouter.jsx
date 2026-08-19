@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { SplashPage } from "../pages/SplashPage.jsx";
+import { UserManualPage } from "../pages/UserManualPage.jsx";
 import { AuthPage } from "../pages/AuthPage.jsx";
 import { HomePage } from "../pages/HomePage.jsx";
 import { OnboardingPage } from "../pages/OnboardingPage.jsx";
@@ -25,6 +26,7 @@ export default function AppRouter() {
       <Routes>
         {/* Splash & Auth Flow */}
         <Route path="/" element={<SplashPage />} />
+        <Route path="/user-manual" element={<UserManualPage />} />
         <Route path="/auth" element={<AuthPage />} />
         
         {/* Onboarding (Contains Skin Type, Concerns, Ingredients, & Ethics Flow) */}
