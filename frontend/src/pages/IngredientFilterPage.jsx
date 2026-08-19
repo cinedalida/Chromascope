@@ -10,12 +10,11 @@ import {
   ChevronRight,
   Eye,
   Sparkles,
-  User,
-  Bell,
   CheckCircle2,
   Dna,
   Target
 } from "lucide-react";
+import placeholderImg from "../assets/images/placeholder.svg";
 
 export function IngredientFilterPage() {
   const user = useUserStore((state) => state.user);
@@ -34,8 +33,13 @@ export function IngredientFilterPage() {
   const tableColSpan = category === "Face" ? 5 : 4;
 
   const cleanPath = (url) => {
-    if (!url) return "/placeholder.png";
+    if (!url) return placeholderImg;
     return url.startsWith("/public/") ? url.replace("/public/", "/") : url;
+  };
+
+  const handleImageError = (e) => {
+    e.currentTarget.onerror = null;
+    e.currentTarget.src = placeholderImg;
   };
 
   useEffect(() => {
@@ -88,16 +92,12 @@ export function IngredientFilterPage() {
   const currentItems = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="flex min-h-screen bg-[#FDFBFF] font-sans text-[#1F1924]">
+    <div className="flex min-h-screen bg-[#FDFBFF] font-body text-[#1F1924]">
       <main className="flex-1 p-8 lg:p-12 pt-8">
         <header className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3 text-sm font-medium">
             <Dna size={18} className="text-[#7700CF]" />
             <span className="text-[#7700CF] font-bold uppercase tracking-widest text-[10px]">Genomic Synthesis</span>
-          </div>
-          <div className="flex items-center gap-5">
-            <button className="text-gray-400 hover:text-[#7700CF] transition-colors"><Bell size={20} /></button>
-            <div className="w-8 h-8 rounded-full bg-[#F3E8FF] flex items-center justify-center text-[#7700CF] border border-primary/10 shadow-sm"><User size={18} /></div>
           </div>
         </header>
 
@@ -123,17 +123,17 @@ export function IngredientFilterPage() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1 group">
+              <div className="relative min-w-0 flex-1 group">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#7700CF]" size={20} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search clinical ${category} database...`} 
-                  className="w-full pl-14 pr-6 py-4 bg-white rounded-full border border-[#F0E6FA] shadow-sm outline-none focus:border-[#7700CF] transition-all text-sm font-medium" 
+                  placeholder={`Search clinical ${category} database...`}
+                  className="w-full pl-14 pr-6 py-4 bg-white rounded-full border border-[#F0E6FA] shadow-sm outline-none focus:border-[#7700CF] transition-all text-sm font-medium"
                 />
               </div>
-              <button className="bg-[#5500A0] text-white px-10 py-4 rounded-full font-bold shadow-lg flex items-center gap-2 hover:bg-[#440080] transition-all text-sm uppercase tracking-widest">
+              <button className="shrink-0 whitespace-nowrap bg-[#5500A0] text-white px-10 py-4 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-[#440080] transition-all text-sm uppercase tracking-widest">
                 <Filter size={18} /> Process Profile
               </button>
             </div>
@@ -169,7 +169,7 @@ export function IngredientFilterPage() {
                             <Target size={14} />
                          </div>
                         <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border border-gray-100 shadow-inner bg-gray-50">
-                          <img src={cleanPath(item.image_url)} className="w-full h-full object-cover" alt="Recommended" />
+                          <img src={cleanPath(item.image_url)} onError={handleImageError} className="w-full h-full object-cover" alt="Recommended" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-sm truncate uppercase italic tracking-tight">{item.product_name}</h4>
@@ -188,7 +188,8 @@ export function IngredientFilterPage() {
               )}
 
               <div className="bg-white rounded-[32px] border border-[#F0E6FA] shadow-sm overflow-hidden">
-                <table className="w-full text-left">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-[#F0E6FA] text-[10px] uppercase tracking-widest text-gray-400 font-black">
                       <th className="px-8 py-6">Formulation</th>
@@ -215,7 +216,7 @@ export function IngredientFilterPage() {
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-4">
                               <div className="w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50">
-                                <img src={cleanPath(item.image_url)} className="w-full h-full object-cover" alt="Product" />
+                                <img src={cleanPath(item.image_url)} onError={handleImageError} className="w-full h-full object-cover" alt="Product" />
                               </div>
                               <div>
                                 <div className="font-bold text-[#1F1924] truncate max-w-[180px] uppercase tracking-tight italic">{item.product_name}</div>
@@ -255,7 +256,7 @@ export function IngredientFilterPage() {
                           <td className="px-6 py-5 text-right">
                             <button 
                               onClick={() => navigate("/ar-tryon", { state: { product: item } })}
-                              className="text-gray-200 group-hover:text-primary transition-all p-2"
+                              className="text-gray-400 group-hover:text-primary transition-all p-2"
                               title="Try on"
                             >
                               <Eye size={18} />
@@ -266,6 +267,7 @@ export function IngredientFilterPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
                 <footer className="flex items-center justify-between px-8 py-6 bg-[#FCFAFF] border-t border-[#F0E6FA]">
                   <div className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
                     Catalog Index: {filteredProducts.length === 0 ? 0 : (currentPage-1)*10+1}-{Math.min(currentPage*10, filteredProducts.length)} / {filteredProducts.length}

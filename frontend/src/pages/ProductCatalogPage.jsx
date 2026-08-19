@@ -12,6 +12,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { getProductCatalog } from "../services/productService"; // Ensure this import exists
+import placeholderImg from "../assets/images/placeholder.svg";
 
 export function ProductCatalogPage() {
   const [products, setProducts] = React.useState([]);
@@ -67,6 +68,11 @@ export function ProductCatalogPage() {
   });
   const seasonsAnalyzed = uniqueSeasons.size || 4;
 
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1
+  );
+
   return (
     <main className="page-shell bg-[#FAF4FF] font-body text-black">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -119,16 +125,12 @@ export function ProductCatalogPage() {
                   <tr key={p.product_id || p.sku} className="hover:bg-primary-lightest/30 transition-colors group">
                     <td className="px-8 py-6 font-bold text-gray-lighter">{p.product_id || p.sku || "#----"}</td>
                     <td className="px-8 py-6">
-                      {p.image_url ? (
-                        <img 
-                          src={p.image_url} 
-                          alt={p.product_name} 
-                          className="w-12 h-12 rounded-lg object-cover shadow-sm bg-white"
-                          onError={(e) => { e.target.src = "/placeholder.png"; }} 
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg shadow-inner bg-gray-lightest" style={{ backgroundColor: p.hex_color }} />
-                      )}
+                      <img
+                        src={p.image_url || placeholderImg}
+                        alt={p.product_name}
+                        className="w-12 h-12 rounded-lg object-cover shadow-sm bg-white"
+                        onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
+                      />
                     </td>
                     <td className="px-8 py-6">
                       <div className="font-bold text-black">{p.product_name || p.name}</div>
@@ -163,7 +165,34 @@ export function ProductCatalogPage() {
               </tbody>
             </table>
           </div>
-          {/* Pagination Footer Remains Same... */}
+
+          <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-6 border-t border-primary-light/10">
+            <div className="text-xs font-bold text-gray-light">
+              {filteredProducts.length === 0
+                ? "No products"
+                : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, filteredProducts.length)} of ${filteredProducts.length}`}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <PaginationBtn
+                icon={<ChevronLeft size={16} />}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              />
+              {pageNumbers.map((page, i) => (
+                <React.Fragment key={page}>
+                  {i > 0 && page - pageNumbers[i - 1] > 1 && (
+                    <span className="px-1 text-gray-lighter text-xs">…</span>
+                  )}
+                  <PaginationBtn label={page} active={page === currentPage} onClick={() => setCurrentPage(page)} />
+                </React.Fragment>
+              ))}
+              <PaginationBtn
+                icon={<ChevronRight size={16} />}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              />
+            </div>
+          </footer>
         </section>
       </div>
     </main>
