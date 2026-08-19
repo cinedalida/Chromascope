@@ -155,8 +155,8 @@ if __name__ == "__main__":
             print(result["error"])
         else:
             print("\n--- Analysis Complete ---")
-            print(f"✅ Season: {result['season']}")
-            print(f"📊 Confidence: {result['confidence']:.2f}%")
-            print(f"🎨 Dominant Face Color (LAB): [L: {result['lab_color'][0]:.2f}, a: {result['lab_color'][1]:.2f}, b: {result['lab_color'][2]:.2f}]")
+            print(f"Season: {result['season']}")
+            print(f"Confidence: {result['confidence']:.2f}%")
+            print(f"Dominant Face Color (LAB): [L: {result['lab_color'][0]:.2f}, a: {result['lab_color'][1]:.2f}, b: {result['lab_color'][2]:.2f}]")
     else:
-        print(f"❌ Please place an image at '{test_img}' to test.")
+        print(f"Please place an image at '{test_img}' to test.")
