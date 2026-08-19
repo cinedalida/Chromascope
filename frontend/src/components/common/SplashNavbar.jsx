@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, Menu } from "lucide-react";
 
 // Scroll-aware navbar with glossy effect for the SplashPage.
 // Hides on scroll down, appears on scroll up. Has a mobile drawer.
 export function SplashNavbar() {
+  const navigate = useNavigate();
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -78,6 +80,12 @@ export function SplashNavbar() {
               {link.label}
             </a>
           ))}
+          <button
+            onClick={() => navigate("/auth")}
+            className="rounded-full border-2 border-primary px-5 py-2 font-body text-sm font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-dark hover:text-primary-dark hover:shadow-md"
+          >
+            Log In
+          </button>
         </div>
 
         {/* Mobile Hamburger */}
@@ -103,6 +111,15 @@ export function SplashNavbar() {
               {link.label}
             </a>
           ))}
+          <button
+            onClick={() => {
+              setMobileOpen(false);
+              navigate("/auth");
+            }}
+            className="mt-1 block w-full rounded-lg border-2 border-primary px-4 py-3 text-center text-base font-semibold text-primary transition-colors hover:border-primary-dark hover:text-primary-dark"
+          >
+            Log In
+          </button>
         </div>
       )}
     </nav>
