@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import "./App.css";
 import AppRouter from "./routes/AppRouter.jsx";
-import { SidebarProvider } from "./context/SidebarContext";
 import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -38,11 +37,7 @@ export function App() {
     return () => unsubscribe();
   }, [setUser, clearUser]);
 
-  return (
-    <SidebarProvider>
-      <AppRouter />
-    </SidebarProvider>
-  );
+  return <AppRouter />;
 }
 
 export default App;

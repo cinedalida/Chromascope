@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { 
-  LogOut, ShieldCheck, Dna, Palette, Target, Lock, 
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  ShieldCheck, Dna, Palette, Target, Lock,
   AlertCircle, Edit2, X, Check, CheckCircle2, XCircle, RefreshCw
 } from "lucide-react";
 
@@ -169,15 +169,6 @@ export function ProfilePage() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/");
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
-  };
-
   const currentSeasonColors = seasonalLabel && SEASON_PALETTES[seasonalLabel] 
     ? SEASON_PALETTES[seasonalLabel] 
     : [];
@@ -186,18 +177,9 @@ export function ProfilePage() {
     <main className="min-h-screen bg-surface">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-10">
         
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="font-heading text-3xl font-bold text-[#1F1924]">Your Profile</h1>
-            <p className="text-[#4C4354] mt-1">Manage your health data, skin profile, and privacy settings.</p>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 font-bold rounded-full hover:bg-red-100 transition-colors self-start sm:self-auto"
-          >
-            <LogOut size={18} />
-            Log Out
-          </button>
+        <header className="mb-8">
+          <h1 className="font-heading text-3xl font-bold text-[#1F1924]">Your Profile</h1>
+          <p className="text-[#4C4354] mt-1">Manage your health data, skin profile, and privacy settings.</p>
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSidebar } from "../../context/SidebarContext";
-import { Bell, User, X, Menu } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
+import { LogOut, X, Menu } from "lucide-react";
 
 const navItems = [
   { label: "Home", icon: "home", path: "/home" },
@@ -54,11 +55,13 @@ const navIcons = {
 
 // Navbar navigation and brand shell for the app.
 export function Navbar({ onMenuToggle }) {
-  const { activeItem, setActiveItem } = useSidebar();
+  const location = useLocation();
   const navigate = useNavigate();
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const activeItem = navItems.find((item) => item.path === location.pathname)?.label ?? "Home";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -83,9 +86,17 @@ export function Navbar({ onMenuToggle }) {
   }, []);
 
   const handleMobileNav = (item) => {
-    setActiveItem(item.label);
     navigate(item.path);
     setMobileNavOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
 
   const handleHamburger = () => {
@@ -140,18 +151,12 @@ export function Navbar({ onMenuToggle }) {
 
           <div className="flex items-center gap-3">
             <button
-              className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-primary-light/50 text-primary transition-all duration-300 hover:bg-primary-light active:scale-95"
-              aria-label="Notifications"
+              onClick={handleLogout}
+              className="flex h-10 items-center gap-2 rounded-full bg-red-50 px-4 text-sm font-bold text-red-600 transition-all duration-300 hover:bg-red-100 active:scale-95"
+              aria-label="Log out"
             >
-              <Bell size={18} strokeWidth={2.5} className="transition-transform group-hover:rotate-12" />
-              {/* Notification Dot */}
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            </button>
-            <button
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-primary/20 transition-all duration-300 hover:bg-primary-dark active:scale-95"
-              aria-label="Profile"
-            >
-              <User size={18} strokeWidth={2.5} />
+              <LogOut size={18} strokeWidth={2.5} />
+              <span className="hidden sm:inline">Log Out</span>
             </button>
           </div>
         </div>
@@ -164,7 +169,7 @@ export function Navbar({ onMenuToggle }) {
         >
           <nav className="px-4 py-3 space-y-1">
             {navItems.map((item) => {
-              const isActive = activeItem === item.label;
+              const isActive = location.pathname === item.path;
               return (
                 <button
                   key={item.label}

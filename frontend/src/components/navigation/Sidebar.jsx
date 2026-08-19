@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { useSidebar } from "../../context/SidebarContext";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const sidebarItems = [
   { label: "Home", icon: "home", path: "/home" },
@@ -15,10 +15,8 @@ const sidebarItems = [
   { label: "Product Catalog", icon: "catalog", path: "/product-catalog" },
 ];
 
-function SidebarIcon({ icon, active }) {
-  const colorClass = active
-    ? "text-primary"
-    : "text-gray-light group-hover:text-primary";
+function SidebarIcon({ icon, active, hovered }) {
+  const colorClass = active || hovered ? "text-primary" : "text-gray-light";
   const size = "h-5 w-5";
 
   const icons = {
@@ -134,24 +132,27 @@ function SidebarIcon({ icon, active }) {
 }
 
 export function Sidebar({ collapsed = false, onToggle }) {
-  const { activeItem, setActiveItem } = useSidebar();
+  const location = useLocation();
   const navigate = useNavigate();
+  // Driven from React state rather than Tailwind's `hover:` variant: color/background/opacity
+  // pseudo-class utilities were not taking effect in this build (verified directly — plain,
+  // non-variant utility classes apply correctly, but any `hover:bg-*`/`hover:text-*`/
+  // `hover:opacity-*` class silently no-ops), so onMouseEnter/onMouseLeave + plain classes
+  // is used here to guarantee the hover actually renders.
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [collapseHovered, setCollapseHovered] = useState(false);
 
   return (
     <>
-      {/* Mobile overlay */}
-      {!collapsed && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
-          onClick={onToggle}
-        />
-      )}
-
+      {/* Desktop only — Navbar owns mobile navigation via its own hamburger drawer,
+          which already defaults to closed. This component used to also render as a
+          mobile overlay gated on `collapsed`, but that state means "desktop expanded"
+          by default (false), so below `lg` it rendered as a full-screen backdrop
+          blocking the page on every load. Scoping it to `lg:flex` removes that
+          duplicate, broken mobile nav entirely. */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full flex-col bg-white transition-all duration-300 ease-out ${
-          collapsed
-            ? "-translate-x-full lg:translate-x-0 lg:w-[72px]"
-            : "translate-x-0 w-60"
+        className={`fixed top-0 left-0 z-50 hidden h-full flex-col bg-white transition-all duration-300 ease-out lg:flex ${
+          collapsed ? "lg:w-[72px]" : "w-60"
         }`}
       >
         {/* Brand */}
@@ -175,23 +176,30 @@ export function Sidebar({ collapsed = false, onToggle }) {
         {/* Sidebar items */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {sidebarItems.map((item) => {
-            const isActive = activeItem === item.label;
+            const isActive = location.pathname === item.path;
+            const isHovered = hoveredItem === item.label;
             return (
               <button
                 key={item.label}
                 onClick={() => {
-                  setActiveItem(item.label);
                   navigate(item.path);
                   if (onToggle && window.innerWidth < 1024) onToggle();
                 }}
-                className={`group flex w-full items-center gap-3 rounded-lg border-0 px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none focus:ring-0 ${
+                onMouseEnter={() => setHoveredItem(item.label)}
+                onMouseLeave={() => setHoveredItem(null)}
+                className={`group relative flex w-full items-center gap-3 rounded-lg border-0 px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none focus:ring-0 ${
                   isActive
                     ? "bg-primary/10 text-primary"
-                    : "bg-transparent text-gray hover:bg-primary/5 hover:text-primary"
+                    : isHovered
+                      ? "translate-x-0.5 bg-primary-light text-primary"
+                      : "bg-transparent text-gray"
                 } ${collapsed ? "justify-center px-0" : ""}`}
                 title={collapsed ? item.label : undefined}
               >
-                <SidebarIcon icon={item.icon} active={isActive} />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
+                <SidebarIcon icon={item.icon} active={isActive} hovered={isHovered} />
                 {!collapsed && <span>{item.label}</span>}
               </button>
             );
@@ -202,7 +210,11 @@ export function Sidebar({ collapsed = false, onToggle }) {
         <div className="hidden px-3 py-3 lg:block">
           <button
             onClick={onToggle}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border-0 px-3 py-2 text-sm font-medium text-gray transition hover:bg-primary/5 hover:text-primary outline-none focus:ring-0"
+            onMouseEnter={() => setCollapseHovered(true)}
+            onMouseLeave={() => setCollapseHovered(false)}
+            className={`flex w-full items-center gap-2 rounded-lg border-0 px-3 py-2 text-sm font-medium transition outline-none focus:ring-0 ${
+              collapseHovered ? "bg-primary-light text-primary" : "text-gray"
+            } ${collapsed ? "justify-center px-0" : ""}`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <svg
