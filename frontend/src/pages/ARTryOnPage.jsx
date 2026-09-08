@@ -1,19 +1,41 @@
+import { useState } from "react";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
 import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
+import { ARControlBar } from "../components/ar-tryon/ARControlBar.jsx";
 import { useARCamera } from "../hooks/useARCamera.jsx";
 import { Share2, Copy } from "lucide-react";
 
-//TODO: Step 1 (landmark tracking) is wired in via AROverlayCanvas — check the console for
-// '[AR] landmark count' logs to confirm tracking. Region rendering + shade application (Steps 3-4) still pending.
-//TODO: fix the button toggles
+//TODO: region toggles (lips/cheeks/full face) are wired via ARControlBar + real state below.
+// Product colors are still the placeholder DEFAULT_COLORS inside AROverlayCanvas — Task 7 replaces
+// those with real hex_color values from /api/run-filter via AppliedProductsPanel.
+//TODO: fix the Capture/Compare/Share button toggles (separate from AR region toggles above)
 
 /* Design tokens */
-const glass = "backdrop-blur-xl border border-white/20 bg-white/15";
 const controlGlass = "backdrop-blur-xl border border-white/30 bg-white/30";
 
 export function ARTryOnPage() {
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera();
+  const [toggles, setToggles] = useState({
+    lips: true,
+    cheeks: true,
+    eyeshadow: true,
+  });
+
+  // "Full Face" isn't its own render region (see AROverlayCanvas) — it's a
+  // shortcut that switches lips + cheeks + eyeshadow on/off together. If
+  // they're all already on, pressing it turns all three off; otherwise it
+  // turns all three on, regardless of their individual current states.
+  const handleToggleRegion = (key) => {
+    if (key === "fullFace") {
+      setToggles((prev) => {
+        const allOn = prev.lips && prev.cheeks && prev.eyeshadow;
+        return { ...prev, lips: !allOn, cheeks: !allOn, eyeshadow: !allOn };
+      });
+      return;
+    }
+    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <main className="min-h-screen bg-surface/50 font-body">
@@ -31,9 +53,9 @@ export function ARTryOnPage() {
               onEnableMock={enableMockCamera} 
             />
 
-            {/* AR OVERLAY — live landmark tracking (Step 1). Renders nothing visible yet;
-                open the browser console to confirm landmarks are flowing. */}
-            <AROverlayCanvas videoRef={cameraRef} isReady={isReady} isMock={isMock} />
+            {/* AR OVERLAY — live landmark tracking + region rendering. `toggles` here is
+                real state now, driven by ARControlBar below, not AROverlayCanvas's internal default. */}
+            <AROverlayCanvas videoRef={cameraRef} isReady={isReady} isMock={isMock} toggles={toggles} />
 
             {/* AR SCAN RETICLE */}
             {isReady && (
@@ -50,15 +72,9 @@ export function ARTryOnPage() {
               </div>
             )}
 
-            {/* STATUS */}
-            <div
-              className={`absolute left-6 top-6 flex items-center gap-2 rounded-xl px-4 py-2 ${glass}`}
-            >
-              <div className="h-2 w-2 animate-pulse rounded-full bg-[#00E676]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white">
-                Skin Scan Status:{" "}
-                <span className="text-[#00E676]">Optimal Lighting</span>
-              </span>
+            {/* REGION TOGGLES — lips / cheeks / full face */}
+            <div className="absolute left-6 right-6 top-6 flex justify-center overflow-x-auto">
+              <ARControlBar toggles={toggles} onToggle={handleToggleRegion} />
             </div>
 
             {/* CONTROLS */}
