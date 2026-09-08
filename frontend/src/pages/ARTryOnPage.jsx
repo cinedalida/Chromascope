@@ -1,9 +1,11 @@
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
+import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
 import { useARCamera } from "../hooks/useARCamera.jsx";
 import { Share2, Copy } from "lucide-react";
 
-//TODO: implement actual AR feed and product application logic, this is just the UI shell for now
+//TODO: Step 1 (landmark tracking) is wired in via AROverlayCanvas — check the console for
+// '[AR] landmark count' logs to confirm tracking. Region rendering + shade application (Steps 3-4) still pending.
 //TODO: fix the button toggles
 
 /* Design tokens */
@@ -28,6 +30,10 @@ export function ARTryOnPage() {
               isMock={isMock} 
               onEnableMock={enableMockCamera} 
             />
+
+            {/* AR OVERLAY — live landmark tracking (Step 1). Renders nothing visible yet;
+                open the browser console to confirm landmarks are flowing. */}
+            <AROverlayCanvas videoRef={cameraRef} isReady={isReady} isMock={isMock} />
 
             {/* AR SCAN RETICLE */}
             {isReady && (
