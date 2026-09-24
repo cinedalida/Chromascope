@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
 import {
@@ -154,8 +154,13 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *    shortcut that flips these three together, not its own render region.
  *  - colors: { lips, cheeks, eyeshadow } hex strings — the shade to apply.
  *  - opacity: blend opacity constant β from Eq. D.2 (manuscript recommends 0.7-0.8).
+ *
+ * Exposes via ref: capture() — composites the mirrored video frame plus the
+ * current makeup overlay into one PNG data URL for ARTryOnPage's save
+ * button. Returns null when there's no live video to capture from (mock
+ * mode, or before the camera is ready).
  */
-export function AROverlayCanvas({
+export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   videoRef,
   isReady,
   isMock,
@@ -164,13 +169,56 @@ export function AROverlayCanvas({
   colors = DEFAULT_COLORS,
   opacity = 0.75,
   blendMode = "color",
-}) {
+}, ref) {
   const canvasRef = useRef(null);
   const landmarkerRef = useRef(null);
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
   const smoothedLandmarksRef = useRef(null);
   const [status, setStatus] = useState("loading"); // loading | ready | tracking | error
+
+  useImperativeHandle(ref, () => ({
+    capture() {
+      const video = videoRef?.current;
+      const overlay = canvasRef.current;
+      if (isMock || !video || !overlay || !video.videoWidth) return null;
+
+      const out = document.createElement("canvas");
+      out.width = overlay.width;
+      out.height = overlay.height;
+      const ctx = out.getContext("2d");
+
+      // Same object-cover mapping as toCanvasSpace() above, but for an image
+      // draw rect instead of a point, so the captured frame lines up with
+      // what's actually on screen (including CameraFeed's scaleX(-1) mirror).
+      const videoW = video.videoWidth;
+      const videoH = video.videoHeight;
+      const videoAspect = videoW / videoH;
+      const canvasAspect = out.width / out.height;
+      let drawW, drawH, drawX, drawY;
+      if (videoAspect > canvasAspect) {
+        drawH = out.height;
+        drawW = videoW * (drawH / videoH);
+        drawX = (out.width - drawW) / 2;
+        drawY = 0;
+      } else {
+        drawW = out.width;
+        drawH = videoH * (drawW / videoW);
+        drawX = 0;
+        drawY = (out.height - drawH) / 2;
+      }
+
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -(drawX + drawW), drawY, drawW, drawH);
+      ctx.restore();
+
+      // Makeup fills, already rendered in mirrored canvas space.
+      ctx.drawImage(overlay, 0, 0, out.width, out.height);
+
+      return out.toDataURL("image/png");
+    },
+  }), [videoRef, isMock]);
 
   // Load the FaceLandmarker model once on mount.
   useEffect(() => {
@@ -303,4 +351,4 @@ export function AROverlayCanvas({
       className="pointer-events-none absolute inset-0 h-full w-full"
     />
   );
-}
+});

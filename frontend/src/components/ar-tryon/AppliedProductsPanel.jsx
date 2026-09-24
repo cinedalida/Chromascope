@@ -1,10 +1,15 @@
 import { useState } from "react";
 
-const categories = ["LIPS", "EYES", "FACE", "TOOLS"];
+const categories = ["LIPS", "EYESHADOW", "BLUSH"];
 
+// DUMMY DATA — placeholder applied-products list until this panel is wired
+// to the real AR try-on state (live product selections / backend). Each
+// item carries a `category` so the LIPS/EYESHADOW/BLUSH tabs actually filter
+// the list instead of just relabeling the same five items.
 const products = [
   {
     id: 1,
+    category: "LIPS",
     name: "Velvet Orchid #12",
     type: "MATTE FINISH",
     description: "Full-coverage clinical pigment",
@@ -14,6 +19,7 @@ const products = [
   },
   {
     id: 2,
+    category: "LIPS",
     name: "Crimson Quartz",
     type: "SATIN GLOSS",
     description: "Hyaluronic-infused serum",
@@ -23,6 +29,7 @@ const products = [
   },
   {
     id: 3,
+    category: "LIPS",
     name: "Neon Peony",
     type: "HYDRA-SHEER",
     description: "Lightweight botanical balm",
@@ -32,6 +39,7 @@ const products = [
   },
   {
     id: 4,
+    category: "LIPS",
     name: "Amber Sunset",
     type: "MATTE LIQUID",
     description: "All-day wear lab formula",
@@ -41,6 +49,7 @@ const products = [
   },
   {
     id: 5,
+    category: "LIPS",
     name: "Cacao Elixir",
     type: "DEEP SATIN",
     description: "Organic derived micro-pigments",
@@ -48,17 +57,54 @@ const products = [
     active: false,
     gradient: "linear-gradient(135deg, #795548 0%, #3E2723 100%)",
   },
+  {
+    id: 6,
+    category: "EYESHADOW",
+    name: "Amethyst Smoke",
+    type: "SHIMMER",
+    description: "Pearl-finish shadow duo",
+    deltaE: "0.7",
+    active: false,
+    gradient: "linear-gradient(135deg, #7C3AED 0%, #4C1D95 100%)",
+  },
+  {
+    id: 7,
+    category: "EYESHADOW",
+    name: "Bronze Ember",
+    type: "MATTE",
+    description: "Warm-tone eye pigment",
+    deltaE: "1.8",
+    active: false,
+    gradient: "linear-gradient(135deg, #B45309 0%, #78350F 100%)",
+  },
+  {
+    id: 8,
+    category: "BLUSH",
+    name: "Rose Glow Blush",
+    type: "CREAM",
+    description: "Blendable cheek tint",
+    deltaE: "1.1",
+    active: true,
+    gradient: "linear-gradient(135deg, #F472B6 0%, #BE185D 100%)",
+  },
+  {
+    id: 9,
+    category: "BLUSH",
+    name: "Coral Dust",
+    type: "POWDER",
+    description: "Buildable micronized pigment",
+    deltaE: "1.4",
+    active: false,
+    gradient: "linear-gradient(135deg, #FB923C 0%, #C2410C 100%)",
+  },
 ];
 
-const appliedChips = [
-  { label: "Velvet Orchid #12", color: "#5D0E41" },
-  { label: "Silk Foundation", color: "#C084FC" },
-];
-
-/* ── Delta-E quality label ────────────────── */
-function DeltaBadge({ value }) {
-  const num = parseFloat(value);
-  const excellent = num < 1;
+/* ── Color match badge — ΔE (perceptual color difference) isn't meaningful
+   to most users, so it's converted to a plain-language percentage using the
+   same formula as the Ingredient Filter table, for consistency. */
+function MatchBadge({ deltaE }) {
+  const percent = Math.max(0, 100 - parseFloat(deltaE) * 5).toFixed(0);
+  const excellent = percent >= 95;
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${
@@ -67,7 +113,7 @@ function DeltaBadge({ value }) {
           : "bg-gray-lightest text-gray-light"
       }`}
     >
-      ΔE {value}
+      {percent}% Match
     </span>
   );
 }
@@ -78,12 +124,17 @@ function ToggleSwitch({ active, onToggle }) {
     <button
       onClick={onToggle}
       aria-label="Toggle product"
-      className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none border-0 ${
-        active ? "bg-primary" : "bg-gray-lighter"
-      }`}
+      className="relative flex h-10 w-11 shrink-0 items-center focus:outline-none border-0"
     >
       <span
-        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+        aria-hidden="true"
+        className={`h-6 w-11 rounded-full transition-colors duration-200 ${
+          active ? "bg-primary" : "bg-gray-lighter"
+        }`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute left-0.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform duration-200 ${
           active ? "translate-x-5" : "translate-x-0"
         }`}
       />
@@ -101,11 +152,17 @@ export function AppliedProductsPanel() {
       prev.map((p) => (p.id === id ? { ...p, active: !p.active } : p)),
     );
 
-  const activeCount = productList.filter((p) => p.active).length;
+  const clearAll = () =>
+    setProductList((prev) => prev.map((p) => ({ ...p, active: false })));
+
+  const activeProducts = productList.filter((p) => p.active);
+  const activeCount = activeProducts.length;
+  const visibleProducts = productList.filter(
+    (p) => p.category === activeCategory,
+  );
 
   return (
     <div className="flex h-full flex-col bg-white font-body">
-
       {/* ── Header ── */}
       <div className="px-5 pt-5 pb-4 border-b border-gray-lightest/60">
         <div className="flex items-center justify-between mb-3">
@@ -117,21 +174,29 @@ export function AppliedProductsPanel() {
               {activeCount} active · live AR overlay
             </p>
           </div>
-          <button className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70">
+          <button
+            onClick={clearAll}
+            className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70"
+          >
             Clear all
           </button>
         </div>
 
-        {/* Applied chips */}
+        {/* Applied chips — derived from productList so they stay in sync
+            with the toggles below instead of tracking their own state. */}
         <div className="flex flex-wrap gap-1.5">
-          {appliedChips.map((chip) => (
+          {activeProducts.map((product) => (
             <span
-              key={chip.label}
+              key={product.id}
               className="inline-flex items-center gap-1.5 rounded-full py-1 pl-2.5 pr-2 text-[11px] font-semibold text-white"
-              style={{ backgroundColor: chip.color }}
+              style={{ backgroundImage: product.gradient }}
             >
-              {chip.label}
-              <button className="opacity-60 hover:opacity-100 leading-none">
+              {product.name}
+              <button
+                onClick={() => toggleProduct(product.id)}
+                aria-label={`Remove ${product.name}`}
+                className="opacity-60 hover:opacity-100 leading-none"
+              >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                   <path
                     d="M1 1L4 4M4 4L7 7M4 4L7 1M4 4L1 7"
@@ -156,8 +221,8 @@ export function AppliedProductsPanel() {
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`flex-1 rounded-xl py-2.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
-                  isActive 
-                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5" 
+                  isActive
+                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
                     : "text-gray-light hover:text-gray hover:bg-black/5"
                 }`}
               >
@@ -170,56 +235,55 @@ export function AppliedProductsPanel() {
 
       {/* ── Product List ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {productList.map((product) => (
-          <div
-            key={product.id}
-            className="group flex items-center gap-3 rounded-2xl p-3.5 transition-all duration-200"
-            style={{
-              backgroundColor: product.active ? "#FAF4FF" : "#FAFAFA",
-              border: product.active
-                ? "1.5px solid #C084FC"
-                : "1.5px solid transparent",
-            }}
-          >
-            {/* Swatch */}
+        {visibleProducts.length === 0 ? (
+          <p className="py-10 text-center text-[11px] text-gray-light">
+            No products applied in this category yet.
+          </p>
+        ) : (
+          visibleProducts.map((product) => (
             <div
-              className="h-12 w-12 flex-shrink-0 rounded-xl shadow-sm"
+              key={product.id}
+              className="group flex items-center gap-3 rounded-2xl p-3.5 transition-all duration-200"
               style={{
-                background: product.gradient,
-                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.08)",
+                backgroundColor: product.active ? "#FAF4FF" : "#FAFAFA",
+                border: product.active
+                  ? "1.5px solid #C084FC"
+                  : "1.5px solid transparent",
               }}
-            />
+            >
+              {/* Swatch */}
+              <div
+                className="h-12 w-12 flex-shrink-0 rounded-xl shadow-sm"
+                style={{
+                  background: product.gradient,
+                  boxShadow: "inset 0 2px 4px rgba(0,0,0,0.08)",
+                }}
+              />
 
-            {/* Info */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">
-                  {product.type}
-                </span>
-                <DeltaBadge value={product.deltaE} />
+              {/* Info */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">
+                    {product.type}
+                  </span>
+                  <MatchBadge deltaE={product.deltaE} />
+                </div>
+                <p className="font-heading text-sm font-semibold text-black truncate leading-tight">
+                  {product.name}
+                </p>
+                <p className="text-[11px] text-gray-light mt-0.5 truncate">
+                  {product.description}
+                </p>
               </div>
-              <p className="font-heading text-sm font-semibold text-black truncate leading-tight">
-                {product.name}
-              </p>
-              <p className="text-[11px] text-gray-light mt-0.5 truncate">
-                {product.description}
-              </p>
+
+              {/* Toggle */}
+              <ToggleSwitch
+                active={product.active}
+                onToggle={() => toggleProduct(product.id)}
+              />
             </div>
-
-            {/* Toggle */}
-            <ToggleSwitch
-              active={product.active}
-              onToggle={() => toggleProduct(product.id)}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* ── Footer CTA ── */}
-      <div className="px-4 py-4 border-t border-gray-lightest/60">
-        <button className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark active:scale-[0.98]">
-          Save Look
-        </button>
+          ))
+        )}
       </div>
     </div>
   );
