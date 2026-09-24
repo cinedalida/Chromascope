@@ -71,6 +71,26 @@ export function UserManualPage() {
             </article>
           ))}
         </div>
+
+        <div className="mt-12 flex flex-wrap items-center gap-4 border-t border-gray-lighter pt-6">
+          <span className="text-sm font-medium text-gray">Legal:</span>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            Terms of Service
+          </a>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            Privacy Policy
+          </a>
+        </div>
       </div>
 
       <SplashFooter />
