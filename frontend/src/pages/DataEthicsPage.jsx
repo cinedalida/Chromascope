@@ -50,7 +50,7 @@ export function DataEthicsPage() {
 
       <SplashNavbar />
 
-      <div className="mx-auto max-w-5xl px-6 py-32 relative z-10">
+      <div className="mx-auto max-w-5xl px-6 py-16 sm:py-24 lg:py-32 relative z-10">
         <motion.div
           initial="hidden"
           animate="visible"

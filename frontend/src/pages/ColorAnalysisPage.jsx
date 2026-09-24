@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Lock,
   Loader2,
-  ShieldCheck,
   Dna,
   Target
 } from "lucide-react";
@@ -133,20 +132,6 @@ export function ColorAnalysisPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#FAF9FF] via-[#F6F0FF] to-[#FAF9FF] font-body text-black pb-12">
-      <div className="bg-white/60 backdrop-blur-md border-b border-[#7700CF]/10 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-[#7700CF]">
-            <Dna size={24} className="animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-[0.2em]">
-              Chromascope Diagnostics
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#111827] bg-white px-4 py-2 rounded-full shadow-sm">
-            <ShieldCheck size={16} className="text-green-500" />
-            Secure Upload
-          </div>
-        </div>
-      </div>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 space-y-8">
         
@@ -223,7 +208,7 @@ export function ColorAnalysisPage() {
             </div>
 
             {!isWebcamActive && (
-              <button 
+              <button
                 onClick={startWebcam}
                 className="w-full py-4 border-2 border-[#7700CF]/20 bg-white/50 backdrop-blur-sm text-[#7700CF] rounded-full font-bold flex items-center justify-center gap-2 hover:bg-[#7700CF] hover:text-white hover:border-[#7700CF] transition-all duration-300 shadow-sm"
               >
@@ -231,6 +216,15 @@ export function ColorAnalysisPage() {
                 Activate Webcam
               </button>
             )}
+
+            <button
+              onClick={() => navigate("/color-analysis/processing", { state: { image: uploadedImage } })}
+              disabled={!uploadedImage}
+              className="w-full py-5 bg-gradient-to-r from-[#7700CF] to-[#5C00A3] text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-lg flex justify-center items-center gap-2"
+            >
+              <Dna size={20} />
+              Run Analysis
+            </button>
 
             <div className="bg-white/60 backdrop-blur-xl p-8 rounded-[32px] space-y-6 border border-white shadow-sm">
               <h3 className="font-heading font-bold text-xl text-[#111827]">Lighting Protocol</h3>
@@ -240,15 +234,6 @@ export function ColorAnalysisPage() {
                 <ChecklistItem icon={<Focus size={18} />} text="Ensure face is centered and in focus" />
               </div>
             </div>
-
-            <button 
-              onClick={() => navigate("/color-analysis/processing", { state: { image: uploadedImage } })}
-              disabled={!uploadedImage}
-              className="w-full py-5 bg-gradient-to-r from-[#7700CF] to-[#5C00A3] text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-lg flex justify-center items-center gap-2"
-            >
-              <Dna size={20} />
-              Run AI Analysis
-            </button>
           </div>
 
           <div className={`col-span-1 lg:col-span-7 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>

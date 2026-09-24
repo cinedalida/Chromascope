@@ -71,12 +71,28 @@ const tryOnSlides = [
 export function SplashPage() {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
+  // Try-on carousel slide width, as a % of the full-bleed viewport. Bigger on
+  // mobile (one prominent image) than desktop (which peeks at neighbors) —
+  // kept in JS since the translateX animation below has to match it exactly.
+  const [slideWidth, setSlideWidth] = useState(85);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveSlide((i) => (i + 1) % tryOnSlides.length);
     }, 4000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    function updateSlideWidth() {
+      const w = window.innerWidth;
+      if (w >= 1024) setSlideWidth(55);
+      else if (w >= 640) setSlideWidth(65);
+      else setSlideWidth(85);
+    }
+    updateSlideWidth();
+    window.addEventListener("resize", updateSlideWidth);
+    return () => window.removeEventListener("resize", updateSlideWidth);
   }, []);
 
   return (
@@ -103,7 +119,7 @@ export function SplashPage() {
             >
               <motion.h1
                 variants={fadeUp}
-                className="font-heading text-6xl font-black leading-none tracking-tight sm:text-7xl lg:text-8xl"
+                className="font-heading text-4xl font-black leading-none tracking-tight sm:text-6xl lg:text-8xl"
               >
                 <motion.span
                   className="bg-clip-text text-transparent [background-size:200%_100%]"
@@ -292,11 +308,15 @@ export function SplashPage() {
             >
               <motion.div
                 className="flex"
-                animate={{ x: `${-activeSlide * 55 + 22.5}%` }}
+                animate={{ x: `${-activeSlide * slideWidth + (100 - slideWidth) / 2}%` }}
                 transition={{ duration: 0.7, ease: "easeInOut" }}
               >
                 {tryOnSlides.map((slide, i) => (
-                  <div key={slide.image} className="w-[55%] shrink-0 px-3">
+                  <div
+                    key={slide.image}
+                    className="shrink-0 px-3"
+                    style={{ width: `${slideWidth}%` }}
+                  >
                     <div
                       className={`overflow-hidden rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] transition-all duration-500 ${
                         i === activeSlide

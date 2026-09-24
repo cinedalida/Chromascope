@@ -181,7 +181,7 @@ export function PaletteGuideProductPage() {
                 className={`bg-white rounded-2xl border border-gray-lightest shadow-card relative overflow-hidden group transition-all duration-300 ${
                   viewMode === "grid"
                     ? "flex flex-col items-center text-center p-6 space-y-4"
-                    : "flex flex-row items-center text-left p-5 gap-6"
+                    : "flex flex-col sm:flex-row items-start sm:items-center text-left p-5 gap-4 sm:gap-6"
                 }`}
               >
                 {/* Circle Swatch */}
@@ -223,7 +223,7 @@ export function PaletteGuideProductPage() {
                     </div>
                   </div>
 
-                  <div className={`${viewMode === "grid" ? "w-full pt-4 border-t border-gray-lightest flex justify-between items-center" : "flex items-center gap-6"}`}>
+                  <div className={`${viewMode === "grid" ? "w-full pt-4 border-t border-gray-lightest flex justify-between items-center" : "flex flex-wrap items-center gap-4 sm:gap-6"}`}>
                     <div className={viewMode === "grid" ? "text-left" : "text-right"}>
                       <p className="text-[8px] font-bold text-gray-lighter uppercase tracking-widest">
                         Delta-E
@@ -248,7 +248,7 @@ export function PaletteGuideProductPage() {
                     </span>
                     
                     {viewMode === "list" && (
-                      <div className="w-32 ml-4">
+                      <div className="w-full sm:w-32 mt-2 sm:mt-0 sm:ml-4">
                         <TryOnButton />
                       </div>
                     )}
