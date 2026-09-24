@@ -1,25 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowLeft, Check, Sparkles, Shield, Server, Trash2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2 } from "lucide-react";
 
 const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne-prone"];
 const SKIN_CONCERNS = ["Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", "Metal allergy", "Melasma", "PIH / Dark spots"];
-const AVOID_INGREDIENTS = ["Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", "Phthalates", "Metallic Pigments", "MI / MIT", "PPD"];
+const AVOID_INGREDIENTS = ["Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", "Phthalates", "Metallic Pigments", "MI / MIT (Preservative)", "PPD (Hair Dye Chemical)"];
 
 const dataCards = [
   {
     title: "Encrypted Storage",
-    description: "AES-256 bank-level encryption standards for all visual data.",
+    description: "Your photos and color results are locked with strong encryption, so only Chromascope can read them.",
     icon: <Shield size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
   },
   {
     title: "Secure Processing",
-    description: "On-device neural analysis ensures data never leaves your control unnecessarily.",
+    description: "Your photo is analyzed right on your device, so it isn't sent anywhere else unless it has to be.",
     icon: <Server size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
   },
   {
     title: "Automatic Disposal",
-    description: "All biometric markers are purged after 30 days of user inactivity.",
+    description: "If you don't use Chromascope for 30 days, we permanently delete your photos and face data.",
     icon: <Trash2 size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
   },
 ];
@@ -28,14 +28,14 @@ export function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Form State
-  const [skinType, setSkinType] = useState("Normal");
+  const [skinType, setSkinType] = useState("");
   const [concerns, setConcerns] = useState([]);
   const [avoidIngredients, setAvoidIngredients] = useState([]);
   
   // Ethics State (Step 4)
-  const [shareWithScience, setShareWithScience] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const toggleSelection = (item, list, setList) => {
@@ -49,7 +49,10 @@ export function OnboardingPage() {
   const handleNext = async () => {
     if (step < 4) {
       setStep(step + 1);
+    } else if (!showConfirmModal) {
+      setShowConfirmModal(true);
     } else {
+      setShowConfirmModal(false);
       setIsSubmitting(true);
       try {
         const payload = {
@@ -59,7 +62,6 @@ export function OnboardingPage() {
             blacklisted_ingredients: avoidIngredients
           },
           ethics_consent: {
-            share_with_science: shareWithScience,
             agreed_to_terms: agreedToTerms
           },
           completed_at: new Date().toISOString()
@@ -102,18 +104,11 @@ export function OnboardingPage() {
         
         {/* Progress Header */}
         <div className="mb-8">
-          <div className="mb-3 flex items-end justify-between">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#7700CF]">Step {step} of 4</span>
-              <h2 className="mt-1 font-heading text-2xl font-bold text-[#111827]">
-                {stepTitles[step]}
-              </h2>
-            </div>
-            {step === 4 ? (
-               <Shield className="text-[#9D4EDD]" size={24} strokeWidth={1.5} />
-            ) : (
-               <Sparkles className="text-[#9D4EDD]" size={24} strokeWidth={1.5} />
-            )}
+          <div className="mb-3">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#7700CF]">Step {step} of 4</span>
+            <h2 className="mt-1 font-heading text-2xl font-bold text-[#111827]">
+              {stepTitles[step]}
+            </h2>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-[#E5D5F5]/80">
             <div 
@@ -232,30 +227,6 @@ export function OnboardingPage() {
                   ))}
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-5 border border-[#E5D5F5] shadow-sm mb-6">
-                  <div className="space-y-1 mb-4 sm:mb-0 pr-4">
-                    <h3 className="text-sm font-semibold text-[#111827]">
-                      Contribute to Science (Optional)
-                    </h3>
-                    <p className="text-xs leading-relaxed text-[#6B7280]">
-                      Allow my anonymized photos to be used for improving our skin-tone AI accuracy.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShareWithScience((current) => !current)}
-                    className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                      shareWithScience ? "bg-[#7700CF]" : "bg-gray-200"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-1 ml-1 ${
-                        shareWithScience ? "translate-x-7" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
                 <div className="bg-[#FAEDFF]/40 rounded-2xl p-5 border border-[#E5D5F5]">
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <div className="relative flex items-center mt-0.5">
@@ -277,9 +248,9 @@ export function OnboardingPage() {
                     </div>
                     <span className="text-sm leading-relaxed text-[#4B5563] group-hover:text-[#374151] transition-colors">
                       I agree to the{" "}
-                      <a href="#tos" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Terms of Service</a>
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Terms of Service</a>
                       {" "}and{" "}
-                      <a href="#privacy" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Privacy Policy</a>.
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Privacy Policy</a>.
                     </span>
                   </label>
                 </div>
@@ -297,20 +268,61 @@ export function OnboardingPage() {
             >
               <ArrowLeft size={18} /> Back
             </button>
-            
-            <button
-              onClick={handleNext}
-              disabled={(step === 1 && !skinType) || (step === 4 && !agreedToTerms) || isSubmitting} 
-              className="flex items-center gap-2 rounded-2xl bg-[#7700CF] px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 focus:outline-none"
-            >
-              {isSubmitting ? "Saving..." : (step === 4 ? "Confirm & Complete" : "Continue")} 
-              {!isSubmitting && step !== 4 && <ArrowRight size={18} />}
-              {!isSubmitting && step === 4 && <Check size={18} />}
-            </button>
+
+            <div className="flex items-center gap-4">
+              {(step === 2 || step === 3) && (
+                <button
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                  className="px-2 py-2 font-medium text-[#6B7280] transition-colors hover:text-[#111827] focus:outline-none"
+                >
+                  Skip for now
+                </button>
+              )}
+              <button
+                onClick={handleNext}
+                disabled={(step === 1 && !skinType) || (step === 2 && concerns.length === 0) || (step === 3 && avoidIngredients.length === 0) || (step === 4 && !agreedToTerms) || isSubmitting}
+                className="flex items-center gap-2 rounded-2xl bg-[#7700CF] px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 focus:outline-none"
+              >
+                {isSubmitting ? "Saving..." : (step === 4 ? "Confirm & Complete" : "Continue")}
+                {!isSubmitting && step !== 4 && <ArrowRight size={18} />}
+                {!isSubmitting && step === 4 && <Check size={18} />}
+              </button>
+            </div>
           </div>
 
         </div>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 rounded-3xl bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#F3E8FF]">
+              <Check size={28} className="text-[#7700CF]" />
+            </div>
+            <h3 className="mb-2 font-heading text-lg font-bold text-[#111827]">Complete your profile?</h3>
+            <p className="mb-6 text-[14px] leading-relaxed text-[#4B5563]">
+              You're about to save your skin profile and finish setup. You can always update these preferences later from your profile.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="w-full rounded-2xl border border-gray-200 py-3 font-medium text-[#4B5563] transition-colors hover:bg-gray-50 focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className="w-full rounded-2xl bg-[#7700CF] py-3 font-medium text-white transition-colors hover:bg-[#5C00A3] focus:outline-none"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
