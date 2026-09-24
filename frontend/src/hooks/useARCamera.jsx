@@ -8,13 +8,15 @@
  */
 import { useState, useEffect, useRef } from "react";
 
-export function useARCamera() {
+export function useARCamera(enabled = true) {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
   const [isMock, setIsMock] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
+    if (!enabled) return;
+
     let stream = null;
     let isMounted = true;
 
@@ -63,7 +65,7 @@ export function useARCamera() {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [enabled]);
 
   const enableMockCamera = () => {
     setError(null);

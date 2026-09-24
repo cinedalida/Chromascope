@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../firebase"; 
 import { 
@@ -27,6 +27,8 @@ export function AuthPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [authAction, setAuthAction] = useState(null); // "login" | "register" | "google"
+  const [authError, setAuthError] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,6 +73,8 @@ export function AuthPage() {
 
     setIsLoading(true);
     setErrors({});
+    setAuthError(null);
+    setAuthAction(isLogin ? "login" : "register");
 
     try {
       if (isLogin) {
@@ -80,11 +84,11 @@ export function AuthPage() {
       } else {
         // Teammate's Register Logic
         const userCredential = await createUserWithEmailAndPassword(
-          auth, 
-          formData.email, 
+          auth,
+          formData.email,
           formData.password
         );
-        
+
         await setDoc(doc(db, "users", userCredential.user.uid), {
           display_name: formData.name.trim(),
           email: formData.email,
@@ -96,18 +100,16 @@ export function AuthPage() {
         });
 
         // Routing to onboarding as you originally intended
-        navigate("/onboarding"); 
+        navigate("/onboarding");
       }
     } catch (error) {
-      const newErrors = {};
       if (error.code === "auth/email-already-in-use") {
-        newErrors.email = "Email already registered.";
+        setAuthError("Email already registered.");
       } else if (error.code === "auth/invalid-credential" || error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
-        newErrors.email = "Invalid email or password.";
+        setAuthError("Invalid email or password.");
       } else {
-        newErrors.email = "Authentication failed. Try again.";
+        setAuthError("Authentication failed. Try again.");
       }
-      setErrors(newErrors);
     } finally {
       setIsLoading(false);
     }
@@ -115,6 +117,8 @@ export function AuthPage() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setAuthError(null);
+    setAuthAction("google");
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
@@ -126,10 +130,13 @@ export function AuthPage() {
       navigate("/home");
     } catch (error) {
       console.error("Google Sign-In Error:", error);
+      setAuthError("Google sign-in failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const dismissAuthError = () => setAuthError(null);
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
@@ -141,6 +148,54 @@ export function AuthPage() {
 
   return (
     <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-[#FAF4FF] p-0 font-body [-webkit-tap-highlight-color:transparent]">
+      <AnimatePresence>
+        {(isLoading || authError) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl"
+            >
+              {authError ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50">
+                    <AlertCircle size={28} className="text-rose-500" />
+                  </div>
+                  <p className="mb-6 text-[15px] font-medium text-[#1F2937]">{authError}</p>
+                  <button
+                    type="button"
+                    onClick={dismissAuthError}
+                    className="w-full rounded-2xl bg-[#7700CF] py-3 font-medium text-white transition-colors hover:bg-[#5C00A3] focus:outline-none"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#F3E8FF]">
+                    <Loader2 size={28} className="animate-spin text-[#7700CF]" />
+                  </div>
+                  <p className="text-[15px] font-medium text-[#1F2937]">
+                    {authAction === "google"
+                      ? "Signing in with Google…"
+                      : authAction === "register"
+                      ? "Creating your account…"
+                      : "Confirming your login…"}
+                  </p>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Left Side - Soft Beauty Brand Visual */}
       <div
         className="relative hidden overflow-hidden lg:flex lg:flex-1"
@@ -328,8 +383,8 @@ export function AuthPage() {
                   disabled={isLoading}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7700CF] py-4 font-medium text-[15px] text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] hover:shadow-purple-600/30 active:scale-[0.98] disabled:opacity-70 focus:outline-none"
                 >
-                  {isLoading ? "Processing..." : (isLogin ? "Log in" : "Create Account")}
-                  {!isLoading && <ArrowRight size={18} />}
+                  {isLogin ? "Log in" : "Create Account"}
+                  <ArrowRight size={18} />
                 </button>
               </form>
 

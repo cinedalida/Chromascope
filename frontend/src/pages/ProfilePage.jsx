@@ -5,8 +5,8 @@ import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
-  ShieldCheck, Dna, Palette, Target, Lock,
-  AlertCircle, Edit2, X, Check, CheckCircle2, XCircle, RefreshCw
+  Dna, Palette, Target, Lock,
+  AlertCircle, Edit2, X, Check, RefreshCw
 } from "lucide-react";
 
 const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne Prone"];
@@ -78,7 +78,6 @@ export function ProfilePage() {
   const [selectedSkinType, setSelectedSkinType] = useState("Normal");
   const [selectedConcerns, setSelectedConcerns] = useState([]);
   const [selectedAvoidIngredients, setSelectedAvoidIngredients] = useState([]);
-  const [aiConsent, setAiConsent] = useState(false);
   
   // Color Analysis Data State
   const [seasonalLabel, setSeasonalLabel] = useState(null);
@@ -103,7 +102,6 @@ export function ProfilePage() {
         setSelectedSkinType(data.skin_type || "Normal");
         setSelectedConcerns(data.concerns || []);
         setSelectedAvoidIngredients(data.avoid_ingredients || []);
-        setAiConsent(data.ai_model_consent || false);
 
         // Map Analysis Results directly from DB
         setSeasonalLabel(data.seasonal_label || null);
@@ -152,7 +150,6 @@ export function ProfilePage() {
         skin_type: selectedSkinType,
         concerns: selectedConcerns,
         avoid_ingredients: selectedAvoidIngredients,
-        ai_model_consent: aiConsent,
         updated_at: new Date().toISOString()
       };
 
@@ -198,7 +195,7 @@ export function ProfilePage() {
                   onClick={() => setIsEditing(true)}
                   className="flex items-center gap-2 text-sm font-bold text-[#7700CF] bg-[#F5EAF9] px-4 py-2 rounded-full hover:bg-[#EADFEE] transition-colors"
                 >
-                  <Edit2 size={16} /> Edit Data
+                  <Edit2 size={16} /> Edit
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
@@ -357,47 +354,6 @@ export function ProfilePage() {
                   )}
                 </div>
               )}
-            </section>
-
-            {/* Data Privacy */}
-            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck size={20} className="text-green-600" />
-                <h3 className="font-heading text-lg font-bold text-[#1F1924]">Data Privacy & Ethics</h3>
-              </div>
-              
-              <div className="flex items-start justify-between gap-4 mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div>
-                  <h4 className="font-bold text-sm text-[#111827]">Contribute to Science</h4>
-                  <p className="text-xs text-gray-500 mt-1 max-w-md">
-                    Allow Chromascope to use your completely anonymized portrait data to train and improve our skin-tone AI model engine.
-                  </p>
-                </div>
-                
-                {isEditing ? (
-                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={aiConsent}
-                      onChange={(e) => setAiConsent(e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7700CF]"></div>
-                  </label>
-                ) : (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    {aiConsent ? (
-                      <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full">
-                        <CheckCircle2 size={14} /> Consented
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-200 px-3 py-1.5 rounded-full">
-                        <XCircle size={14} /> Opted Out
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
             </section>
 
           </div>

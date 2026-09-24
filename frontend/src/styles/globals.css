@@ -21,6 +21,52 @@
 @import "./variables.css";
 @import "tailwindcss";
 
+/* Tailwind v4 only fully registers a color/shadow/radius token (opacity
+   modifiers like `primary-light/10`, brand-new shadow keys like `shadow-card`,
+   and overriding built-in keys like `shadow-sm`) when it's declared here, in
+   an `@theme` block. Colors/shadows/radii added only via tailwind.config.js's
+   `theme.extend` (kept below for the simple lookups that already work off it)
+   silently fail to generate those utilities — that's why e.g. `border-primary-light/10`
+   and `shadow-card` were rendering as if unstyled everywhere they were used.
+   Values mirror tailwind.config.js and variables.css; keep all three in sync. */
+@theme {
+  --color-primary: #7700cf;
+  --color-primary-dark: #5500a0;
+  --color-primary-darker: #3d007a;
+  --color-primary-light: #f4e5ff;
+  --color-primary-lightest: #faf4ff;
+
+  --color-secondary: #ba6cf4;
+  --color-secondary-dark: #9b4dd4;
+  --color-secondary-light: #faf4ff;
+
+  --color-black: #121212;
+  --color-white: #ffffff;
+
+  --color-gray: #575654;
+  --color-gray-light: #8a8a88;
+  --color-gray-lighter: #d1d1cf;
+  --color-gray-lightest: #f5f5f4;
+
+  --color-success: #1d9e75;
+  --color-warning: #ba7517;
+  --color-danger: #a32d2d;
+  --color-info: #185fa5;
+
+  --shadow-sm: 0 1px 3px rgba(119, 0, 207, 0.08);
+  --shadow-md: 0 4px 16px rgba(119, 0, 207, 0.12);
+  --shadow-lg: 0 8px 32px rgba(119, 0, 207, 0.18);
+  --shadow-xl: 0 16px 48px rgba(119, 0, 207, 0.22);
+  --shadow-card: 0 2px 12px rgba(18, 18, 18, 0.08);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+}
+
 @layer base {
   /* ── Global button reset — remove native browser border/outline ── */
   button {

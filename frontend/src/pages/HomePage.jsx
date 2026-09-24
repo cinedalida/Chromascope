@@ -239,7 +239,49 @@ export function HomePage() {
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl bg-white">
+              {/* Mobile: stacked cards, no horizontal scroll */}
+              <div className="sm:hidden divide-y divide-primary/5">
+                {dynamicSessions.map((session) => (
+                  <div
+                    key={session.type}
+                    className="flex items-center justify-between gap-3 py-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2 text-sm text-black">
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 6v6l4 2" />
+                          <circle cx="12" cy="12" r="9" />
+                        </svg>
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{session.type}</p>
+                        <p className="text-xs text-gray-light">{session.date}</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${session.badge} capitalize`}
+                      >
+                        {session.result}
+                      </span>
+                      <span className="text-xs font-semibold text-success">
+                        {session.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tablet/desktop: table */}
+              <div className="hidden sm:block overflow-x-auto rounded-xl bg-white">
                 <div className="min-w-[600px]">
                   <div className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] gap-3 px-4 py-3 text-xs uppercase tracking-[0.2em] text-gray-light">
                     <span>Session Type</span>

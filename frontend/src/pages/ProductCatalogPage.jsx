@@ -2,14 +2,14 @@ import React from "react";
 import {
   Search,
   Filter,
-  Download,
   Package,
   ShieldCheck,
   AlertTriangle,
   Sun,
   ChevronLeft,
   ChevronRight,
-  MoreVertical,
+  ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { getProductCatalog } from "../services/productService"; // Ensure this import exists
 import placeholderImg from "../assets/images/placeholder.svg";
@@ -18,9 +18,27 @@ export function ProductCatalogPage() {
   const [products, setProducts] = React.useState([]);
   const [filteredProducts, setFilteredProducts] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("All");
   const [loading, setLoading] = React.useState(true);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
+  const categoryMenuRef = React.useRef(null);
   const itemsPerPage = 10;
+
+  const categoryOptions = React.useMemo(() => {
+    const unique = new Set(products.map((p) => p.category).filter(Boolean));
+    return ["All", ...Array.from(unique).sort()];
+  }, [products]);
+
+  React.useEffect(() => {
+    function handleClickOutside(e) {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target)) {
+        setCategoryMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     async function fetchProducts() {
@@ -39,21 +57,25 @@ export function ProductCatalogPage() {
   }, []);
 
   React.useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredProducts(products);
-    } else {
+    let result = products;
+
+    if (categoryFilter !== "All") {
+      result = result.filter((p) => p.category === categoryFilter);
+    }
+
+    if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      setFilteredProducts(
-        products.filter(
-          (p) =>
-            (p.product_name && p.product_name.toLowerCase().includes(q)) ||
-            (p.brand && p.brand.toLowerCase().includes(q)) ||
-            (p.product_id && p.product_id.toLowerCase().includes(q))
-        )
+      result = result.filter(
+        (p) =>
+          (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+          (p.brand && p.brand.toLowerCase().includes(q)) ||
+          (p.product_id && p.product_id.toLowerCase().includes(q))
       );
     }
+
+    setFilteredProducts(result);
     setCurrentPage(1);
-  }, [searchQuery, products]);
+  }, [searchQuery, categoryFilter, products]);
 
   const totalInventory = products.length;
   const safeCount = products.filter(p => p.status === 'Verified' || p.status === 'Safe').length || Math.floor(totalInventory * 0.95);
@@ -94,37 +116,107 @@ export function ProductCatalogPage() {
           <StatCard title="SEASONS ANALYZED" value={`${seasonsAnalyzed} / 4`} icon={<Sun className="text-warning" />} bgColor="bg-[#FFF8E6]" />
         </div>
 
-        <section className="bg-white rounded-[32px] border border-primary-light/10 shadow-card overflow-hidden">
-          <header className="p-8 flex justify-between items-center">
+        <section className="bg-white rounded-[32px] border border-[#F0E6FA] shadow-sm overflow-hidden">
+          <header className="p-4 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <h2 className="font-heading text-2xl font-black italic">Product Catalog</h2>
-            <div className="flex gap-4 text-gray-light font-bold text-sm">
-              <button className="flex items-center gap-2 hover:text-primary"><Filter size={16} /> Filter</button>
-              <button className="flex items-center gap-2 hover:text-primary"><Download size={16} /> Export</button>
+            <div className="relative w-full sm:w-auto" ref={categoryMenuRef}>
+              <button
+                type="button"
+                onClick={() => setCategoryMenuOpen((o) => !o)}
+                className="relative w-full sm:w-auto flex items-center gap-3 rounded-full border border-primary-light bg-primary-lightest px-5 py-2.5 shadow-sm transition-all focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 active:scale-[0.99]"
+              >
+                <Filter size={16} className="text-primary shrink-0" />
+                <span className="flex-1 sm:flex-none min-w-0 text-left text-[11px] font-black uppercase tracking-widest text-primary">
+                  {categoryFilter === "All" ? "All Categories" : categoryFilter}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`text-primary shrink-0 transition-transform duration-200 ${categoryMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {categoryMenuOpen && (
+                <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:min-w-45 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-[#F0E6FA] bg-white shadow-lg">
+                  {categoryOptions.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(cat);
+                        setCategoryMenuOpen(false);
+                      }}
+                      className={`block w-full px-5 py-3 text-left text-[11px] font-black uppercase tracking-widest transition-colors ${
+                        categoryFilter === cat
+                          ? "bg-primary-light text-primary"
+                          : "text-gray-500 hover:bg-primary-lightest"
+                      }`}
+                    >
+                      {cat === "All" ? "All Categories" : cat}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </header>
 
-          <div className="overflow-x-auto w-full">
+          {/* Mobile cards — same data as the table below, stacked for narrow screens */}
+          <div className="sm:hidden divide-y divide-[#F8F4FF]">
+            {loading ? (
+              <div className="py-20 text-center">
+                <Loader2 className="animate-spin mx-auto text-[#7700CF]" />
+              </div>
+            ) : (
+              filteredProducts
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((p) => (
+                  <div key={p.product_id || p.sku} className="p-5 flex gap-4">
+                    <img
+                      src={p.image_url || placeholderImg}
+                      alt={p.product_name}
+                      className="w-14 h-14 rounded-lg object-cover shadow-sm bg-white shrink-0"
+                      onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div>
+                        <div className="font-bold text-[#1F1924] truncate uppercase tracking-tight italic">{p.product_name || p.name}</div>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{p.brand}</div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-[#1F1924] text-sm">{p.price || "N/A"}</span>
+                        <span className="bg-gray-lightest text-gray-light px-3 py-1 rounded text-[10px] font-bold uppercase">{p.category}</span>
+                        <span className="bg-[#F3E8FF] text-[#7700CF] text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                          {p.season_tags || "All Seasons"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.full_inci_list ? p.full_inci_list.split(',').slice(0, 2).map((ing, i) => (
+                          <span key={i} className="bg-gray-lightest text-black px-2 py-0.5 rounded text-[9px] border border-gray-lightest truncate max-w-[100px]">{ing.trim()}</span>
+                        )) : <span className="italic text-gray-light text-[10px]">Unspecified</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          <div className="hidden sm:block overflow-x-auto w-full">
             <table className="w-full text-left whitespace-nowrap">
               <thead>
-                <tr className="text-[10px] font-bold text-gray-lighter uppercase tracking-widest border-b">
-                  <th className="px-8 py-4">#SKU</th>
-                  <th className="px-8 py-4">Image</th>
-                  <th className="px-8 py-4">Product & Brand</th>
-                  <th className="px-8 py-4">Price</th>
-                  <th className="px-8 py-4">Category</th>
-                  <th className="px-8 py-4">Season Tags</th>
-                  <th className="px-8 py-4">INCI Ingredients</th>
-                  <th className="px-8 py-4">Status</th>
-                  <th className="px-8 py-4 text-right">Action</th>
+                <tr className="border-b border-[#F0E6FA] text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                  <th className="px-8 py-6">Image</th>
+                  <th className="px-4 py-6">Product & Brand</th>
+                  <th className="px-4 py-6">Price</th>
+                  <th className="px-4 py-6">Category</th>
+                  <th className="px-4 py-6">Season Tags</th>
+                  <th className="px-4 py-6">Ingredients</th>
                 </tr>
               </thead>
-              <tbody className="divide-y text-sm">
+              <tbody className="text-sm">
                 {loading ? (
-                  <tr><td colSpan="9" className="px-8 py-10 text-center text-gray-light">Loading...</td></tr>
+                  <tr><td colSpan="6" className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-[#7700CF]" /></td></tr>
                 ) : filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((p) => (
-                  <tr key={p.product_id || p.sku} className="hover:bg-primary-lightest/30 transition-colors group">
-                    <td className="px-8 py-6 font-bold text-gray-lighter">{p.product_id || p.sku || "#----"}</td>
-                    <td className="px-8 py-6">
+                  <tr key={p.product_id || p.sku} className="hover:bg-[#FAF9FF] transition-colors border-b last:border-none border-[#F8F4FF] group">
+                    <td className="px-8 py-5">
                       <img
                         src={p.image_url || placeholderImg}
                         alt={p.product_name}
@@ -132,33 +224,25 @@ export function ProductCatalogPage() {
                         onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
                       />
                     </td>
-                    <td className="px-8 py-6">
-                      <div className="font-bold text-black">{p.product_name || p.name}</div>
-                      <div className="text-xs text-primary font-medium">{p.brand}</div>
+                    <td className="px-4 py-5">
+                      <div className="font-bold text-[#1F1924] truncate max-w-[180px] uppercase tracking-tight italic">{p.product_name || p.name}</div>
+                      <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{p.brand}</div>
                     </td>
-                    <td className="px-8 py-6 font-bold text-black">{p.price || "N/A"}</td>
-                    <td className="px-8 py-6">
+                    <td className="px-4 py-5 font-bold text-[#1F1924]">{p.price || "N/A"}</td>
+                    <td className="px-4 py-5">
                       <span className="bg-gray-lightest text-gray-light px-3 py-1 rounded text-[10px] font-bold uppercase">{p.category}</span>
                     </td>
-                    <td className="px-8 py-6">
-                      <span className="bg-[#E0F2FE] text-[#0369A1] px-2 py-0.5 rounded text-[9px] font-black uppercase">
+                    <td className="px-4 py-5">
+                      <span className="bg-[#F3E8FF] text-[#7700CF] text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter">
                         {p.season_tags || "All Seasons"}
                       </span>
                     </td>
-                    <td className="px-8 py-6 max-w-[200px]">
+                    <td className="px-4 py-5 max-w-[200px]">
                       <div className="flex flex-wrap gap-1.5">
                         {p.full_inci_list ? p.full_inci_list.split(',').slice(0, 2).map((ing, i) => (
-                          <span key={i} className="bg-gray-lightest text-black px-2 py-0.5 rounded text-[9px] border truncate max-w-[100px]">{ing.trim()}</span>
+                          <span key={i} className="bg-gray-lightest text-black px-2 py-0.5 rounded text-[9px] border border-gray-lightest truncate max-w-[100px]">{ing.trim()}</span>
                         )) : <span className="italic text-gray-light text-[10px]">Unspecified</span>}
                       </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase bg-[#E8F5F1] text-success">
-                        <div className="w-1.5 h-1.5 rounded-full bg-success" /> Active
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <button className="text-gray-lighter hover:text-primary"><MoreVertical size={18} /></button>
                     </td>
                   </tr>
                 ))}
@@ -166,8 +250,8 @@ export function ProductCatalogPage() {
             </table>
           </div>
 
-          <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-6 border-t border-primary-light/10">
-            <div className="text-xs font-bold text-gray-light">
+          <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-6 bg-[#FCFAFF] border-t border-[#F0E6FA]">
+            <div className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
               {filteredProducts.length === 0
                 ? "No products"
                 : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, filteredProducts.length)} of ${filteredProducts.length}`}
@@ -216,7 +300,7 @@ function PaginationBtn({ label, icon, active, onClick, disabled }) {
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all text-xs font-bold ${active ? "bg-primary text-white" : "text-gray-lighter hover:bg-gray-lightest"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all text-xs font-bold ${active ? "bg-[#25004D] text-white shadow-lg" : "text-gray-300 hover:text-[#7700CF] hover:bg-[#FAF9FF]"} ${disabled ? "opacity-20 cursor-not-allowed" : ""}`}
     >
       {label || icon}
     </button>
