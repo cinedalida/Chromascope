@@ -162,3 +162,6 @@ Thumbs.db
 
 # Ignore weights
 *.pth
+
+# Ignore rules
+CLAUDE.md
