@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import chroNavLogo from "../../assets/logos/chro-nav-logo.png";
+import chroLogoViolet from "../../assets/logos/chro-logo-violet.png";
 
 const sidebarItems = [
   { label: "Home", icon: "home", path: "/home" },
@@ -161,15 +163,19 @@ export function Sidebar({ collapsed = false, onToggle }) {
             collapsed ? "justify-center h-16" : "gap-3 h-16"
           }`}
         >
-          <img
-            src="/src/assets/logos/chro-logo-violet.png"
-            alt="Chromascope logo"
-            className="h-8 w-8 flex-shrink-0 rounded-full"
-          />
-          {!collapsed && (
-            <span className="text-base font-heading font-black text-primary tracking-tight">
-              Chromascope
-            </span>
+          {/* Full lockup when expanded; butterfly-only icon when collapsed (the lockup won't fit in 72px). */}
+          {collapsed ? (
+            <img
+              src={chroLogoViolet}
+              alt="Chromascope logo"
+              className="h-8 w-8 flex-shrink-0 object-contain"
+            />
+          ) : (
+            <img
+              src={chroNavLogo}
+              alt="Chromascope logo"
+              className="h-9 w-auto flex-shrink-0"
+            />
           )}
         </div>
 
@@ -191,7 +197,7 @@ export function Sidebar({ collapsed = false, onToggle }) {
                   isActive
                     ? "bg-primary/10 text-primary"
                     : isHovered
-                      ? "translate-x-0.5 bg-primary-light text-primary"
+                      ? "translate-x-0.5 bg-primary-lighter text-primary"
                       : "bg-transparent text-gray"
                 } ${collapsed ? "justify-center px-0" : ""}`}
                 title={collapsed ? item.label : undefined}
@@ -213,7 +219,7 @@ export function Sidebar({ collapsed = false, onToggle }) {
             onMouseEnter={() => setCollapseHovered(true)}
             onMouseLeave={() => setCollapseHovered(false)}
             className={`flex w-full items-center gap-2 rounded-lg border-0 px-3 py-2 text-sm font-medium transition outline-none focus:ring-0 ${
-              collapseHovered ? "bg-primary-light text-primary" : "text-gray"
+              collapseHovered ? "bg-primary-lighter text-primary" : "text-gray"
             } ${collapsed ? "justify-center px-0" : ""}`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
