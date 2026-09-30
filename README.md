@@ -1,4 +1,8 @@
-# Chromascope
+<p align="center">
+  <img src="frontend/src/assets/images/chro-banner.png" alt="Chromascope — unlock the biological data beneath your surface." width="100%" />
+</p>
+
+# chromascope
 
 ### **AI-Powered Personal Beauty & Safety Companion**
 
