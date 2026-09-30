@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { auth, db } from "../firebase"; 
 import { 
   signInWithEmailAndPassword,
@@ -10,8 +10,12 @@ import {
   GoogleAuthProvider 
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import splashFrame1 from "../assets/splash-animation/splash-animation-1.jpg";
+import chroText from "../assets/logos/chro-text.svg";
+import chroNavLogo from "../assets/logos/chro-nav-logo.png";
 
 export function AuthPage() {
+  const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,7 +151,7 @@ export function AuthPage() {
   };
 
   return (
-    <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-[#FAF4FF] p-0 font-body [-webkit-tap-highlight-color:transparent]">
+    <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-primary-lightest p-0 font-body [-webkit-tap-highlight-color:transparent]">
       <AnimatePresence>
         {(isLoading || authError) && (
           <motion.div
@@ -172,15 +176,15 @@ export function AuthPage() {
                   <button
                     type="button"
                     onClick={dismissAuthError}
-                    className="w-full rounded-2xl bg-[#7700CF] py-3 font-medium text-white transition-colors hover:bg-[#5C00A3] focus:outline-none"
+                    className="w-full rounded-2xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-dark focus:outline-none"
                   >
                     Try again
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#F3E8FF]">
-                    <Loader2 size={28} className="animate-spin text-[#7700CF]" />
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-lighter">
+                    <Loader2 size={28} className="animate-spin text-primary" />
                   </div>
                   <p className="text-[15px] font-medium text-[#1F2937]">
                     {authAction === "google"
@@ -199,11 +203,22 @@ export function AuthPage() {
       {/* Left Side - Soft Beauty Brand Visual */}
       <div
         className="relative hidden overflow-hidden lg:flex lg:flex-1"
-        style={{ background: "linear-gradient(135deg, #5A009D 0%, #9D4EDD 100%)" }}
+        style={{
+          background:
+            "linear-gradient(135deg, var(--color-primary-darker) 0%, var(--color-primary) 55%, var(--color-secondary) 100%)",
+        }}
       >
-        <div className="absolute inset-0 flex items-end justify-center">
-          <img src="/src/assets/logos/chro-glass-white.png" alt="Chromascope Logo" className="h-auto w-[85%] object-contain opacity-20 mix-blend-overlay" />
-        </div>
+        {/* Butterfly texture multiplied into the gradient, with a light scrim; the brand band below carries the contrast for the copy. */}
+        <img
+          src={splashFrame1}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50 mix-blend-multiply"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent to-primary-darker/20"
+        />
         
         <motion.div 
           animate={{ opacity: [0.15, 0.25, 0.15] }}
@@ -214,36 +229,49 @@ export function AuthPage() {
         <motion.div 
           animate={{ opacity: [0.2, 0.35, 0.2] }}
           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute -bottom-[10%] right-[10%] rounded-full bg-[#E0AAFF] blur-[100px]" 
+          className="absolute -bottom-[10%] right-[10%] rounded-full bg-primary-light blur-[100px]" 
           style={{ width: "500px", height: "500px" }} 
         />
 
-        <div className="relative z-10 flex h-full w-full flex-col px-10 py-12">
-          <div className="flex flex-1 items-center justify-center">
-            <div className="flex max-w-lg flex-col items-center space-y-6">
-              <img src="/src/assets/logos/chro-round-icon.png" alt="Chromascope Icon" className="h-24 w-24 opacity-95 drop-shadow-2xl" />
-              <h2 className="text-center font-heading text-5xl font-bold tracking-tight text-white drop-shadow-sm">Chromascope</h2>
-              <p className="text-center text-lg leading-relaxed text-white/90">Experience clinical-grade skin analysis powered by advanced color science and personalized AI-driven beauty insights.</p>
-            </div>
-          </div>
+        {/* Brand band across the bottom: white wordmark left, tagline right. Slides up on load. */}
+        <div className="relative z-10 flex h-full w-full flex-col justify-end">
+          <motion.div
+            initial={prefersReducedMotion ? false : { y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+            className="flex items-center gap-8 bg-primary-darker/90 px-10 py-10 backdrop-blur-sm"
+          >
+            <h2 className="w-56 shrink-0">
+              <img
+                src={chroText}
+                alt="Chromascope"
+                className="block h-auto w-full [filter:brightness(0)_invert(1)]"
+              />
+            </h2>
+            <p className="max-w-[22rem] text-left text-lg leading-relaxed text-white">
+              Experience clinical-grade skin analysis powered by advanced color science and personalized AI-driven beauty insights.
+            </p>
+          </motion.div>
         </div>
       </div>
 
       {/* Right Side - Form */}
-      <div className="relative flex flex-1 flex-col overflow-y-auto bg-white">
-        
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#E5D5F5]/60 blur-[100px] pointer-events-none" />
+      {/* Outer layer clips the off-edge blur blobs (no horizontal scroll); the inner layer scrolls
+          vertically only when the form is taller than the screen, with the scrollbar hidden. */}
+      <div className="relative flex-1 overflow-hidden bg-white">
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
 
-        <div className="relative z-10 flex items-center gap-2 px-6 pb-2 pt-8 font-heading text-lg font-bold text-[#6800B8] lg:hidden">
-          <img src="/src/assets/logos/chro-round-icon.png" alt="Logo" className="h-6 w-6" style={{ filter: "invert(17%) sepia(90%) saturate(4529%) hue-rotate(272deg) brightness(81%) contrast(115%)" }} />
-          Chromascope
+        <div className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+
+        <div className="relative z-10 flex items-center px-6 pb-2 pt-8 lg:hidden">
+          <img src={chroNavLogo} alt="Chromascope" className="h-9 w-auto" />
         </div>
 
         <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:p-12">
           <div className="mx-auto w-full max-w-[440px]">
             <header className="mb-8 text-center">
-              <h2 className="font-heading text-3xl font-bold text-[#111827]">
+              <h2 className="font-heading text-3xl font-semibold text-[#111827]">
                 {isLogin ? "Welcome Back" : "Join Chromascope"}
               </h2>
               <p className="mt-2 text-[15px] text-[#4B5563]">
@@ -253,7 +281,7 @@ export function AuthPage() {
 
             <motion.div
               layout
-              className="rounded-[24px] border border-[#E5D5F5] bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8 lg:p-10"
+              className="rounded-[24px] border border-secondary-light bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8 lg:p-10"
             >
               <form onSubmit={handleSubmit} noValidate>
                 <AnimatePresence initial={false}>
@@ -277,7 +305,7 @@ export function AuthPage() {
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
-                            className={`w-full rounded-2xl border ${errors.name ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10`}
+                            className={`w-full rounded-2xl border ${errors.name ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10`}
                             placeholder="Jane Doe"
                           />
                         </div>
@@ -298,7 +326,7 @@ export function AuthPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className={`w-full rounded-2xl border ${errors.email ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10`}
+                      className={`w-full rounded-2xl border ${errors.email ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-4 text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] outline-none transition-all focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10`}
                       placeholder="name@company.com"
                     />
                   </div>
@@ -311,7 +339,7 @@ export function AuthPage() {
                     {isLogin && (
                       <button 
                         type="button" 
-                        className="font-medium text-[13px] text-[#7700CF] transition-colors hover:text-[#4A0082] focus:outline-none"
+                        className="font-medium text-[13px] text-primary transition-colors hover:text-[#4A0082] focus:outline-none"
                       >
                         Forgot password?
                       </button>
@@ -326,7 +354,7 @@ export function AuthPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`w-full rounded-2xl border ${errors.password ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-12 font-medium ${!showPassword && formData.password ? 'tracking-widest' : 'tracking-normal'} text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] placeholder:tracking-normal outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10`}
+                      className={`w-full rounded-2xl border ${errors.password ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-12 font-medium ${!showPassword && formData.password ? 'tracking-widest' : 'tracking-normal'} text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] placeholder:tracking-normal outline-none transition-all focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10`}
                       placeholder="••••••••"
                     />
                     <button
@@ -361,7 +389,7 @@ export function AuthPage() {
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            className={`w-full rounded-2xl border ${errors.confirmPassword ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-12 font-medium ${!showConfirmPassword && formData.confirmPassword ? 'tracking-widest' : 'tracking-normal'} text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] placeholder:tracking-normal outline-none transition-all focus:border-[#7700CF] focus:bg-white focus:ring-4 focus:ring-[#7700CF]/10`}
+                            className={`w-full rounded-2xl border ${errors.confirmPassword ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-gray-50/50'} py-3.5 pl-11 pr-12 font-medium ${!showConfirmPassword && formData.confirmPassword ? 'tracking-widest' : 'tracking-normal'} text-[15px] text-[#1F2937] placeholder:text-[#9CA3AF] placeholder:tracking-normal outline-none transition-all focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10`}
                             placeholder="••••••••"
                           />
                           <button
@@ -381,7 +409,7 @@ export function AuthPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7700CF] py-4 font-medium text-[15px] text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] hover:shadow-purple-600/30 active:scale-[0.98] disabled:opacity-70 focus:outline-none"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 font-medium text-[15px] text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-primary-dark hover:shadow-purple-600/30 active:scale-[0.98] disabled:opacity-70 focus:outline-none"
                 >
                   {isLogin ? "Log in" : "Create Account"}
                   <ArrowRight size={18} />
@@ -389,9 +417,9 @@ export function AuthPage() {
               </form>
 
               <div className="my-8 flex items-center gap-4">
-                <div className="h-px flex-1 bg-[#E5D5F5]" />
+                <div className="h-px flex-1 bg-secondary-light" />
                 <span className="font-semibold uppercase tracking-wide text-[12px] text-gray-400">Or</span>
-                <div className="h-px flex-1 bg-[#E5D5F5]" />
+                <div className="h-px flex-1 bg-secondary-light" />
               </div>
 
               <button
@@ -409,12 +437,13 @@ export function AuthPage() {
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button 
                 onClick={toggleAuthMode} 
-                className="font-semibold text-[#7700CF] transition-colors hover:text-[#4A0082] hover:underline focus:outline-none"
+                className="font-semibold text-primary transition-colors hover:text-[#4A0082] hover:underline focus:outline-none"
               >
                 {isLogin ? "Sign up" : "Log in"}
               </button>
             </p>
           </div>
+        </div>
         </div>
       </div>
     </main>
