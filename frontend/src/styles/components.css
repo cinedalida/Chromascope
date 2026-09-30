@@ -54,7 +54,7 @@
   .btn-outline {
     @apply bg-transparent;
     color: #7700cf;
-    border: 1px solid rgba(119, 0, 112, 207);
+    border: 1px solid #7700cf;
   }
 
   .btn-outline:hover {
@@ -107,7 +107,7 @@
   .card-glass {
     @apply backdrop-blur-md rounded-lg p-6;
     background-color: rgba(244, 229, 255, 0.55);
-    border: 1px solid rgba(119, 0, 112, 207, 0.2);
+    border: 1px solid rgba(119, 0, 207, 0.2);
   }
 
   .card-hover {
@@ -171,7 +171,7 @@
     font-family: "Google Sans Flex", sans-serif;
     @apply w-full text-base bg-white rounded-sm px-4 py-3 outline-none transition-all duration-200;
     color: #121212;
-    border: 1px solid rgba(119, 0, 112, 207, 0.15);
+    border: 1px solid rgba(119, 0, 207, 0.15);
   }
 
   .input::placeholder {
@@ -181,7 +181,7 @@
   .input:focus {
     outline: none;
     border-color: #7700cf;
-    box-shadow: 0 0 0 4px rgba(119, 0, 112, 207, 0.1);
+    box-shadow: 0 0 0 4px rgba(119, 0, 207, 0.1);
   }
 
   .input:disabled {
@@ -219,7 +219,7 @@
     @apply inline-flex items-center gap-2 text-sm font-medium px-3 py-1 rounded-full border;
     background-color: #f4e5ff;
     color: #5500a0;
-    border-color: rgba(119, 0, 112, 207, 0.15);
+    border-color: rgba(119, 0, 207, 0.15);
   }
 
   .tag-removable button {
