@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { auth, db } from "../firebase"; 
 import { 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword, 
   signInWithPopup, 
-  GoogleAuthProvider 
+  GoogleAuthProvider,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import splashFrame1 from "../assets/splash-animation/splash-animation-1.jpg";
@@ -31,8 +32,9 @@ export function AuthPage() {
   });
 
   const [errors, setErrors] = useState({});
-  const [authAction, setAuthAction] = useState(null); // "login" | "register" | "google"
+  const [authAction, setAuthAction] = useState(null); // "login" | "register" | "google" | "reset"
   const [authError, setAuthError] = useState(null);
+  const [authNotice, setAuthNotice] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -140,7 +142,44 @@ export function AuthPage() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email) {
+      setErrors({ email: "Enter your email to reset your password." });
+      return;
+    }
+    if (!emailRegex.test(formData.email)) {
+      setErrors({ email: "Please enter a valid email address." });
+      return;
+    }
+
+    setIsLoading(true);
+    setErrors({});
+    setAuthError(null);
+    setAuthNotice(null);
+    setAuthAction("reset");
+
+    try {
+      await sendPasswordResetEmail(auth, formData.email);
+      setAuthNotice("If an account exists for this email, a password reset link has been sent.");
+    } catch (error) {
+      // Don't reveal whether the account exists; only surface actionable errors.
+      if (error.code === "auth/user-not-found") {
+        setAuthNotice("If an account exists for this email, a password reset link has been sent.");
+      } else if (error.code === "auth/too-many-requests") {
+        setAuthError("Too many requests. Please wait a moment and try again.");
+      } else if (error.code === "auth/invalid-email") {
+        setAuthError("Please enter a valid email address.");
+      } else {
+        setAuthError("Couldn't send the reset email. Try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const dismissAuthError = () => setAuthError(null);
+  const dismissAuthNotice = () => setAuthNotice(null);
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
@@ -153,7 +192,7 @@ export function AuthPage() {
   return (
     <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-primary-lightest p-0 font-body [-webkit-tap-highlight-color:transparent]">
       <AnimatePresence>
-        {(isLoading || authError) && (
+        {(isLoading || authError || authNotice) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -181,6 +220,23 @@ export function AuthPage() {
                     Try again
                   </button>
                 </>
+              ) : authNotice ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
+                    <CheckCircle2 size={28} className="text-emerald-500" />
+                  </div>
+                  <p className="mb-2 text-[15px] font-medium text-[#1F2937]">{authNotice}</p>
+                  <p className="mb-6 text-[13px] text-[#6B7280]">
+                    Don't see it? Check your spam or junk folder.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={dismissAuthNotice}
+                    className="w-full rounded-2xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-dark focus:outline-none"
+                  >
+                    Back to sign in
+                  </button>
+                </>
               ) : (
                 <>
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-lighter">
@@ -191,6 +247,8 @@ export function AuthPage() {
                       ? "Signing in with Google…"
                       : authAction === "register"
                       ? "Creating your account…"
+                      : authAction === "reset"
+                      ? "Sending reset link…"
                       : "Confirming your login…"}
                   </p>
                 </>
@@ -339,6 +397,8 @@ export function AuthPage() {
                     {isLogin && (
                       <button 
                         type="button" 
+                        onClick={handleForgotPassword}
+                        disabled={isLoading}
                         className="font-medium text-[13px] text-primary transition-colors hover:text-[#4A0082] focus:outline-none"
                       >
                         Forgot password?
