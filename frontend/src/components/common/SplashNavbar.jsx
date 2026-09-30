@@ -47,7 +47,7 @@ export function SplashNavbar() {
 
   return (
     <nav
-      className={`fixed top-0 inset-x-0 z-50 bg-white/90 shadow-sm shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 transition-transform duration-300 ease-out ${
+      className={`fixed top-0 inset-x-0 z-50 bg-white/60 shadow-sm shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 transition-transform duration-300 ease-out ${
         visible ? "translate-y-0" : "-translate-y-full"
       }`}
     >
@@ -59,13 +59,10 @@ export function SplashNavbar() {
           className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200 no-underline"
         >
           <img
-            src="/src/assets/logos/chro-logo-violet.png"
+            src="/src/assets/logos/chro-nav-logo.png"
             alt="Chromascope logo"
-            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full"
+            className="h-8 w-auto shrink-0 sm:h-10"
           />
-          <span className="text-lg sm:text-xl font-heading font-black text-primary">
-            Chromascope
-          </span>
         </a>
 
         {/* Desktop Navigation Links */}

@@ -1,24 +1,124 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { ArrowRight, Play } from "lucide-react";
 import { SplashNavbar } from "../components/common/SplashNavbar.jsx";
 import { SplashFooter } from "../components/common/SplashFooter.jsx";
 import { ScrollToTopButton } from "../components/common/ScrollToTopButton.jsx";
-import marbleBg from "../assets/images/MarbleBG.png";
+import splashFrame1 from "../assets/splash-animation/splash-animation-1.jpg";
+import splashFrame2 from "../assets/splash-animation/splash-animation-2.jpg";
+import splashFrame3 from "../assets/splash-animation/splash-animation-3.jpg";
+import splashFrame4 from "../assets/splash-animation/splash-animation-4.jpg";
+import splashFrame5 from "../assets/splash-animation/splash-animation-5.jpg";
+import chroText from "../assets/logos/chro-text.svg";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
+// Hero background stills, crossfaded in a loop (last frame fades back into the first).
+const splashFrames = [
+  splashFrame1,
+  splashFrame2,
+  splashFrame3,
+  splashFrame4,
+  splashFrame5,
+];
+const SPLASH_FRAME_INTERVAL_MS = 3500;
+const SPLASH_FADE_SECONDS = 1.5;
+
+// ── Scroll reveal ──
+// Content animates in when it scrolls into view and back out when it leaves, drifting in the
+// direction it exits: up when it leaves through the top, down when it leaves through the bottom.
+// States: "below" (off-screen under the viewport), "above" (scrolled past), "visible".
+const REVEAL_EXIT = { duration: 0.35, ease: "easeIn" };
+
+const revealContainer = {
+  below: { transition: { staggerChildren: 0.05, staggerDirection: -1 } },
+  above: { transition: { staggerChildren: 0.05, staggerDirection: -1 } },
+  visible: { transition: { staggerChildren: 0.15 } },
 };
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
+const revealItem = (reduceMotion) => ({
+  below: { opacity: 0, y: reduceMotion ? 0 : 40, transition: REVEAL_EXIT },
+  above: { opacity: 0, y: reduceMotion ? 0 : -40, transition: REVEAL_EXIT },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } },
+});
+
+// Feature cards: land left-to-right, each icon popping in just after its card. The longer
+// delay only applies to the first reveal (so they arrive after the hero intro on load);
+// `custom` is how many times the grid has left the viewport.
+const featureCardGrid = {
+  below: { transition: { staggerChildren: 0.05, staggerDirection: -1 } },
+  above: { transition: { staggerChildren: 0.05, staggerDirection: -1 } },
+  visible: (timesLeft) => ({
+    transition: {
+      delayChildren: timesLeft === 0 ? 0.6 : 0.1,
+      staggerChildren: 0.15,
+    },
+  }),
+};
+
+const featureCardRise = (reduceMotion) => ({
+  below: reduceMotion
+    ? { opacity: 0, transition: REVEAL_EXIT }
+    : { opacity: 0, y: 60, scale: 0.92, transition: REVEAL_EXIT },
+  above: reduceMotion
+    ? { opacity: 0, transition: REVEAL_EXIT }
+    : { opacity: 0, y: -60, scale: 0.92, transition: REVEAL_EXIT },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.2 },
+    y: 0,
+    scale: 1,
+    transition: reduceMotion
+      ? { duration: 0.4 }
+      : { type: "spring", stiffness: 120, damping: 18 },
   },
+});
+
+const featureIconPop = (reduceMotion) => {
+  const hidden = reduceMotion
+    ? { opacity: 0, transition: REVEAL_EXIT }
+    : { opacity: 0, scale: 0.6, rotate: -8, transition: REVEAL_EXIT };
+  return {
+    below: hidden,
+    above: hidden,
+    visible: {
+      opacity: 1,
+      scale: 1,
+      rotate: 0,
+      transition: reduceMotion
+        ? { duration: 0.4 }
+        : { type: "spring", stiffness: 200, damping: 14, delay: 0.2 },
+    },
+  };
 };
+
+/* Drives the reveal states for its children. The wrapper itself never moves (only its
+   children do), so its viewport intersection stays stable mid-animation. */
+function Reveal({ variants = revealContainer, amount = 0.25, children, ...rest }) {
+  const [state, setState] = useState("below");
+  const [timesLeft, setTimesLeft] = useState(0);
+  return (
+    <motion.div
+      initial="below"
+      animate={state}
+      variants={variants}
+      custom={timesLeft}
+      viewport={{ amount }}
+      onViewportEnter={() => setState("visible")}
+      onViewportLeave={(entry) => {
+        setState(entry && entry.boundingClientRect.top < 0 ? "above" : "below");
+        setTimesLeft((n) => n + 1);
+      }}
+      {...rest}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 const heroFeatures = [
   {
@@ -75,6 +175,20 @@ export function SplashPage() {
   // mobile (one prominent image) than desktop (which peeks at neighbors) —
   // kept in JS since the translateX animation below has to match it exactly.
   const [slideWidth, setSlideWidth] = useState(85);
+  // Hero background crossfade: the incoming frame fades in on top while the
+  // previous one stays fully opaque underneath, so the background never dips.
+  const [splashFrame, setSplashFrame] = useState({ active: 0, prev: 0 });
+  const prefersReducedMotion = useReducedMotion();
+  const revealItemVariants = revealItem(prefersReducedMotion);
+  // Hero background parallax: drifts down at ~70% of scroll speed as the hero scrolls out.
+  const heroRef = useRef(null);
+  const { scrollYProgress: heroScrollProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroBgY = useTransform(heroScrollProgress, [0, 1], ["0%", "30%"]);
+  // Shade over the background that builds in as the hero scrolls out, so it reads as receding.
+  const heroShadeOpacity = useTransform(heroScrollProgress, [0, 0.6], [0, 1]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -82,6 +196,17 @@ export function SplashPage() {
     }, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const interval = setInterval(() => {
+      setSplashFrame(({ active }) => ({
+        active: (active + 1) % splashFrames.length,
+        prev: active,
+      }));
+    }, SPLASH_FRAME_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
     function updateSlideWidth() {
@@ -96,36 +221,87 @@ export function SplashPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#FAF4FF] font-body">
+    <main className="min-h-screen bg-primary-lightest font-body">
       <SplashNavbar />
 
       <div className="relative z-10">
         {/* ── Hero ── */}
-        <section id="home" className="relative isolate overflow-hidden">
-          {/* Decorative marble background, scoped to this section so it can't bleed into the next one. */}
-          <img
-            src={marbleBg}
-            alt=""
+        <section
+          id="home"
+          ref={heroRef}
+          className="relative isolate overflow-hidden"
+        >
+          {/* Decorative crossfading background, scoped to this section so it can't bleed into the next one.
+              Opacity sits on the wrapper (not each frame) so it stays constant mid-fade. */}
+          <motion.div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{ y: prefersReducedMotion ? 0 : heroBgY }}
+          >
+            {/* Entrance on page load: fades in and settles from a slight zoom. */}
+            <motion.div
+              className="absolute inset-0"
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.08 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.6, ease: "easeOut" }}
+            >
+              {splashFrames.map((src, i) => {
+                const isActive = i === splashFrame.active;
+                const isPrev = i === splashFrame.prev && !isActive;
+                return (
+                  <motion.img
+                    key={src}
+                    src={src}
+                    alt=""
+                    decoding="async"
+                    loading={i === 0 ? "eager" : "lazy"}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{ zIndex: isActive ? 2 : isPrev ? 1 : 0 }}
+                    initial={false}
+                    animate={{ opacity: isActive || isPrev ? 1 : 0 }}
+                    transition={{ duration: isActive ? SPLASH_FADE_SECONDS : 0 }}
+                  />
+                );
+              })}
+            </motion.div>
+          </motion.div>
+
+          {/* Scroll-linked depth shade: vignette plus soft top/bottom shadow, fixed to the section. */}
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              opacity: prefersReducedMotion ? 0 : heroShadeOpacity,
+              background:
+                "radial-gradient(ellipse at center, transparent 40%, rgba(18,18,18,0.18) 100%), " +
+                "linear-gradient(to bottom, rgba(18,18,18,0.12), transparent 25%, transparent 70%, rgba(18,18,18,0.15))",
+            }}
           />
 
           <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-24 text-center sm:px-8 sm:pt-32 sm:pb-44 lg:px-12 lg:pt-40 lg:pb-48">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
-              className="mx-auto flex max-w-4xl flex-col items-center"
-            >
+            <Reveal className="mx-auto flex max-w-4xl flex-col items-center">
               <motion.h1
-                variants={fadeUp}
-                className="font-heading text-4xl font-black leading-none tracking-tight sm:text-6xl lg:text-8xl"
+                variants={revealItemVariants}
+                className="relative w-60 sm:w-80 lg:w-[28rem]"
               >
+                <img
+                  src={chroText}
+                  alt="Chromascope"
+                  className="block h-auto w-full"
+                />
+                {/* Shimmer: a white highlight sweeping across, masked to the logo's letter shapes. */}
                 <motion.span
-                  className="bg-clip-text text-transparent [background-size:200%_100%]"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 [background-size:200%_100%]"
                   style={{
                     backgroundImage:
-                      "linear-gradient(90deg, #121212 0%, #121212 42%, #ffffff 50%, #121212 58%, #121212 100%)",
+                      "linear-gradient(90deg, transparent 42%, rgba(255,255,255,0.9) 50%, transparent 58%)",
+                    WebkitMaskImage: `url(${chroText})`,
+                    maskImage: `url(${chroText})`,
+                    WebkitMaskSize: "100% 100%",
+                    maskSize: "100% 100%",
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
                   }}
                   animate={{ backgroundPositionX: ["150%", "-50%"] }}
                   transition={{
@@ -133,24 +309,22 @@ export function SplashPage() {
                     repeat: Infinity,
                     ease: "linear",
                   }}
-                >
-                  Chromascope
-                </motion.span>
+                />
               </motion.h1>
               <motion.p
-                variants={fadeUp}
-                className="mt-6 max-w-2xl text-lg font-medium leading-relaxed text-gray sm:text-2xl"
+                variants={revealItemVariants}
+                className="mt-3 max-w-2xl text-lg font-medium leading-relaxed text-gray sm:text-1g"
               >
-                Unlock the biological data beneath your surface.
+                unlock the biological data beneath your surface.
               </motion.p>
-              <motion.div variants={fadeUp} className="mt-8">
+              <motion.div variants={revealItemVariants} className="mt-8">
                 <motion.button
                   onClick={() => navigate("/auth")}
                   animate={{
                     boxShadow: [
-                      "0 0 50px 6px rgba(119,0,207,0.15)",
-                      "0 0 90px 16px rgba(119,0,207,0.32)",
-                      "0 0 50px 6px rgba(119,0,207,0.15)",
+                      "0 0 50px 6px rgba(109,78,198,0.15)",
+                      "0 0 90px 16px rgba(109,78,198,0.32)",
+                      "0 0 50px 6px rgba(109,78,198,0.15)",
                     ],
                   }}
                   transition={{
@@ -171,43 +345,42 @@ export function SplashPage() {
                   <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </motion.button>
               </motion.div>
-            </motion.div>
+            </Reveal>
           </div>
         </section>
 
         {/* ── Get to know your palette ── */}
-        <motion.section
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-          className="relative bg-primary-light pb-20 pt-8 sm:pt-56 lg:pt-64"
-        >
+        <section className="relative bg-primary-lighter pb-20 pt-8 sm:pt-56 lg:pt-64">
           {/* Feature cards float on the seam between the hero above and this section — centered on
               the boundary via translateY(-50%) so half sits in each section, whatever their height. */}
           <div className="relative z-20 mx-auto max-w-5xl px-4 sm:absolute sm:inset-x-0 sm:top-0 sm:-translate-y-1/2 sm:px-8 lg:px-12">
-            <motion.div
+            <Reveal
               id="features"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={staggerContainer}
+              variants={featureCardGrid}
               className="grid gap-5 pb-8 sm:grid-cols-3 sm:pb-0"
             >
               {heroFeatures.map((feature) => (
                 <motion.article
                   key={feature.title}
-                  variants={fadeUp}
-                  className="group relative flex flex-col items-center rounded-lg bg-white/70 p-5 text-center shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:shadow-[0_12px_40px_rgba(119,0,207,0.25)]"
+                  variants={featureCardRise(prefersReducedMotion)}
+                  // Hover lift lives in framer (not a Tailwind translate class) since framer owns this element's transform.
+                  whileHover={{ y: -6 }}
+                  className="group relative flex flex-col items-center rounded-lg border border-white/60 bg-gradient-to-br from-white/55 to-white/20 p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_32px_color-mix(in_srgb,var(--color-primary)_12%,transparent)] backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow] duration-300 hover:border-white/80 hover:bg-white/50 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_40px_color-mix(in_srgb,var(--color-primary)_25%,transparent)]"
                 >
-                  <div className="mb-2 h-20 w-20 transform transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 sm:h-24 sm:w-24">
-                    <img
-                      src={feature.image}
-                      alt=""
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                  <h3 className="font-heading text-sm font-bold text-black">
+                  {/* Outer wrapper takes framer's entrance pop; inner keeps the CSS hover tilt so they don't fight over transform. */}
+                  <motion.div
+                    variants={featureIconPop(prefersReducedMotion)}
+                    className="mb-2 h-20 w-20 sm:h-24 sm:w-24"
+                  >
+                    <div className="h-full w-full transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
+                      <img
+                        src={feature.image}
+                        alt=""
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  </motion.div>
+                  <h3 className="font-heading text-sm font-semibold text-black">
                     {feature.title}
                   </h3>
                   <p className="mt-2 text-xs leading-relaxed text-gray">
@@ -215,16 +388,16 @@ export function SplashPage() {
                   </p>
                 </motion.article>
               ))}
-            </motion.div>
+            </Reveal>
           </div>
 
-          <div className="mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 sm:px-8 lg:flex-row lg:px-12">
+          <Reveal className="mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 sm:px-8 lg:flex-row lg:px-12">
             <motion.div
-              variants={fadeUp}
+              variants={revealItemVariants}
               className="flex-1 space-y-6 text-center lg:text-left"
             >
               <div>
-                <h2 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+                <h2 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
                   Get to know your palette!
                 </h2>
                 <p className="mt-1 font-body text-xl italic text-gray">
@@ -249,7 +422,7 @@ export function SplashPage() {
             </motion.div>
 
             <motion.div
-              variants={fadeUp}
+              variants={revealItemVariants}
               className="grid w-full grid-cols-2 gap-1 overflow-hidden rounded-2xl shadow-lg lg:w-auto lg:flex-1"
             >
               {seasonGroups.map((group) => (
@@ -277,27 +450,21 @@ export function SplashPage() {
                 </div>
               ))}
             </motion.div>
-          </div>
-        </motion.section>
+          </Reveal>
+        </section>
 
         {/* ── Virtual Try-on and Safety Filter ── */}
-        <motion.section
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-          className="bg-secondary-light py-20"
-        >
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
+        <section className="bg-primary-lightest py-20">
+          <Reveal className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
             <motion.h2
-              variants={fadeUp}
-              className="mb-12 text-center font-heading text-4xl font-black tracking-tight text-primary sm:text-5xl"
+              variants={revealItemVariants}
+              className="mb-12 text-center font-heading text-4xl font-semibold tracking-tight text-primary sm:text-5xl"
             >
               Virtual Try-On and a Safety Filter
             </motion.h2>
 
             <motion.div
-              variants={fadeUp}
+              variants={revealItemVariants}
               className="relative left-1/2 right-1/2 mx-[-50vw] w-screen overflow-hidden py-8"
               style={{
                 maskImage:
@@ -308,7 +475,9 @@ export function SplashPage() {
             >
               <motion.div
                 className="flex"
-                animate={{ x: `${-activeSlide * slideWidth + (100 - slideWidth) / 2}%` }}
+                animate={{
+                  x: `${-activeSlide * slideWidth + (100 - slideWidth) / 2}%`,
+                }}
                 transition={{ duration: 0.7, ease: "easeInOut" }}
               >
                 {tryOnSlides.map((slide, i) => (
@@ -336,7 +505,7 @@ export function SplashPage() {
             </motion.div>
 
             <motion.div
-              variants={fadeUp}
+              variants={revealItemVariants}
               className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-4 text-center"
             >
               <div className="flex items-center gap-2">
@@ -364,21 +533,14 @@ export function SplashPage() {
                 </motion.p>
               </AnimatePresence>
             </motion.div>
-          </div>
-        </motion.section>
+          </Reveal>
+        </section>
 
         {/* ── How does Chromascope work? ── */}
-        <motion.section
-          id="demo"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={staggerContainer}
-          className="bg-[#F8EFFF] py-20"
-        >
-          <div className="mx-auto max-w-5xl px-4 sm:px-8 lg:px-12">
-            <motion.div variants={fadeUp} className="mb-10 text-center">
-              <h2 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+        <section id="demo" className="bg-primary-lighter py-20">
+          <Reveal className="mx-auto max-w-5xl px-4 sm:px-8 lg:px-12">
+            <motion.div variants={revealItemVariants} className="mb-10 text-center">
+              <h2 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
                 How does <span className="text-primary">Chromascope</span> work?
               </h2>
               <p className="mt-4 text-lg font-medium text-gray">
@@ -390,7 +552,7 @@ export function SplashPage() {
               href="https://youtu.be/YsNq9DVcJNE"
               target="_blank"
               rel="noopener noreferrer"
-              variants={fadeUp}
+              variants={revealItemVariants}
               aria-label="Watch the Chromascope demo video on YouTube"
               className="group relative block overflow-hidden rounded-3xl shadow-[0_20px_50px_rgba(20,5,37,0.15)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(20,5,37,0.28)]"
             >
@@ -413,8 +575,8 @@ export function SplashPage() {
                 </span>
               </div>
             </motion.a>
-          </div>
-        </motion.section>
+          </Reveal>
+        </section>
       </div>
 
       <SplashFooter />
