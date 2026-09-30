@@ -34,19 +34,20 @@
   --leading-loose: 1.8;
 
   /* ── Primary Colors ─────────────────────────────────────── */
-  --color-primary: #7700cf; /* primary purple */
-  --color-primary-dark: #5500a0; /* darker shade for hover */
-  --color-primary-darker: #3d007a; /* pressed state */
-  --color-primary-light: #f4e5ff; /* tint / surface */
-  --color-primary-lightest: #faf4ff; /* subtle bg */
+  --color-primary: #6d4ec6; /* primary purple */
+  --color-primary-dark: #5739b1; /* darker shade for hover */
+  --color-primary-darker: #462e8e; /* pressed state */
+  --color-primary-light: #bca4ff; /* light purple accent / borders */
+  --color-primary-lighter: #eae3ff; /* soft tint for chips & badges */
+  --color-primary-lightest: #f5f2ff; /* subtle bg / large surfaces */
 
   --color-black: #121212;
   --color-white: #ffffff;
 
   /* ── Secondary Colors ───────────────────────────────────── */
-  --color-secondary: #ba6cf4; /* soft purple accent */
-  --color-secondary-dark: #9b4dd4;
-  --color-secondary-light: #faf4ff;
+  --color-secondary: #987ce6; /* soft purple accent */
+  --color-secondary-dark: #7854de;
+  --color-secondary-light: #d8caff;
 
   --color-gray: #575654; /* body text secondary */
   --color-gray-light: #8a8a88;
@@ -65,9 +66,9 @@
 
   /* ── Background Surfaces ────────────────────────────────── */
   --bg-page: #ffffff;
-  --bg-surface: #faf4ff; /* card / panel background */
-  --bg-elevated: #f4e5ff; /* slightly elevated surface */
-  --bg-overlay: rgba(119, 0, 207, 0.08); /* purple tint overlay */
+  --bg-surface: #f5f2ff; /* card / panel background */
+  --bg-elevated: #eae3ff; /* slightly elevated surface */
+  --bg-overlay: rgba(109, 78, 198, 0.08); /* purple tint overlay */
 
   /* ── Text ───────────────────────────────────────────────── */
   --text-primary: #121212;
@@ -75,13 +76,13 @@
   --text-tertiary: #8a8a88;
   --text-on-primary: #ffffff;
   --text-on-secondary: #121212;
-  --text-link: #7700cf;
-  --text-link-hover: #5500a0;
+  --text-link: #6d4ec6;
+  --text-link-hover: #5739b1;
 
   /* ── Borders ────────────────────────────────────────────── */
-  --border-color: rgba(119, 0, 207, 0.15);
-  --border-color-medium: rgba(119, 0, 207, 0.3);
-  --border-color-strong: rgba(119, 0, 207, 0.5);
+  --border-color: rgba(109, 78, 198, 0.15);
+  --border-color-medium: rgba(109, 78, 198, 0.3);
+  --border-color-strong: rgba(109, 78, 198, 0.5);
   --border-color-muted: rgba(87, 86, 84, 0.15);
 
   /* ── Border Radius ──────────────────────────────────────── */
@@ -108,15 +109,15 @@
   --space-24: 96px;
 
   /* ── Shadows ────────────────────────────────────────────── */
-  --shadow-sm: 0 1px 3px rgba(119, 0, 207, 0.08);
-  --shadow-md: 0 4px 16px rgba(119, 0, 207, 0.12);
-  --shadow-lg: 0 8px 32px rgba(119, 0, 207, 0.18);
-  --shadow-xl: 0 16px 48px rgba(119, 0, 207, 0.22);
+  --shadow-sm: 0 1px 3px rgba(109, 78, 198, 0.08);
+  --shadow-md: 0 4px 16px rgba(109, 78, 198, 0.12);
+  --shadow-lg: 0 8px 32px rgba(109, 78, 198, 0.18);
+  --shadow-xl: 0 16px 48px rgba(109, 78, 198, 0.22);
   --shadow-card: 0 2px 12px rgba(18, 18, 18, 0.08);
 
   /* ── Glass / Frosted ────────────────────────────────────── */
-  --glass-bg: rgba(244, 229, 255, 0.55);
-  --glass-border: rgba(119, 0, 207, 0.2);
+  --glass-bg: rgba(234, 227, 255, 0.55);
+  --glass-border: rgba(109, 78, 198, 0.2);
   --glass-blur: blur(12px);
 
   /* ── Transitions ────────────────────────────────────────── */

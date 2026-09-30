@@ -154,10 +154,10 @@ export function HomePage() {
   ];
 
   return (
-    <main className="page-shell min-h-screen bg-surface p-6 text-black">
+    <main className="page-shell min-h-screen bg-primary-lightest p-6 text-black">
       <div className="mx-auto max-w-7xl pt-20">
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-black tracking-tight text-black sm:text-5xl">
+          <h1 className="text-4xl font-heading font-semibold tracking-tight text-black sm:text-5xl">
             Clinical beauty at your fingertips
           </h1>
           <p className="mt-2 max-w-2xl text-base leading-7 text-gray sm:text-lg">
@@ -184,7 +184,7 @@ export function HomePage() {
                 <p className="mb-1 text-xs uppercase tracking-[0.3em] text-white/70">
                   Clinical report
                 </p>
-                <h2 className="text-4xl font-heading font-black tracking-tight text-white sm:text-5xl">
+                <h2 className="text-4xl font-heading font-semibold tracking-tight text-white sm:text-5xl">
                   Good day{firstName ? `, ${firstName}` : ""}!
                 </h2>
                 <p className="mt-2 text-base text-white/70 sm:text-lg">
@@ -247,7 +247,7 @@ export function HomePage() {
                     className="flex items-center justify-between gap-3 py-3"
                   >
                     <div className="flex min-w-0 items-center gap-2 text-sm text-black">
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-lighter text-primary">
                         <svg
                           viewBox="0 0 24 24"
                           className="h-3.5 w-3.5"
@@ -296,7 +296,7 @@ export function HomePage() {
                         className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] gap-3 px-4 py-3"
                       >
                         <div className="flex items-center gap-2 text-sm text-black">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary-light text-primary">
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary-lighter text-primary">
                             <svg
                               viewBox="0 0 24 24"
                               className="h-3.5 w-3.5"
@@ -425,7 +425,7 @@ export function HomePage() {
                     Diagnosis
                   </p>
                 </div>
-                <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-semibold text-primary capitalize shadow-inner">
+                <span className="rounded-full bg-primary-lighter px-3 py-1 text-xs font-semibold text-primary capitalize shadow-inner">
                   {user?.skin_type ? `${user.skin_type} Skin` : "Not Logged"}
                 </span>
               </div>

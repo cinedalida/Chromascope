@@ -8,19 +8,19 @@ const dataCards = [
   {
     title: "Encrypted Storage",
     description: "AES-256 bank-level encryption standards for all visual data.",
-    icon: <Shield size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Shield size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Secure Processing",
     description:
       "On-device neural analysis ensures data never leaves your control unnecessarily.",
-    icon: <Server size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Server size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Automatic Disposal",
     description:
       "All biometric markers are purged after 30 days of user inactivity.",
-    icon: <Trash2 size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Trash2 size={24} className="text-primary" strokeWidth={1.5} />,
   },
 ];
 
@@ -43,9 +43,9 @@ export function DataEthicsPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   return (
-    <main className="min-h-screen bg-[#FAF4FF] font-body relative overflow-hidden text-[#374151]">
+    <main className="min-h-screen bg-primary-lightest font-body relative overflow-hidden text-[#374151]">
       {/* Decorative background blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#E5D5F5]/60 blur-[100px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
 
       <SplashNavbar />
@@ -66,10 +66,10 @@ export function DataEthicsPage() {
           </motion.button>
 
           <motion.div variants={itemVariants} className="text-center max-w-2xl mx-auto mb-12">
-            <span className="inline-block px-3 py-1 mb-4 text-[11px] font-bold uppercase tracking-widest text-[#7700CF] bg-[#FAEDFF] rounded-full">
+            <span className="inline-block px-3 py-1 mb-4 text-[11px] font-bold uppercase tracking-widest text-primary bg-primary-lightest rounded-full">
               Commitment to Transparency
             </span>
-            <h1 className="text-4xl sm:text-5xl font-heading font-black tracking-tight text-[#111827] mb-4">
+            <h1 className="text-4xl sm:text-5xl font-heading font-semibold tracking-tight text-[#111827] mb-4">
               Data Privacy & Ethical Use
             </h1>
             <p className="text-lg leading-relaxed text-[#4B5563]">
@@ -79,10 +79,10 @@ export function DataEthicsPage() {
             </p>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 sm:p-12 shadow-sm border border-[#E5D5F5] max-w-4xl mx-auto">
-            <div className="mb-8 border-b border-[#E5D5F5] pb-8">
-              <h2 className="text-xl font-heading font-bold text-[#111827] mb-6 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-[#FAEDFF] text-[#7700CF] flex items-center justify-center">
+          <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 sm:p-12 shadow-sm border border-secondary-light max-w-4xl mx-auto">
+            <div className="mb-8 border-b border-secondary-light pb-8">
+              <h2 className="text-xl font-heading font-semibold text-[#111827] mb-6 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-primary-lightest text-primary flex items-center justify-center">
                   <Shield size={16} />
                 </span>
                 Data Life Cycle
@@ -92,9 +92,9 @@ export function DataEthicsPage() {
                 {dataCards.map((card) => (
                   <div
                     key={card.title}
-                    className="rounded-2xl bg-[#FAEDFF]/50 p-6 shadow-sm border border-[#F3E8FF]"
+                    className="rounded-2xl bg-primary-lightest/50 p-6 shadow-sm border border-primary-lighter"
                   >
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white text-[#7700CF] shadow-sm">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
                       {card.icon}
                     </div>
                     <h3 className="mb-2 text-base font-semibold text-[#111827]">
@@ -109,7 +109,7 @@ export function DataEthicsPage() {
             </div>
 
             <div className="mb-8">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 border border-[#E5D5F5] shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 border border-secondary-light shadow-sm">
                 <div className="space-y-1 mb-4 sm:mb-0 pr-4">
                   <h3 className="text-base font-semibold text-[#111827]">
                     Contribute to Science (Optional)
@@ -123,7 +123,7 @@ export function DataEthicsPage() {
                   type="button"
                   onClick={() => setShareWithScience((current) => !current)}
                   className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                    shareWithScience ? "bg-[#7700CF]" : "bg-gray-200"
+                    shareWithScience ? "bg-primary" : "bg-gray-200"
                   }`}
                 >
                   <span
@@ -135,14 +135,14 @@ export function DataEthicsPage() {
               </div>
             </div>
 
-            <div className="space-y-6 bg-[#FAEDFF]/30 rounded-2xl p-6 border border-[#E5D5F5]">
+            <div className="space-y-6 bg-primary-lightest/30 rounded-2xl p-6 border border-secondary-light">
               <label className="flex items-start gap-3 cursor-pointer group">
                 <div className="relative flex items-center mt-0.5">
                   <input
                     type="checkbox"
                     checked={agreedToTerms}
                     onChange={(event) => setAgreedToTerms(event.target.checked)}
-                    className="peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-[#7700CF] checked:border-[#7700CF] focus:outline-none focus:ring-2 focus:ring-[#7700CF]/20 transition-all cursor-pointer"
+                    className="peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-primary checked:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
                   />
                   <svg
                     className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
@@ -156,11 +156,11 @@ export function DataEthicsPage() {
                 </div>
                 <span className="text-sm leading-relaxed text-[#4B5563] group-hover:text-[#374151] transition-colors">
                   I agree to the{" "}
-                  <a href="#" className="font-semibold text-[#7700CF] hover:underline">
+                  <a href="#" className="font-semibold text-primary hover:underline">
                     Terms of Service
                   </a>{" "}
                   and{" "}
-                  <a href="#" className="font-semibold text-[#7700CF] hover:underline">
+                  <a href="#" className="font-semibold text-primary hover:underline">
                     Privacy Policy
                   </a>
                   .
@@ -170,7 +170,7 @@ export function DataEthicsPage() {
               <button
                 type="button"
                 disabled={!agreedToTerms}
-                className="w-full bg-[#7700CF] text-white py-4 rounded-full font-medium text-[15px] hover:bg-[#5C00A3] transition-all disabled:opacity-50 shadow-md"
+                className="w-full bg-primary text-white py-4 rounded-full font-medium text-[15px] hover:bg-primary-dark transition-all disabled:opacity-50 shadow-md"
               >
                 Confirm & Complete Setup
               </button>

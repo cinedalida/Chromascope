@@ -109,7 +109,7 @@ export function ColorAnalysisSubtypePage() {
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#FAF9FF] via-[#F6F0FF] to-[#FAF9FF] font-body text-black pb-12">
+    <main className="min-h-screen bg-primary-lightest font-body text-black pb-12">
       <div className="bg-white/60 backdrop-blur-md border-b border-primary/10 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-primary">
@@ -128,7 +128,7 @@ export function ColorAnalysisSubtypePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 space-y-8">
         
         <header className={`space-y-4 transition-all duration-1000 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h1 className="font-heading text-5xl sm:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-[#7700CF] italic tracking-tight">
+          <h1 className="font-heading text-5xl sm:text-7xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-primary italic tracking-tight">
             {season}
           </h1>
           <p className="text-gray-dark max-w-2xl text-lg sm:text-xl leading-relaxed">
@@ -145,7 +145,7 @@ export function ColorAnalysisSubtypePage() {
               
               <div className="flex items-center gap-2 mb-2 text-primary">
                 <ScanFace size={20} />
-                <h3 className="font-heading font-bold text-xl text-[#111827]">
+                <h3 className="font-heading font-semibold text-xl text-[#111827]">
                   Raw Skin Shade
                 </h3>
               </div>
@@ -177,9 +177,9 @@ export function ColorAnalysisSubtypePage() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#7700CF] to-[#5C00A3] text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden group transition-transform hover:-translate-y-1 duration-300">
+            <div className="bg-gradient-to-br from-primary to-primary-dark text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden group transition-transform hover:-translate-y-1 duration-300">
               <Sparkles className="absolute -right-6 -top-6 w-32 h-32 text-white/10 rotate-12 transition-transform duration-700 group-hover:rotate-45 group-hover:scale-110" />
-              <h4 className="font-heading font-bold text-xl mb-3 relative z-10">
+              <h4 className="font-heading font-semibold text-xl mb-3 relative z-10">
                 Clinical Tip
               </h4>
               <p className="text-white/90 text-sm leading-relaxed relative z-10">
@@ -207,13 +207,13 @@ export function ColorAnalysisSubtypePage() {
                     <p className="text-[10px] text-gray uppercase tracking-wider">Model accuracy calculation</p>
                   </div>
                 </div>
-                <p className="text-3xl font-black text-[#7700CF]">
+                <p className="text-3xl font-black text-primary">
                   {confidence.toFixed(1)}%
                 </p>
               </div>
               <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
                 <div 
-                  className="h-full bg-gradient-to-r from-[#7700CF] via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
+                  className="h-full bg-gradient-to-r from-primary via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
                   style={{ width: animateIn ? `${confidence}%` : '0%' }}
                 />
               </div>
@@ -221,7 +221,7 @@ export function ColorAnalysisSubtypePage() {
 
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
               <div className="flex justify-between items-center mb-8">
-                <h3 className="font-heading font-bold text-2xl text-[#111827]">
+                <h3 className="font-heading font-semibold text-2xl text-[#111827]">
                   Signature Palette
                 </h3>
               </div>
@@ -280,7 +280,7 @@ function TransitionCard({ title, season, desc }) {
         </p>
         <ArrowRight size={14} className="text-gray-light group-hover:text-primary transition-colors" />
       </div>
-      <h4 className="font-heading font-bold text-xl text-[#111827] mb-2">
+      <h4 className="font-heading font-semibold text-xl text-[#111827] mb-2">
         {season}
       </h4>
       <p className="text-xs text-gray leading-relaxed">{desc}</p>

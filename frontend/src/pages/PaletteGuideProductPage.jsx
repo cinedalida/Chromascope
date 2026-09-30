@@ -59,13 +59,13 @@ export function PaletteGuideProductPage() {
   ];
 
   return (
-    <main className="page-shell bg-[#FAF4FF] font-body text-black">
+    <main className="page-shell bg-primary-lightest font-body text-black">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Sidebar (3/12 on lg) */}
         <aside className="col-span-1 lg:col-span-3 space-y-6">
           {/* Refine Match Card */}
           <div className="page-card space-y-6">
-            <h2 className="font-heading text-xl font-bold italic">
+            <h2 className="font-heading text-xl font-semibold italic">
               Refine Match
             </h2>
 
@@ -85,7 +85,7 @@ export function PaletteGuideProductPage() {
                 <label className="text-[10px] font-bold text-primary uppercase tracking-widest">
                   ΔE Precision
                 </label>
-                <span className="bg-primary-light text-primary px-2 py-0.5 rounded text-[10px] font-bold">
+                <span className="bg-primary-lighter text-primary px-2 py-0.5 rounded text-[10px] font-bold">
                   ≤ 2.4
                 </span>
               </div>
@@ -131,7 +131,7 @@ export function PaletteGuideProductPage() {
           {/* User Profile Card */}
           <div className="bg-primary-lightest p-6 rounded-xl space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-heading font-bold text-lg">Your Profile</h3>
+              <h3 className="font-heading font-semibold text-lg">Your Profile</h3>
               <Fingerprint size={20} className="text-primary" />
             </div>
             <div className="grid grid-cols-2 gap-4 text-[10px] font-bold uppercase tracking-wider">
@@ -151,7 +151,7 @@ export function PaletteGuideProductPage() {
         <div className="col-span-1 lg:col-span-9 space-y-8">
           <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 sm:gap-0">
             <div>
-              <h1 className="font-heading text-3xl font-bold text-black">
+              <h1 className="font-heading text-3xl font-semibold text-black">
                 Curated Matches
               </h1>
               <p className="text-gray-light text-sm mt-1">
@@ -161,13 +161,13 @@ export function PaletteGuideProductPage() {
             <div className="flex bg-white rounded-full p-1 border border-gray-light shadow-sm ring-1 ring-black/5">
               <button 
                 onClick={() => setViewMode("grid")}
-                className={`p-2 px-3 rounded-full transition-all ${viewMode === "grid" ? "bg-primary-light text-primary shadow-sm" : "text-gray-light hover:bg-gray-lightest/50 hover:text-black"}`}
+                className={`p-2 px-3 rounded-full transition-all ${viewMode === "grid" ? "bg-primary-lighter text-primary shadow-sm" : "text-gray-light hover:bg-gray-lightest/50 hover:text-black"}`}
               >
                 <LayoutGrid size={18} strokeWidth={2.5} />
               </button>
               <button 
                 onClick={() => setViewMode("list")}
-                className={`p-2 px-3 rounded-full transition-all ${viewMode === "list" ? "bg-primary-light text-primary shadow-sm" : "text-gray-light hover:bg-gray-lightest/50 hover:text-black"}`}
+                className={`p-2 px-3 rounded-full transition-all ${viewMode === "list" ? "bg-primary-lighter text-primary shadow-sm" : "text-gray-light hover:bg-gray-lightest/50 hover:text-black"}`}
               >
                 <List size={18} strokeWidth={2.5} />
               </button>
@@ -202,7 +202,7 @@ export function PaletteGuideProductPage() {
                     <p className="text-[10px] font-bold text-primary tracking-[0.15em] uppercase">
                       {item.brand}
                     </p>
-                    <h4 className={`font-heading font-bold italic leading-tight ${viewMode === "grid" ? "text-base" : "text-lg"}`}>
+                    <h4 className={`font-heading font-semibold italic leading-tight ${viewMode === "grid" ? "text-base" : "text-lg"}`}>
                       {item.name}
                     </h4>
                     
@@ -228,7 +228,7 @@ export function PaletteGuideProductPage() {
                       <p className="text-[8px] font-bold text-gray-lighter uppercase tracking-widest">
                         Delta-E
                       </p>
-                      <p className={`font-heading font-bold leading-none ${viewMode === "grid" ? "text-lg" : "text-xl"}`}>
+                      <p className={`font-heading font-semibold leading-none ${viewMode === "grid" ? "text-lg" : "text-xl"}`}>
                         {item.deltaE}
                       </p>
                     </div>
@@ -238,7 +238,7 @@ export function PaletteGuideProductPage() {
                     <span
                       className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-wider ${
                         item.matchType === "ULTRA MATCH"
-                          ? "bg-[#F4E5FF] text-primary"
+                          ? "bg-primary-lighter text-primary"
                           : item.matchType === "NATURAL"
                             ? "bg-[#F5F5F4] text-gray"
                             : "bg-gray-lightest text-gray-light"
@@ -273,9 +273,9 @@ function TryOnButton() {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        backgroundColor: hovered ? "#7700CF" : "#ffffff",
-        color: hovered ? "#ffffff" : "#7700CF",
-        border: "1.5px solid #7700CF",
+        backgroundColor: hovered ? "var(--color-primary)" : "#ffffff",
+        color: hovered ? "#ffffff" : "var(--color-primary)",
+        border: "1.5px solid var(--color-primary)",
         transition: "background-color 0.18s ease, color 0.18s ease",
       }}
       className="w-full py-2.5 rounded-full font-bold text-xs uppercase tracking-widest active:scale-95"

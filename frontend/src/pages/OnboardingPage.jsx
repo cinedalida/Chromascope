@@ -10,17 +10,17 @@ const dataCards = [
   {
     title: "Encrypted Storage",
     description: "Your photos and color results are locked with strong encryption, so only Chromascope can read them.",
-    icon: <Shield size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Shield size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Secure Processing",
     description: "Your photo is analyzed right on your device, so it isn't sent anywhere else unless it has to be.",
-    icon: <Server size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Server size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Automatic Disposal",
     description: "If you don't use Chromascope for 30 days, we permanently delete your photos and face data.",
-    icon: <Trash2 size={24} className="text-[#7700CF]" strokeWidth={1.5} />,
+    icon: <Trash2 size={24} className="text-primary" strokeWidth={1.5} />,
   },
 ];
 
@@ -95,9 +95,9 @@ export function OnboardingPage() {
 
   return (
     // Added [-webkit-tap-highlight-color:transparent] globally to the main wrapper
-    <main className="relative flex min-h-screen flex-col items-center overflow-hidden bg-[#FAF4FF] p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
+    <main className="relative flex min-h-screen flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
       
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#E5D5F5]/60 blur-[100px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 mt-4 w-full max-w-3xl sm:mt-8">
@@ -105,12 +105,12 @@ export function OnboardingPage() {
         {/* Progress Header */}
         <div className="mb-8">
           <div className="mb-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#7700CF]">Step {step} of 4</span>
-            <h2 className="mt-1 font-heading text-2xl font-bold text-[#111827]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">Step {step} of 4</span>
+            <h2 className="mt-1 font-heading text-2xl font-semibold text-[#111827]">
               {stepTitles[step]}
             </h2>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-[#E5D5F5]/80">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-light/80">
             <div 
               className="h-full rounded-full bg-gradient-to-r from-[#9D4EDD] to-[#5A009D] transition-all duration-500 ease-out"
               style={{ width: `${(step / 4) * 100}%` }}
@@ -119,12 +119,12 @@ export function OnboardingPage() {
         </div>
 
         {/* Main Card */}
-        <div className="rounded-[32px] border border-[#E5D5F5] bg-white/80 p-8 shadow-sm backdrop-blur-xl sm:p-10 md:p-12">
+        <div className="rounded-[32px] border border-secondary-light bg-white/80 p-8 shadow-sm backdrop-blur-xl sm:p-10 md:p-12">
           
           {/* STEP 1: Skin Type */}
           {step === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h1 className="mb-2 font-heading text-3xl font-bold text-[#111827]">What is your skin type?</h1>
+              <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">What is your skin type?</h1>
               <p className="mb-8 text-[15px] text-[#4B5563]">Select the one that best describes your skin on a daily basis.</p>
               
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -134,12 +134,12 @@ export function OnboardingPage() {
                     onClick={() => setSkinType(type)}
                     className={`group flex items-center justify-between rounded-2xl border-2 p-4 text-left transition-all focus:outline-none ${
                       skinType === type 
-                        ? "border-[#7700CF] bg-[#FAEDFF] text-[#4A0082] shadow-sm" 
+                        ? "border-primary bg-primary-lightest text-[#4A0082] shadow-sm" 
                         : "border-gray-100 bg-white text-[#4B5563] hover:border-[#D1D5DB] hover:bg-gray-50"
                     }`}
                   >
                     <span className="font-medium">{type}</span>
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${skinType === type ? "border-[#7700CF] bg-[#7700CF]" : "border-gray-300 group-hover:border-gray-400"}`}>
+                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${skinType === type ? "border-primary bg-primary" : "border-gray-300 group-hover:border-gray-400"}`}>
                       {skinType === type && <Check size={14} className="text-white" strokeWidth={3} />}
                     </div>
                   </button>
@@ -151,7 +151,7 @@ export function OnboardingPage() {
           {/* STEP 2: Skin Concerns */}
           {step === 2 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h1 className="mb-2 font-heading text-3xl font-bold text-[#111827]">Any specific concerns?</h1>
+              <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Any specific concerns?</h1>
               <p className="mb-8 text-[15px] text-[#4B5563]">Select all that apply. This helps our AI filter out harsh formulas.</p>
               
               <div className="flex flex-wrap gap-3">
@@ -163,7 +163,7 @@ export function OnboardingPage() {
                       onClick={() => toggleSelection(concern, concerns, setConcerns)}
                       className={`rounded-full border px-5 py-3 text-[14px] font-medium transition-all active:scale-95 focus:outline-none ${
                         isSelected 
-                          ? "border-[#7700CF] bg-[#7700CF] text-white shadow-md shadow-purple-600/20" 
+                          ? "border-primary bg-primary text-white shadow-md shadow-purple-600/20" 
                           : "border-gray-200 bg-white text-[#4B5563] hover:border-gray-300 hover:bg-gray-50"
                       }`}
                     >
@@ -178,7 +178,7 @@ export function OnboardingPage() {
           {/* STEP 3: Avoid Ingredients */}
           {step === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h1 className="mb-2 font-heading text-3xl font-bold text-[#111827]">Ingredients to avoid</h1>
+              <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Ingredients to avoid</h1>
               <p className="mb-8 text-[15px] text-[#4B5563]">Select any specific ingredients or allergens you want to exclude.</p>
               
               <div className="flex flex-wrap gap-3">
@@ -205,16 +205,16 @@ export function OnboardingPage() {
           {/* STEP 4: Data Ethics */}
           {step === 4 && (
              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                <h1 className="mb-2 font-heading text-3xl font-bold text-[#111827]">Commitment to Transparency</h1>
+                <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Commitment to Transparency</h1>
                 <p className="mb-8 text-[15px] text-[#4B5563]">Review how your biological data informs our AI and how we protect your privacy.</p>
                 
                 <div className="grid gap-4 sm:grid-cols-3 mb-8">
                   {dataCards.map((card) => (
                     <div
                       key={card.title}
-                      className="rounded-2xl bg-[#FAEDFF]/50 p-5 shadow-sm border border-[#F3E8FF]"
+                      className="rounded-2xl bg-primary-lightest/50 p-5 shadow-sm border border-primary-lighter"
                     >
-                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#7700CF] shadow-sm">
+                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
                         {card.icon}
                       </div>
                       <h3 className="mb-1.5 text-sm font-semibold text-[#111827]">
@@ -227,14 +227,14 @@ export function OnboardingPage() {
                   ))}
                 </div>
 
-                <div className="bg-[#FAEDFF]/40 rounded-2xl p-5 border border-[#E5D5F5]">
+                <div className="bg-primary-lightest/40 rounded-2xl p-5 border border-secondary-light">
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <div className="relative flex items-center mt-0.5">
                       <input
                         type="checkbox"
                         checked={agreedToTerms}
                         onChange={(event) => setAgreedToTerms(event.target.checked)}
-                        className="peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-[#7700CF] checked:border-[#7700CF] focus:outline-none focus:ring-2 focus:ring-[#7700CF]/20 transition-all cursor-pointer"
+                        className="peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-primary checked:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
                       />
                       <svg
                         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
@@ -248,9 +248,9 @@ export function OnboardingPage() {
                     </div>
                     <span className="text-sm leading-relaxed text-[#4B5563] group-hover:text-[#374151] transition-colors">
                       I agree to the{" "}
-                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Terms of Service</a>
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline focus:outline-none">Terms of Service</a>
                       {" "}and{" "}
-                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7700CF] hover:underline focus:outline-none">Privacy Policy</a>.
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline focus:outline-none">Privacy Policy</a>.
                     </span>
                   </label>
                 </div>
@@ -258,7 +258,7 @@ export function OnboardingPage() {
           )}
 
           {/* Navigation Controls */}
-          <div className="mt-10 flex items-center justify-between border-t border-[#E5D5F5] pt-6">
+          <div className="mt-10 flex items-center justify-between border-t border-secondary-light pt-6">
             
             {/* Back button is now active on Step 1 */}
             <button
@@ -282,7 +282,7 @@ export function OnboardingPage() {
               <button
                 onClick={handleNext}
                 disabled={(step === 1 && !skinType) || (step === 2 && concerns.length === 0) || (step === 3 && avoidIngredients.length === 0) || (step === 4 && !agreedToTerms) || isSubmitting}
-                className="flex items-center gap-2 rounded-2xl bg-[#7700CF] px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-[#5C00A3] hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 focus:outline-none"
+                className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-primary-dark hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 focus:outline-none"
               >
                 {isSubmitting ? "Saving..." : (step === 4 ? "Confirm & Complete" : "Continue")}
                 {!isSubmitting && step !== 4 && <ArrowRight size={18} />}
@@ -297,10 +297,10 @@ export function OnboardingPage() {
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
           <div className="w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 rounded-3xl bg-white p-8 text-center shadow-2xl">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#F3E8FF]">
-              <Check size={28} className="text-[#7700CF]" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-lighter">
+              <Check size={28} className="text-primary" />
             </div>
-            <h3 className="mb-2 font-heading text-lg font-bold text-[#111827]">Complete your profile?</h3>
+            <h3 className="mb-2 font-heading text-lg font-semibold text-[#111827]">Complete your profile?</h3>
             <p className="mb-6 text-[14px] leading-relaxed text-[#4B5563]">
               You're about to save your skin profile and finish setup. You can always update these preferences later from your profile.
             </p>
@@ -315,7 +315,7 @@ export function OnboardingPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="w-full rounded-2xl bg-[#7700CF] py-3 font-medium text-white transition-colors hover:bg-[#5C00A3] focus:outline-none"
+                className="w-full rounded-2xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-dark focus:outline-none"
               >
                 Confirm
               </button>

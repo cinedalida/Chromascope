@@ -132,7 +132,7 @@ export function Navbar({ onMenuToggle }) {
             {/* Hamburger — opens sidebar on desktop, mobile drawer on mobile */}
             <button
               onClick={handleHamburger}
-              className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-xl text-gray-light transition hover:bg-primary-light hover:text-primary"
+              className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-xl text-gray-light transition hover:bg-primary-lighter hover:text-primary"
               aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
             >
               {mobileNavOpen ? (
@@ -149,7 +149,7 @@ export function Navbar({ onMenuToggle }) {
                 alt="Chromascope"
                 className="h-6 w-6 rounded-full lg:hidden"
               />
-              <span className="font-heading font-black text-primary hidden sm:inline-block">
+              <span className="font-heading font-semibold text-primary hidden sm:inline-block">
                 Chromascope
               </span>
               <span className="text-gray-lighter hidden sm:inline-block">/</span>
@@ -240,7 +240,7 @@ export function Navbar({ onMenuToggle }) {
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
               <LogOut size={22} strokeWidth={2.5} />
             </div>
-            <h3 className="mb-2 font-heading text-lg font-bold text-black">
+            <h3 className="mb-2 font-heading text-lg font-semibold text-black">
               Log out?
             </h3>
             <p className="mb-6 text-sm text-gray-light">

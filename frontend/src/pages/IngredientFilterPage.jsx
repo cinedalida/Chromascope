@@ -135,11 +135,11 @@ export function IngredientFilterPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#FDFBFF] font-body text-[#1F1924]">
+    <div className="min-h-screen bg-primary-lightest font-body text-[#1F1924]">
       <main className="p-4 sm:p-8 lg:p-12 pt-4 sm:pt-8">
         <section className="max-w-[1200px] mx-auto">
           <div className="mb-10">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tighter mb-3 text-[#1F1924] italic uppercase leading-none">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tighter mb-3 text-[#1F1924] italic uppercase leading-none">
               Clinical Filter
             </h1>
             <p className="text-gray-400 max-w-2xl leading-relaxed text-sm font-medium">
@@ -168,7 +168,7 @@ export function IngredientFilterPage() {
                 </button>
 
                 {categoryMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-[#F0E6FA] bg-white shadow-lg">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-primary-lighter bg-white shadow-lg">
                     {categories.map((cat) => (
                       <button
                         key={cat}
@@ -180,7 +180,7 @@ export function IngredientFilterPage() {
                         }}
                         className={`block w-full px-5 py-3 text-left text-[11px] font-black uppercase tracking-widest transition-colors ${
                           category === cat
-                            ? "bg-primary-light text-primary"
+                            ? "bg-primary-lighter text-primary"
                             : "text-gray-500 hover:bg-primary-lightest"
                         }`}
                       >
@@ -192,7 +192,7 @@ export function IngredientFilterPage() {
               </div>
 
               {/* Tablet/desktop: pill tabs */}
-              <div className="hidden sm:flex w-fit items-center p-1 bg-white border border-[#F0E6FA] rounded-2xl shadow-sm gap-1">
+              <div className="hidden sm:flex w-fit items-center p-1 bg-white border border-primary-lighter rounded-2xl shadow-sm gap-1">
                 {categories.map((cat) => (
                   <button
                     key={cat}
@@ -217,11 +217,11 @@ export function IngredientFilterPage() {
                   </span>
                 </div>
                 {user?.seasonal_label && (
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[#E9D5FF] bg-[#F3E8FF] px-3 py-1.5 sm:flex-col sm:items-start sm:gap-1 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[#E9D5FF] bg-primary-lighter px-3 py-1.5 sm:flex-col sm:items-start sm:gap-1 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500 sm:text-gray-400">
                       Color Season
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7700CF] sm:rounded-full sm:border sm:border-[#E9D5FF] sm:bg-[#F3E8FF] sm:px-4 sm:py-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary sm:rounded-full sm:border sm:border-[#E9D5FF] sm:bg-primary-lighter sm:px-4 sm:py-2">
                       {user.seasonal_label}
                     </span>
                   </div>
@@ -232,7 +232,7 @@ export function IngredientFilterPage() {
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative min-w-0 flex-1 group">
                 <Search
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#7700CF]"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary"
                   size={20}
                 />
                 <input
@@ -240,10 +240,10 @@ export function IngredientFilterPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={`Search clinical ${category} database...`}
-                  className="w-full pl-14 pr-6 py-4 bg-white rounded-full border border-[#F0E6FA] shadow-sm outline-none focus:border-[#7700CF] transition-all text-sm font-medium"
+                  className="w-full pl-14 pr-6 py-4 bg-white rounded-full border border-primary-lighter shadow-sm outline-none focus:border-primary transition-all text-sm font-medium"
                 />
               </div>
-              <div className="w-full md:w-fit md:shrink-0 flex flex-wrap items-center gap-2 sm:gap-3 bg-white border border-[#F0E6FA] rounded-2xl sm:rounded-full shadow-sm px-4 sm:px-5 py-2.5 sm:py-2">
+              <div className="w-full md:w-fit md:shrink-0 flex flex-wrap items-center gap-2 sm:gap-3 bg-white border border-primary-lighter rounded-2xl sm:rounded-full shadow-sm px-4 sm:px-5 py-2.5 sm:py-2">
                 <Filter size={16} className="text-gray-400 shrink-0" />
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-500 whitespace-nowrap">
                   <span>Price</span>
@@ -263,7 +263,7 @@ export function IngredientFilterPage() {
                     />
                   </span>
                 </label>
-                <div className="hidden sm:block h-6 w-px bg-[#F0E6FA]" />
+                <div className="hidden sm:block h-6 w-px bg-primary-lighter" />
                 <button
                   type="button"
                   onClick={() => {
@@ -279,12 +279,12 @@ export function IngredientFilterPage() {
           </div>
 
           <div className="space-y-8">
-            <div className="bg-white rounded-[32px] border border-[#F0E6FA] shadow-sm overflow-hidden">
+            <div className="bg-white rounded-[32px] border border-primary-lighter shadow-sm overflow-hidden">
               {/* Mobile cards — same data as the table below, stacked for narrow screens */}
-              <div className="sm:hidden divide-y divide-[#F8F4FF]">
+              <div className="sm:hidden divide-y divide-primary-lightest">
                 {loading ? (
                   <div className="py-20 text-center">
-                    <Loader2 className="animate-spin mx-auto text-[#7700CF]" />
+                    <Loader2 className="animate-spin mx-auto text-primary" />
                   </div>
                 ) : rows.length === 0 ? (
                   <div className="py-20 text-center text-gray-400 font-medium px-6">
@@ -338,7 +338,7 @@ export function IngredientFilterPage() {
                           {seasons.map((tag) => (
                             <span
                               key={tag}
-                              className="bg-[#F3E8FF] text-[#7700CF] text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter"
+                              className="bg-primary-lighter text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter"
                             >
                               {tag}
                             </span>
@@ -353,7 +353,7 @@ export function IngredientFilterPage() {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left whitespace-nowrap">
                   <thead>
-                    <tr className="border-b border-[#F0E6FA] text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                    <tr className="border-b border-primary-lighter text-[10px] uppercase tracking-widest text-gray-400 font-black">
                       <th className="px-8 py-6">Formulation</th>
                       <th className="px-4 py-6">Price</th>
                       <th className="px-4 py-6">Season Profile</th>
@@ -373,7 +373,7 @@ export function IngredientFilterPage() {
                           colSpan={tableColSpan}
                           className="py-20 text-center"
                         >
-                          <Loader2 className="animate-spin mx-auto text-[#7700CF]" />
+                          <Loader2 className="animate-spin mx-auto text-primary" />
                         </td>
                       </tr>
                     ) : rows.length === 0 ? (
@@ -390,7 +390,7 @@ export function IngredientFilterPage() {
                         return (
                           <tr
                             key={item.product_id}
-                            className="hover:bg-[#FAF9FF] transition-colors border-b last:border-none border-[#F8F4FF] group"
+                            className="hover:bg-primary-lightest transition-colors border-b last:border-none border-primary-lightest group"
                           >
                             <td className="px-8 py-5">
                               <div className="flex items-center gap-4">
@@ -420,7 +420,7 @@ export function IngredientFilterPage() {
                                 {seasons.map((tag) => (
                                   <span
                                     key={tag}
-                                    className="bg-[#F3E8FF] text-[#7700CF] text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter"
+                                    className="bg-primary-lighter text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter"
                                   >
                                     {tag}
                                   </span>
@@ -471,7 +471,7 @@ export function IngredientFilterPage() {
                   </tbody>
                 </table>
               </div>
-              <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-8 py-6 bg-[#FCFAFF] border-t border-[#F0E6FA]">
+              <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-8 py-6 bg-[#FCFAFF] border-t border-primary-lighter">
                 <div className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
                   Catalog Index:{" "}
                   {filteredProducts.length === 0
@@ -484,7 +484,7 @@ export function IngredientFilterPage() {
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(currentPage - 1)}
-                    className="p-2 text-gray-300 hover:text-[#7700CF] disabled:opacity-20"
+                    className="p-2 text-gray-300 hover:text-primary disabled:opacity-20"
                   >
                     <ChevronLeft size={20} />
                   </button>
@@ -494,7 +494,7 @@ export function IngredientFilterPage() {
                   <button
                     disabled={currentPage * 10 >= filteredProducts.length}
                     onClick={() => setCurrentPage(currentPage + 1)}
-                    className="p-2 text-gray-300 hover:text-[#7700CF] disabled:opacity-20"
+                    className="p-2 text-gray-300 hover:text-primary disabled:opacity-20"
                   >
                     <ChevronRight size={20} />
                   </button>

@@ -33,32 +33,32 @@
 
   .btn-primary {
     @apply text-white shadow-md;
-    background-color: #7700cf;
+    background-color: var(--color-primary);
   }
 
   .btn-primary:hover {
-    background-color: #5500a0;
+    background-color: var(--color-primary-dark);
     @apply shadow-lg;
   }
 
   .btn-secondary {
     @apply text-base;
     color: #121212;
-    background-color: #f4e5ff;
+    background-color: var(--color-primary-lighter);
   }
 
   .btn-secondary:hover {
-    background-color: #faf4ff;
+    background-color: var(--color-primary-lightest);
   }
 
   .btn-outline {
     @apply bg-transparent;
-    color: #7700cf;
-    border: 1px solid #7700cf;
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
   }
 
   .btn-outline:hover {
-    background-color: #f4e5ff;
+    background-color: var(--color-primary-lighter);
   }
 
   .btn-ghost {
@@ -67,7 +67,7 @@
   }
 
   .btn-ghost:hover {
-    background-color: #faf4ff;
+    background-color: var(--color-primary-lightest);
     color: #121212;
   }
 
@@ -90,14 +90,14 @@
   /* ── Cards ───────────────────────────────────────────────── */
   .card {
     @apply bg-white rounded-lg p-6;
-    border: 1px solid rgba(119, 0, 207, 0.15);
+    border: 1px solid var(--border-color);
     box-shadow: 0 2px 12px rgba(18, 18, 18, 0.08);
   }
 
   .card-surface {
     @apply rounded-lg p-6;
-    background-color: #faf4ff;
-    border: 1px solid rgba(119, 0, 207, 0.15);
+    background-color: var(--color-primary-lightest);
+    border: 1px solid var(--border-color);
   }
 
   .card-elevated {
@@ -106,8 +106,8 @@
 
   .card-glass {
     @apply backdrop-blur-md rounded-lg p-6;
-    background-color: rgba(244, 229, 255, 0.55);
-    border: 1px solid rgba(119, 0, 207, 0.2);
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
   }
 
   .card-hover {
@@ -126,14 +126,14 @@
 
   .badge-primary {
     @apply text-xs;
-    background-color: #f4e5ff;
-    color: #5500a0;
+    background-color: var(--color-primary-lighter);
+    color: var(--color-primary-dark);
   }
 
   .badge-secondary {
     @apply text-xs;
-    background-color: #faf4ff;
-    color: #9b4dd4;
+    background-color: var(--color-primary-lightest);
+    color: var(--color-secondary-dark);
   }
 
   .badge-success {
@@ -171,7 +171,7 @@
     font-family: "Google Sans Flex", sans-serif;
     @apply w-full text-base bg-white rounded-sm px-4 py-3 outline-none transition-all duration-200;
     color: #121212;
-    border: 1px solid rgba(119, 0, 207, 0.15);
+    border: 1px solid var(--border-color);
   }
 
   .input::placeholder {
@@ -180,13 +180,13 @@
 
   .input:focus {
     outline: none;
-    border-color: #7700cf;
-    box-shadow: 0 0 0 4px rgba(119, 0, 207, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 10%, transparent);
   }
 
   .input:disabled {
     @apply cursor-not-allowed opacity-60;
-    background-color: rgba(244, 229, 255, 0.5);
+    background-color: color-mix(in srgb, var(--color-primary-lighter) 50%, transparent);
   }
 
   .input-label {
@@ -217,9 +217,9 @@
   .tag {
     font-family: "Google Sans Flex", sans-serif;
     @apply inline-flex items-center gap-2 text-sm font-medium px-3 py-1 rounded-full border;
-    background-color: #f4e5ff;
-    color: #5500a0;
-    border-color: rgba(119, 0, 207, 0.15);
+    background-color: var(--color-primary-lighter);
+    color: var(--color-primary-dark);
+    border-color: var(--border-color);
   }
 
   .tag-removable button {
@@ -233,12 +233,12 @@
   /* ── Progress bar ────────────────────────────────────────── */
   .progress {
     @apply w-full h-1.5 rounded-full overflow-hidden;
-    background-color: #f4e5ff;
+    background-color: var(--color-primary-lighter);
   }
 
   .progress-fill {
     @apply h-full rounded-full transition-all duration-400;
-    background-color: #7700cf;
+    background-color: var(--color-primary);
   }
 
   /* ── Divider ─────────────────────────────────────────────── */
@@ -251,7 +251,7 @@
   .avatar {
     font-family: "MuseoModerno", serif;
     @apply flex items-center justify-center rounded-full font-bold overflow-hidden shrink-0;
-    background-color: #f4e5ff;
+    background-color: var(--color-primary-lighter);
     color: #121212;
   }
 
@@ -296,8 +296,8 @@
   /* ── Loading spinner ─────────────────────────────────────── */
   .spinner {
     @apply w-6 h-6 rounded-full;
-    border: 2.5px solid #f4e5ff;
-    border-top-color: #7700cf;
+    border: 2.5px solid var(--color-primary-lighter);
+    border-top-color: var(--color-primary);
     animation: spin 0.7s linear infinite;
   }
 
@@ -341,13 +341,13 @@
   /* ── Typography helpers ──────────────────────────────────── */
   .heading-hero {
     font-family: "MuseoModerno", serif;
-    @apply text-5xl font-black leading-tight;
+    @apply text-5xl font-semibold leading-tight;
     color: #121212;
   }
 
   .heading-section {
     font-family: "MuseoModerno", serif;
-    @apply text-3xl font-bold leading-snug;
+    @apply text-3xl font-semibold leading-snug;
   }
 
   .text-label {
@@ -364,24 +364,24 @@
 
   /* ── Color utility classes ───────────────────────────────── */
   .text-primary-color {
-    color: #7700cf;
+    color: var(--color-primary);
   }
 
   .text-secondary-color {
-    color: #ba6cf4;
+    color: var(--color-secondary);
   }
 
   .bg-primary {
-    background-color: #7700cf;
+    background-color: var(--color-primary);
     color: #ffffff;
   }
 
   .bg-primary-light {
-    background-color: #f4e5ff;
+    background-color: var(--color-primary-light);
   }
 
   .bg-surface {
-    background-color: #faf4ff;
+    background-color: var(--bg-surface);
   }
 }
 

@@ -167,7 +167,7 @@ export function AppliedProductsPanel() {
       <div className="px-5 pt-5 pb-4 border-b border-gray-lightest/60">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="font-heading text-lg font-bold text-black leading-tight">
+            <h2 className="font-heading text-lg font-semibold text-black leading-tight">
               Applied Products
             </h2>
             <p className="text-[11px] text-gray-light mt-0.5">
@@ -245,7 +245,7 @@ export function AppliedProductsPanel() {
               key={product.id}
               className="group flex items-center gap-3 rounded-2xl p-3.5 transition-all duration-200"
               style={{
-                backgroundColor: product.active ? "#FAF4FF" : "#FAFAFA",
+                backgroundColor: product.active ? "var(--color-primary-lightest)" : "#FAFAFA",
                 border: product.active
                   ? "1.5px solid #C084FC"
                   : "1.5px solid transparent",

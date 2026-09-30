@@ -38,11 +38,11 @@ const sections = [
 
 export function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-[#FAF4FF] font-body">
+    <main className="min-h-screen bg-primary-lightest font-body">
       <SplashNavbar />
 
       <div className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-8 sm:pt-32 lg:px-12">
-        <h1 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+        <h1 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
           Privacy Policy
         </h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray">
@@ -53,7 +53,7 @@ export function PrivacyPolicyPage() {
         <div className="mt-12 space-y-8">
           {sections.map(({ title, body }) => (
             <article key={title}>
-              <h2 className="font-heading text-xl font-bold text-black">{title}</h2>
+              <h2 className="font-heading text-xl font-semibold text-black">{title}</h2>
               <p className="mt-2 leading-relaxed text-gray">{body}</p>
             </article>
           ))}

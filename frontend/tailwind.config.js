@@ -9,16 +9,17 @@ export default {
       },
       colors: {
         primary: {
-          DEFAULT: "#7700CF",
-          dark: "#5500A0",
-          darker: "#3D007A",
-          light: "#F4E5FF",
-          lightest: "#FAF4FF",
+          DEFAULT: "#6D4EC6",
+          dark: "#5739B1",
+          darker: "#462E8E",
+          light: "#BCA4FF",
+          lighter: "#EAE3FF",
+          lightest: "#F5F2FF",
         },
         secondary: {
-          DEFAULT: "#BA6CF4",
-          dark: "#9B4DD4",
-          light: "#FAF4FF",
+          DEFAULT: "#987CE6",
+          dark: "#7854DE",
+          light: "#D8CAFF",
         },
         black: "#121212",
         gray: {
@@ -46,10 +47,10 @@ export default {
         "2xl": "32px",
       },
       boxShadow: {
-        sm: "0 1px 3px rgba(119,0,207,0.08)",
-        md: "0 4px 16px rgba(119,0,207,0.12)",
-        lg: "0 8px 32px rgba(119,0,207,0.18)",
-        xl: "0 16px 48px rgba(119,0,207,0.22)",
+        sm: "0 1px 3px rgba(109,78,198,0.08)",
+        md: "0 4px 16px rgba(109,78,198,0.12)",
+        lg: "0 8px 32px rgba(109,78,198,0.18)",
+        xl: "0 16px 48px rgba(109,78,198,0.22)",
         card: "0 2px 12px rgba(18,18,18,0.08)",
       },
       transitionTimingFunction: {

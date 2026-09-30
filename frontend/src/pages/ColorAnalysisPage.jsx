@@ -131,12 +131,12 @@ export function ColorAnalysisPage() {
   const skinHex = userProfile?.user_lab ? labToHex(userProfile.user_lab[0], userProfile.user_lab[1], userProfile.user_lab[2]) : null;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#FAF9FF] via-[#F6F0FF] to-[#FAF9FF] font-body text-black pb-12">
+    <main className="min-h-screen bg-primary-lightest font-body text-black pb-12">
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 space-y-8">
         
         <header className={`space-y-4 transition-all duration-1000 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h1 className="font-heading text-4xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-[#7700CF] italic tracking-tight">
+          <h1 className="font-heading text-4xl sm:text-6xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-primary italic tracking-tight">
             Color Analysis
           </h1>
           <p className="text-gray-600 text-lg max-w-2xl">
@@ -150,7 +150,7 @@ export function ColorAnalysisPage() {
             
             <div 
               onClick={triggerFileInput}
-              className={`bg-white/80 backdrop-blur-xl border-2 border-dashed border-[#E5D5F5] rounded-[32px] p-8 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 relative overflow-hidden min-h-[300px] ${!isWebcamActive ? 'cursor-pointer hover:border-[#7700CF] hover:bg-[#7700CF]/5 hover:shadow-md group' : ''}`}
+              className={`bg-white/80 backdrop-blur-xl border-2 border-dashed border-secondary-light rounded-[32px] p-8 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 relative overflow-hidden min-h-[300px] ${!isWebcamActive ? 'cursor-pointer hover:border-primary hover:bg-primary/5 hover:shadow-md group' : ''}`}
             >
               <input 
                 type="file" 
@@ -192,11 +192,11 @@ export function ColorAnalysisPage() {
                 </div>
               ) : (
                 <div className="space-y-4 relative z-10">
-                  <div className="w-20 h-20 bg-gradient-to-br from-[#FAEDFF] to-[#F3E8FF] rounded-full flex items-center justify-center text-[#7700CF] mx-auto group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-inner">
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary-lightest to-primary-lighter rounded-full flex items-center justify-center text-primary mx-auto group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-inner">
                     <ImagePlus size={36} />
                   </div>
                   <div>
-                    <h3 className="font-heading font-bold text-2xl text-[#111827]">
+                    <h3 className="font-heading font-semibold text-2xl text-[#111827]">
                       Upload Portrait
                     </h3>
                     <p className="text-gray-500 text-sm mt-2 max-w-[250px] mx-auto leading-relaxed">
@@ -210,7 +210,7 @@ export function ColorAnalysisPage() {
             {!isWebcamActive && (
               <button
                 onClick={startWebcam}
-                className="w-full py-4 border-2 border-[#7700CF]/20 bg-white/50 backdrop-blur-sm text-[#7700CF] rounded-full font-bold flex items-center justify-center gap-2 hover:bg-[#7700CF] hover:text-white hover:border-[#7700CF] transition-all duration-300 shadow-sm"
+                className="w-full py-4 border-2 border-primary/20 bg-white/50 backdrop-blur-sm text-primary rounded-full font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 shadow-sm"
               >
                 <Camera size={18} />
                 Activate Webcam
@@ -220,14 +220,14 @@ export function ColorAnalysisPage() {
             <button
               onClick={() => navigate("/color-analysis/processing", { state: { image: uploadedImage } })}
               disabled={!uploadedImage}
-              className="w-full py-5 bg-gradient-to-r from-[#7700CF] to-[#5C00A3] text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-lg flex justify-center items-center gap-2"
+              className="w-full py-5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-lg flex justify-center items-center gap-2"
             >
               <Dna size={20} />
               Run Analysis
             </button>
 
             <div className="bg-white/60 backdrop-blur-xl p-8 rounded-[32px] space-y-6 border border-white shadow-sm">
-              <h3 className="font-heading font-bold text-xl text-[#111827]">Lighting Protocol</h3>
+              <h3 className="font-heading font-semibold text-xl text-[#111827]">Lighting Protocol</h3>
               <div className="space-y-3">
                 <ChecklistItem icon={<Sun size={18} />} text="Natural daylight is heavily preferred" />
                 <ChecklistItem icon={<UserSquare size={18} />} text="Remove heavy makeup or filters" />
@@ -239,10 +239,10 @@ export function ColorAnalysisPage() {
           <div className={`col-span-1 lg:col-span-7 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
             <div className="bg-white/80 backdrop-blur-xl rounded-[32px] p-6 sm:p-10 border border-white shadow-sm h-full flex flex-col relative overflow-hidden">
               
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#7700CF]/10 rounded-full blur-[60px] pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[60px] pointer-events-none" />
 
               {isLoadingProfile ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-[#7700CF]/60 space-y-4">
+                <div className="flex-1 flex flex-col items-center justify-center text-primary/60 space-y-4">
                   <Loader2 size={40} className="animate-spin" />
                   <p className="font-bold text-sm tracking-widest uppercase">Syncing Profile...</p>
                 </div>
@@ -250,10 +250,10 @@ export function ColorAnalysisPage() {
                 
                 <div className="space-y-6 relative z-10 flex-1 flex flex-col justify-center">
                   <div>
-                    <p className="text-[10px] font-black text-[#7700CF] uppercase tracking-[0.2em] mb-2">
+                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">
                       Active Profile Match
                     </p>
-                    <h2 className="font-heading text-4xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-[#7700CF] italic">
+                    <h2 className="font-heading text-4xl sm:text-6xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-primary italic">
                       {userSeason}
                     </h2>
                   </div>
@@ -261,23 +261,23 @@ export function ColorAnalysisPage() {
                   <div className="bg-gray-50/50 p-4 rounded-2xl border border-white shadow-inner">
                     <div className="flex justify-between items-end mb-2">
                       <div className="flex items-center gap-2">
-                        <Target size={16} className="text-[#7700CF]" />
+                        <Target size={16} className="text-primary" />
                         <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
                       </div>
-                      <p className="text-lg font-black text-[#7700CF]">
+                      <p className="text-lg font-black text-primary">
                         {userConfidence !== undefined && userConfidence !== null ? `${Number(userConfidence).toFixed(1)}%` : "N/A"}
                       </p>
                     </div>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-[#7700CF] to-[#C084FC] rounded-full transition-all duration-1000 ease-out"
+                        className="h-full bg-gradient-to-r from-primary to-[#C084FC] rounded-full transition-all duration-1000 ease-out"
                         style={{ width: userConfidence ? `${userConfidence}%` : '0%' }}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    <h4 className="font-heading font-bold text-xl text-[#111827]">
+                    <h4 className="font-heading font-semibold text-xl text-[#111827]">
                       Signature Palette
                     </h4>
                     <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -309,7 +309,7 @@ export function ColorAnalysisPage() {
                          </div>
                       </div>
                       <div className="bg-white/60 px-4 py-2 rounded-xl border border-white shadow-inner">
-                         <p className="font-mono font-bold text-[#7700CF] text-sm">{skinHex}</p>
+                         <p className="font-mono font-bold text-primary text-sm">{skinHex}</p>
                       </div>
                     </div>
                   )}
@@ -317,7 +317,7 @@ export function ColorAnalysisPage() {
                   <div className="pt-8 mt-auto">
                     <button 
                       onClick={() => navigate("/ingredient-filter")}
-                      className="w-full py-4 bg-white border-2 border-[#7700CF] text-[#7700CF] hover:bg-[#7700CF] hover:text-white rounded-full font-bold flex items-center justify-center gap-2 shadow-md transition-all duration-300 group"
+                      className="w-full py-4 bg-white border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-full font-bold flex items-center justify-center gap-2 shadow-md transition-all duration-300 group"
                     >
                       Shop Curated Products <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </button>
@@ -331,7 +331,7 @@ export function ColorAnalysisPage() {
                     <div className="absolute inset-0 rounded-full border border-gray-300 animate-ping opacity-20" />
                   </div>
                   <div>
-                    <h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#111827] italic mb-3">
+                    <h2 className="font-heading text-3xl sm:text-4xl font-semibold text-[#111827] italic mb-3">
                       Profile Locked
                     </h2>
                     <p className="text-gray-600 max-w-sm mx-auto leading-relaxed text-sm">
@@ -345,7 +345,7 @@ export function ColorAnalysisPage() {
         </div>
 
         <section className={`space-y-6 pt-8 transition-all duration-1000 delay-500 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h3 className="font-heading font-bold text-xl sm:text-2xl text-[#111827]">Discover Other Palettes</h3>
+          <h3 className="font-heading font-semibold text-xl sm:text-2xl text-[#111827]">Discover Other Palettes</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <PaletteCard
               name="Cool Winter"
@@ -372,7 +372,7 @@ export function ColorAnalysisPage() {
 function ChecklistItem({ icon, text }) {
   return (
     <div className="bg-white/50 p-4 rounded-xl flex items-center gap-4 border border-white/40 shadow-sm">
-      <div className="text-[#7700CF]">{icon}</div>
+      <div className="text-primary">{icon}</div>
       <span className="text-sm font-semibold text-[#111827]">{text}</span>
     </div>
   );
@@ -383,7 +383,7 @@ function PaletteCard({ name, desc, color }) {
     <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
       <div className="flex items-center gap-4 mb-3">
         <div className={`w-12 h-12 rounded-full ${color} shadow-inner border border-white/20`} />
-        <h4 className="font-bold text-lg text-[#111827] group-hover:text-[#7700CF] transition-colors">
+        <h4 className="font-semibold text-lg text-[#111827] group-hover:text-primary transition-colors">
           {name}
         </h4>
       </div>

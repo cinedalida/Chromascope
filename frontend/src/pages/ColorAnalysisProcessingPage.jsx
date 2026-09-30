@@ -69,7 +69,7 @@ export function ColorAnalysisProcessingPage() {
   }, [navigate, image]);
 
   return (
-    <main className="page-shell bg-[#FAF4FF] font-body text-black flex flex-col items-center justify-center">
+    <main className="page-shell bg-primary-lightest font-body text-black flex flex-col items-center justify-center">
       <section className="max-w-4xl w-full flex flex-col items-center space-y-12">
         <div className="relative group">
           <div className="absolute inset-0 bg-primary/5 rounded-[40px] blur-3xl group-hover:bg-primary/10 transition-all duration-1000" />
@@ -84,7 +84,7 @@ export function ColorAnalysisProcessingPage() {
         </div>
 
         <div className="text-center space-y-3">
-          <h1 className="font-heading text-4xl font-bold text-black italic">
+          <h1 className="font-heading text-4xl font-semibold text-black italic">
             Analyzing Your Profile
           </h1>
           <p className="text-gray-light max-w-md mx-auto leading-relaxed text-sm">

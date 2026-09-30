@@ -35,7 +35,7 @@ export function UserManualPage() {
   const navigate = useNavigate();
 
   return (
-    <main className="min-h-screen bg-[#FAF4FF] font-body">
+    <main className="min-h-screen bg-primary-lightest font-body">
       <SplashNavbar />
 
       <div className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-8 sm:pt-32 lg:px-12">
@@ -47,7 +47,7 @@ export function UserManualPage() {
           Back to home
         </button>
 
-        <h1 className="font-heading text-4xl font-black tracking-tight text-black sm:text-5xl">
+        <h1 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
           User Manual
         </h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray">
@@ -61,11 +61,11 @@ export function UserManualPage() {
               key={title}
               className="flex gap-5 rounded-lg bg-white p-6 shadow-sm"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-lighter text-primary">
                 <Icon className="h-6 w-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="font-heading text-lg font-bold text-black">{title}</h2>
+                <h2 className="font-heading text-lg font-semibold text-black">{title}</h2>
                 <p className="mt-1 leading-relaxed text-gray">{body}</p>
               </div>
             </article>

@@ -171,11 +171,11 @@ export function ProfilePage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-surface">
+    <main className="min-h-screen bg-primary-lightest">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-10">
         
         <header className="mb-8">
-          <h1 className="font-heading text-3xl font-bold text-[#1F1924]">Your Profile</h1>
+          <h1 className="font-heading text-3xl font-semibold text-[#1F1924]">Your Profile</h1>
           <p className="text-[#4C4354] mt-1">Manage your health data, skin profile, and privacy settings.</p>
         </header>
 
@@ -186,14 +186,14 @@ export function ProfilePage() {
             
             {/* Action Bar for Modes */}
             <div className="flex items-center justify-between bg-white px-6 py-4 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="font-heading text-xl font-bold text-[#1F1924]">
+              <h2 className="font-heading text-xl font-semibold text-[#1F1924]">
                 {isEditing ? "Editing Profile Data" : "Active Profile Data"}
               </h2>
               
               {!isEditing ? (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 text-sm font-bold text-[#7700CF] bg-[#F5EAF9] px-4 py-2 rounded-full hover:bg-[#EADFEE] transition-colors"
+                  className="flex items-center gap-2 text-sm font-bold text-primary bg-[#F5EAF9] px-4 py-2 rounded-full hover:bg-[#EADFEE] transition-colors"
                 >
                   <Edit2 size={16} /> Edit
                 </button>
@@ -209,7 +209,7 @@ export function ProfilePage() {
                   <button 
                     onClick={handleSaveProfile}
                     disabled={isLoading}
-                    className="flex items-center gap-1 text-sm font-bold text-white bg-[#7700CF] hover:bg-[#5C00A3] px-4 py-2 rounded-full transition-colors disabled:opacity-50 shadow-md"
+                    className="flex items-center gap-1 text-sm font-bold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-full transition-colors disabled:opacity-50 shadow-md"
                   >
                     {isLoading ? "Saving..." : <><Check size={16} /> Save</>}
                   </button>
@@ -219,7 +219,7 @@ export function ProfilePage() {
 
             {/* General Settings */}
             <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 transition-all">
-              <h3 className="font-heading text-lg font-bold text-[#1F1924] mb-4">Account Information</h3>
+              <h3 className="font-heading text-lg font-semibold text-[#1F1924] mb-4">Account Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Full Name</label>
@@ -228,7 +228,7 @@ export function ProfilePage() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full border-b-2 border-gray-200 bg-transparent px-2 py-2 text-sm outline-none focus:border-[#7700CF] transition-colors"
+                      className="w-full border-b-2 border-gray-200 bg-transparent px-2 py-2 text-sm outline-none focus:border-primary transition-colors"
                     />
                   ) : (
                     <p className="font-medium text-[#111827] px-2 py-2">{fullName || "Not set"}</p>
@@ -244,7 +244,7 @@ export function ProfilePage() {
 
             {/* Skin Profile */}
             <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
-              <h3 className="font-heading text-lg font-bold text-[#1F1924] mb-4">Skin Profile</h3>
+              <h3 className="font-heading text-lg font-semibold text-[#1F1924] mb-4">Skin Profile</h3>
               
               <div className="mb-6">
                 <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Base Skin Type</label>
@@ -258,7 +258,7 @@ export function ProfilePage() {
                           onClick={() => setSelectedSkinType(type)}
                           className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${
                             isActive 
-                              ? "bg-[#7700CF] text-white border-[#7700CF]" 
+                              ? "bg-primary text-white border-primary" 
                               : "bg-[#F5EAF9] text-[#4C4354] border-transparent hover:bg-[#EADFEE]"
                           }`}
                         >
@@ -268,7 +268,7 @@ export function ProfilePage() {
                     })}
                   </div>
                 ) : (
-                  <span className="inline-block bg-[#F5EAF9] text-[#7700CF] font-bold px-4 py-2 rounded-full text-sm capitalize">
+                  <span className="inline-block bg-[#F5EAF9] text-primary font-bold px-4 py-2 rounded-full text-sm capitalize">
                     {selectedSkinType || "Not Logged"}
                   </span>
                 )}
@@ -316,7 +316,7 @@ export function ProfilePage() {
             <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle size={20} className={isEditing ? "text-orange-500" : "text-gray-400"} />
-                <h3 className="font-heading text-lg font-bold text-[#1F1924]">Ingredients to Filter</h3>
+                <h3 className="font-heading text-lg font-semibold text-[#1F1924]">Ingredients to Filter</h3>
               </div>
               
               {isEditing ? (
@@ -361,7 +361,7 @@ export function ProfilePage() {
           {/* RIGHT COLUMN: Color Analysis Block (Always View-Only) */}
           <div className="w-full lg:w-[400px] shrink-0 space-y-6 self-start sticky top-6">
             <div className="bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 rounded-[32px] shadow-xl text-white relative overflow-hidden flex flex-col transition-all">
-              <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#7700CF] rounded-full blur-[80px] opacity-40 pointer-events-none" />
+              <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary rounded-full blur-[80px] opacity-40 pointer-events-none" />
               
               <div className="flex items-center gap-2 text-[#C084FC] mb-6">
                 <Dna size={20} />
@@ -370,7 +370,7 @@ export function ProfilePage() {
 
               {seasonalLabel ? (
                 <div className="flex flex-col relative z-10">
-                  <h3 className="font-heading text-4xl font-bold italic mb-6">
+                  <h3 className="font-heading text-4xl font-semibold italic mb-6">
                     {seasonalLabel}
                   </h3>
 
@@ -433,7 +433,7 @@ export function ProfilePage() {
                     <Lock size={24} className="text-gray-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-xl mb-2">Analysis Pending</h3>
+                    <h3 className="font-semibold text-xl mb-2">Analysis Pending</h3>
                     <p className="text-gray-400 text-sm mb-6">You haven't run the AI color engine on your features yet.</p>
                     <button 
                       onClick={() => navigate("/color-analysis")}

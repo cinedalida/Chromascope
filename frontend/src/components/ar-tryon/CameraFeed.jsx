@@ -20,7 +20,7 @@ export function CameraFeed({ cameraRef, isReady, error, isMock, onEnableMock }) 
               <CameraOff size={28} strokeWidth={1.5} />
             </div>
             
-            <h3 className="mb-2 font-heading text-xl font-bold text-white tracking-tight">Camera Unavailable</h3>
+            <h3 className="mb-2 font-heading text-xl font-semibold text-white tracking-tight">Camera Unavailable</h3>
             <p className="mb-8 text-[13px] leading-relaxed text-white/50">
               {typeof error === 'string' ? error : "Please check your browser permissions to enable live AR scanning."}
             </p>

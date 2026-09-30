@@ -69,11 +69,11 @@ export function ARTryOnPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface/50 font-body">
+    <main className="min-h-screen bg-primary-lightest font-body">
       {/* Layout */}
       <div className="mx-auto grid min-h-[calc(100vh-64px)] grid-cols-1 lg:grid-cols-[1fr_400px]">
         {/* CENTER */}
-        <section className="relative flex items-center justify-center bg-[#FDF8FF] p-6 min-h-120 lg:h-auto lg:min-h-0">
+        <section className="relative flex items-center justify-center bg-primary-lightest p-6 min-h-120 lg:h-auto lg:min-h-0">
           <div className="relative aspect-[4/5] w-full max-w-[540px] overflow-hidden rounded-[40px] bg-slate-900 shadow-xl ring-1 ring-black/5">
             {/* AR FEED */}
             <CameraFeed 
@@ -139,7 +139,7 @@ export function ARTryOnPage() {
                 </div>
 
                 <div className="relative z-10 max-w-[280px]">
-                  <h2 className="mb-2 font-heading text-2xl font-bold text-white tracking-tight">
+                  <h2 className="mb-2 font-heading text-2xl font-semibold text-white tracking-tight">
                     Try On Your Look
                   </h2>
                   <p className="text-[13px] leading-relaxed text-white/60">
@@ -150,7 +150,7 @@ export function ARTryOnPage() {
                 <button
                   type="button"
                   onClick={() => setStarted(true)}
-                  className="group relative z-10 overflow-hidden rounded-full bg-gradient-to-br from-primary to-[#5500A0] px-8 py-4 text-[11px] font-bold tracking-[0.2em] uppercase text-white shadow-[0_8px_32px_rgba(119,0,207,0.35)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="group relative z-10 overflow-hidden rounded-full bg-gradient-to-br from-primary to-primary-dark px-8 py-4 text-[11px] font-bold tracking-[0.2em] uppercase text-white shadow-[0_8px_32px_color-mix(in_srgb,var(--color-primary)_35%,transparent)] transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Start Try-On Now
                 </button>
@@ -177,11 +177,11 @@ function CaptureButton({ onClick, disabled }) {
       disabled={disabled}
       aria-label="Save photo"
       title="Save photo"
-      className={`group relative flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_32px_rgba(119,0,207,0.25)] ring-4 ring-white/60 transition-all duration-300 focus:outline-none ${
+      className={`group relative flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_32px_color-mix(in_srgb,var(--color-primary)_25%,transparent)] ring-4 ring-white/60 transition-all duration-300 focus:outline-none ${
         disabled ? "cursor-not-allowed opacity-40" : "hover:scale-105 active:scale-95"
       }`}
     >
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-[#5500A0]" />
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-primary-dark" />
       <div className="relative h-14 w-14 rounded-full border-[3px] border-white/40 transition-all duration-300 group-hover:border-white group-hover:scale-95 group-active:scale-90" />
       <div className="absolute inset-0 rounded-full ring-4 ring-primary blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-40" />
     </button>

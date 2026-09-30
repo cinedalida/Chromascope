@@ -8,7 +8,7 @@ export function AdminDatabasePage() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             Admin
           </p>
-          <h1 className="font-heading text-4xl font-bold text-black">
+          <h1 className="font-heading text-4xl font-semibold text-black">
             Database Management
           </h1>
           <p className="text-gray max-w-2xl">
