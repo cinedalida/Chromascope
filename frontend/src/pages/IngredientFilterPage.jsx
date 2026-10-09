@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronDown,
   Eye,
+  Info,
   Loader2,
 } from "lucide-react";
 import placeholderImg from "../assets/images/placeholder.svg";
@@ -35,6 +36,7 @@ export function IngredientFilterPage() {
   const [maxPrice, setMaxPrice] = useState("");
   const [safeOnly, setSafeOnly] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const categoryMenuRef = useRef(null);
   const itemsPerPage = 10;
 
@@ -274,9 +276,23 @@ export function IngredientFilterPage() {
                 >
                   Safe Only
                 </button>
+                <div className="h-6 w-px bg-primary-lighter" />
+                <button
+                  type="button"
+                  onClick={() => setLegendOpen(true)}
+                  title="What do the statuses mean?"
+                  aria-label="What do the statuses mean?"
+                  className="p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
+                >
+                  <Info size={16} />
+                </button>
               </div>
             </div>
           </div>
+
+          {legendOpen && (
+            <StatusLegendModal onClose={() => setLegendOpen(false)} />
+          )}
 
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] border border-primary-lighter shadow-sm overflow-hidden">
@@ -504,6 +520,71 @@ export function IngredientFilterPage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+const STATUS_LEGEND = [
+  {
+    type: "Safe",
+    description:
+      "Good to go. Nothing in this product is a concern for your skin.",
+  },
+  {
+    type: "Caution",
+    description:
+      "Mostly safe to use, but watch out. Something in this product may not agree with your skin. Try a small patch test first.",
+  },
+  {
+    type: "Excluded",
+    description:
+      "Best to skip. This product contains something you said to avoid, or something likely to irritate your skin.",
+  },
+];
+
+function StatusLegendModal({ onClose }) {
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="status-legend-title"
+        className="modal max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
+        >
+          <X size={18} />
+        </button>
+        <h3
+          id="status-legend-title"
+          className="mb-6 text-lg font-semibold tracking-tight text-[#1F1924]"
+        >
+          What Status Means
+        </h3>
+        <div className="space-y-5">
+          {STATUS_LEGEND.map(({ type, description }) => (
+            <div key={type} className="flex flex-col items-start gap-2">
+              <StatusBadge type={type} />
+              <p className="text-sm text-gray-500 leading-relaxed font-medium">
+                {description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
