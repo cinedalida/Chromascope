@@ -61,15 +61,25 @@ export function AuthPage() {
       newErrors.email = "Please enter a valid email address.";
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
-    if (!formData.password) {
-      newErrors.password = "Password is required.";
-    } else if (!passwordRegex.test(formData.password)) {
-      newErrors.password = "Must be at least 8 characters, with 1 letter and 1 number.";
+    // Login only needs a password entered; Firebase checks whether it's correct.
+    // Sign-up enforces the format: 8+ characters, a letter and a number, any symbols, no spaces.
+    const { password } = formData;
+    if (!password) {
+      newErrors.password = isLogin ? "Please enter your password." : "Please create a password.";
+    } else if (!isLogin) {
+      if (password.length < 8) {
+        newErrors.password = "Your password needs at least 8 characters.";
+      } else if (!/[A-Za-z]/.test(password)) {
+        newErrors.password = "Add at least one letter to your password.";
+      } else if (!/\d/.test(password)) {
+        newErrors.password = "Add at least one number to your password.";
+      } else if (/\s/.test(password)) {
+        newErrors.password = "Your password can't include spaces.";
+      }
     }
 
-    if (!isLogin && formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match.";
+    if (!isLogin && password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "These passwords don't match. Please re-enter it.";
     }
 
     setErrors(newErrors);
