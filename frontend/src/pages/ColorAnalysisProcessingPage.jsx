@@ -35,8 +35,15 @@ export function ColorAnalysisProcessingPage() {
           body: formData,
         });
 
-        if (!apiRes.ok) throw new Error("Analysis failed");
-        
+        if (!apiRes.ok) {
+          // 422 = photo problem (blurry, too dark, no face...) — the upload page explains it
+          const body = await apiRes.json().catch(() => null);
+          navigate("/color-analysis", {
+            state: { photoError: body?.detail?.code || "unknown" },
+          });
+          return;
+        }
+
         const data = await apiRes.json();
         
         if (idToken) {
@@ -60,8 +67,7 @@ export function ColorAnalysisProcessingPage() {
 
       } catch (error) {
         console.error("Pipeline error:", error);
-        alert("There was an error analyzing your image. Please try again.");
-        navigate("/color-analysis");
+        navigate("/color-analysis", { state: { photoError: "unknown" } });
       }
     };
 

@@ -16,6 +16,7 @@ from ml.model import ArmocromiaModel
 from ml.transforms import get_test_transform
 from facer_processor import FaceProcessor
 from get_color import get_dominant_lab_color
+from quality_check import PhotoQualityError, check_photo_quality, LOW_CONFIDENCE_THRESHOLD
 
 # Configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -94,6 +95,7 @@ class AnalyzerPipeline:
         """
         Processes an image and returns the season, confidence, and skin shade.
         Accepts either a file path (str) or a PIL Image.
+        On failure returns {"error": message, "error_code": code}.
         """
         # 1. Handle Image Loading
         try:
@@ -102,28 +104,36 @@ class AnalyzerPipeline:
             else:
                 image = image_source.convert("RGB")
         except Exception as e:
-            return {"error": f"Error loading image: {e}"}
+            return {"error": f"Error loading image: {e}", "error_code": "invalid_image"}
 
         # Apply gray edge white balance
         balanced_image = gray_edge_white_balance(image)
 
         # 2. Segment Face for Skin Color Extraction (Skin Only)
-        skin_data = self.facer.generate_rgb_m(balanced_image, target='face_skin')
-        
-        # 3. Segment Face for Season Model (General Head: Hair, Eyes, Lips, etc.)
+        try:
+            skin_data = self.facer.generate_rgb_m(balanced_image, target='face_skin')
+        except ValueError as e:
+            return {"error": str(e), "error_code": "no_face"}
+
+        # 3. Reject blurry / too dark / too bright photos before predicting
+        try:
+            check_photo_quality(image, skin_data['mask'])
+        except PhotoQualityError as e:
+            return {"error": e.message, "error_code": e.code}
+
+        # 4. Segment Face for Season Model (General Head: Hair, Eyes, Lips, etc.)
         head_data = self.facer.generate_rgb_m(balanced_image, target='general_head')
 
-        # 4. Extract Dominant Skin Color (LAB space) using the skin mask
+        # 5. Extract Dominant Skin Color (LAB space) using the skin mask
         try:
             lab_color = get_dominant_lab_color(skin_data['image'], skin_data['mask'])
             # Convert numpy array to standard Python list for easy API serialization
-            lab_color_list = lab_color.tolist() 
+            lab_color_list = lab_color.tolist()
         except ValueError as e:
-            # Fallback if masking completely fails
             print(f"Color extraction error: {e}")
-            lab_color_list = [0.0, 0.0, 0.0] 
+            return {"error": "Could not read the skin tone from the photo.", "error_code": "face_unclear"}
 
-        # 5. Predict Season using the general head mask
+        # 6. Predict Season using the general head mask
         tensor = get_test_transform(head_data['image']).unsqueeze(0).to(DEVICE)
         
         with torch.no_grad():
@@ -134,10 +144,11 @@ class AnalyzerPipeline:
         season = IDX_TO_SEASON[pred_idx.item()]
         confidence_score = confidence.item() * 100
 
-        # 6. Return Unified Result
+        # 7. Return Unified Result
         return {
             "season": season,
             "confidence": confidence_score,
+            "low_confidence": confidence_score < LOW_CONFIDENCE_THRESHOLD,
             "lab_color": lab_color_list
         }
 

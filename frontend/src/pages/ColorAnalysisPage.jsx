@@ -1,8 +1,10 @@
 // ColorAnalysisPage begins the skin tone and palette analysis flow.
 
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
+  AlertTriangle,
+  X,
   ImagePlus,
   Camera,
   Sun,
@@ -34,8 +36,42 @@ const SEASON_DATABASE = {
   "Bright Winter": { colors: ["#FF006E", "#3A86FF", "#8338EC", "#06D6A0", "#FB5607", "#C94060"], desc: "Extremely striking and cool-leaning. Your features are incredibly clear, thriving in neon, high-voltage jewel tones." }
 };
 
+// Keyed by the error code the analyze-color API returns
+const PHOTO_ERRORS = {
+  too_blurry: {
+    title: "Photo Too Blurry",
+    message: "Your photo looks out of focus. Hold your camera steady, tap your face to focus, and try again.",
+  },
+  too_dark: {
+    title: "Lighting Too Dim",
+    message: "Your face is too dark for us to read your skin tone. Face a window or move to a brighter spot, then try again.",
+  },
+  too_bright: {
+    title: "Too Much Light",
+    message: "Your skin looks washed out from bright light or flash. Avoid direct sunlight and turn off the flash, then try again.",
+  },
+  no_face: {
+    title: "No Face Found",
+    message: "We couldn't find a face in your photo. Make sure your whole face is visible and looking at the camera.",
+  },
+  face_unclear: {
+    title: "Face Not Clear",
+    message: "We couldn't get a clear view of your skin. Move hair, hands, or sunglasses away from your face and look straight at the camera.",
+  },
+  invalid_image: {
+    title: "Can't Open Photo",
+    message: "We couldn't open that file. Please upload a JPG or PNG photo.",
+  },
+  unknown: {
+    title: "Something Went Wrong",
+    message: "We couldn't analyze your photo. Please try again in a moment.",
+  },
+};
+
 export function ColorAnalysisPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [photoError, setPhotoError] = useState(location.state?.photoError || null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const fileInputRef = useRef(null);
@@ -71,6 +107,20 @@ export function ColorAnalysisPage() {
   useEffect(() => {
     return () => stopWebcam();
   }, []);
+
+  // Clear the error from history so a refresh doesn't reopen the pop-up
+  useEffect(() => {
+    if (location.state?.photoError) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, []);
+
+  const closePhotoError = () => setPhotoError(null);
+
+  const retryPhoto = () => {
+    setPhotoError(null);
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -365,7 +415,72 @@ export function ColorAnalysisPage() {
           </div>
         </section>
       </section>
+
+      {photoError && (
+        <PhotoErrorModal
+          error={PHOTO_ERRORS[photoError] || PHOTO_ERRORS.unknown}
+          onClose={closePhotoError}
+          onRetry={retryPhoto}
+        />
+      )}
     </main>
+  );
+}
+
+function PhotoErrorModal({ error, onClose, onRetry }) {
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="photo-error-title"
+        aria-describedby="photo-error-message"
+        className="modal max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
+        >
+          <X size={18} />
+        </button>
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+          <AlertTriangle size={22} strokeWidth={2.5} />
+        </div>
+        <h3 id="photo-error-title" className="mb-2 font-heading text-lg font-semibold text-[#111827]">
+          {error.title}
+        </h3>
+        <p id="photo-error-message" className="mb-6 text-sm text-gray-600 leading-relaxed">
+          {error.message}
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:bg-gray-50"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-primary-dark"
+          >
+            Try Another Photo
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

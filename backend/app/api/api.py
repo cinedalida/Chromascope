@@ -145,9 +145,22 @@ async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
+    except Exception:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_image", "message": "The uploaded file is not a readable image."},
+        )
+
+    try:
         result = analyzer.analyze(image)
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
-        return result
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Photo problems (blurry, dark, no face...) — the frontend shows a pop-up for each code
+    if "error" in result:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": result.get("error_code", "unknown"), "message": result["error"]},
+        )
+    return result

@@ -9,6 +9,7 @@ import {
   ScanFace,
   Target,
   ShieldCheck,
+  AlertTriangle,
   Droplet
 } from "lucide-react";
 
@@ -103,7 +104,7 @@ export function ColorAnalysisSubtypePage() {
     return <Navigate to="/color-analysis" replace />;
   }
 
-  const { season, confidence, lab_color } = result;
+  const { season, confidence, lab_color, low_confidence } = result;
   const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
 
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
@@ -118,10 +119,17 @@ export function ColorAnalysisSubtypePage() {
               Chromascope Profile
             </span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-gray-dark bg-white px-4 py-2 rounded-full shadow-sm">
-            <ShieldCheck size={16} className="text-green-500" />
-            Verified Analysis
-          </div>
+          {low_confidence ? (
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 px-4 py-2 rounded-full shadow-sm">
+              <AlertTriangle size={16} className="text-amber-500" />
+              Low Confidence
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-dark bg-white px-4 py-2 rounded-full shadow-sm">
+              <ShieldCheck size={16} className="text-green-500" />
+              Verified Analysis
+            </div>
+          )}
         </div>
       </div>
 
@@ -217,6 +225,23 @@ export function ColorAnalysisSubtypePage() {
                   style={{ width: animateIn ? `${confidence}%` : '0%' }}
                 />
               </div>
+              {low_confidence && (
+                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-800 leading-relaxed">
+                      Our AI isn't very sure about this result, so your season may not be accurate.
+                      For a better reading, retake your photo in natural daylight with no makeup or filters.
+                    </p>
+                    <button
+                      onClick={() => navigate("/color-analysis")}
+                      className="text-xs font-bold uppercase tracking-widest text-amber-700 hover:text-amber-900 transition-colors"
+                    >
+                      Retake Photo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
