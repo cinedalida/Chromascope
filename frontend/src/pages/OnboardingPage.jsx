@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2, AlertCircle } from "lucide-react";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { useUserStore } from "../store/userStore";
 
 const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne-prone"];
 const SKIN_CONCERNS = ["Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", "Metal allergy", "Melasma", "PIH / Dark spots"];
@@ -26,9 +29,11 @@ const dataCards = [
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // Form State
   const [skinType, setSkinType] = useState("");
@@ -54,22 +59,34 @@ export function OnboardingPage() {
     } else {
       setShowConfirmModal(false);
       setIsSubmitting(true);
+      setSaveError(null);
       try {
-        const payload = {
-          skin_profile: {
-            base_type: skinType,
-            primary_concerns: concerns,
-            blacklisted_ingredients: avoidIngredients
-          },
+        const user = auth.currentUser;
+        if (!user) {
+          navigate("/auth");
+          return;
+        }
+
+        const now = new Date().toISOString();
+        // Top-level fields match what ProfilePage and /api/run-filter read
+        const profileData = {
+          skin_type: skinType,
+          concerns,
+          avoid_ingredients: avoidIngredients,
           ethics_consent: {
-            agreed_to_terms: agreedToTerms
+            agreed_to_terms: agreedToTerms,
+            agreed_at: now
           },
-          completed_at: new Date().toISOString()
+          profile_completed: true,
+          setup_at: now
         };
-        
-        console.log("POST /api/user/profile/setup", JSON.stringify(payload, null, 2));
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        navigate("/home"); 
+
+        await updateDoc(doc(db, "users", user.uid), profileData);
+        updateStoreProfile(profileData);
+        navigate("/home");
+      } catch (error) {
+        console.error("Error saving profile:", error);
+        setSaveError("Couldn't save your profile. Please try again.");
       } finally {
         setIsSubmitting(false);
       }
@@ -257,8 +274,14 @@ export function OnboardingPage() {
              </div>
           )}
 
+          {saveError && (
+            <p className="mt-8 flex items-center gap-1.5 text-[14px] text-rose-500">
+              <AlertCircle size={16} />{saveError}
+            </p>
+          )}
+
           {/* Navigation Controls */}
-          <div className="mt-10 flex items-center justify-between border-t border-secondary-light pt-6">
+          <div className="mt-10flex items-center justify-between border-t border-secondary-light pt-6">
             
             {/* Back button is now active on Step 1 */}
             <button

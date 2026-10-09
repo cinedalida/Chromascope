@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import splashFrame1 from "../assets/splash-animation/splash-animation-1.jpg";
 import chroText from "../assets/logos/chro-text.svg";
 import chroNavLogo from "../assets/logos/chro-nav-logo.png";
@@ -85,8 +85,9 @@ export function AuthPage() {
     try {
       if (isLogin) {
         // Teammate's Login Logic
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        navigate("/home");
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        const userSnap = await getDoc(doc(db, "users", userCredential.user.uid));
+        navigate(userSnap.exists() && userSnap.data().profile_completed ? "/home" : "/onboarding");
       } else {
         // Teammate's Register Logic
         const userCredential = await createUserWithEmailAndPassword(
@@ -101,7 +102,7 @@ export function AuthPage() {
           created_at: new Date().toISOString(),
           profile_completed: false,
           concerns: [],
-          avoidIngredients: [],
+          avoid_ingredients: [],
           seasonal_label: null
         });
 
@@ -128,12 +129,27 @@ export function AuthPage() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      await setDoc(doc(db, "users", result.user.uid), {
-        display_name: result.user.displayName,
-        email: result.user.email,
-        last_login: new Date().toISOString()
-      }, { merge: true });
-      navigate("/home");
+      const userRef = doc(db, "users", result.user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // First Google sign-in: create the same profile shape as email sign-up
+        await setDoc(userRef, {
+          display_name: result.user.displayName,
+          email: result.user.email,
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString(),
+          profile_completed: false,
+          concerns: [],
+          avoid_ingredients: [],
+          seasonal_label: null
+        });
+        navigate("/onboarding");
+        return;
+      }
+
+      await setDoc(userRef, { last_login: new Date().toISOString() }, { merge: true });
+      navigate(userSnap.data().profile_completed ? "/home" : "/onboarding");
     } catch (error) {
       console.error("Google Sign-In Error:", error);
       setAuthError("Google sign-in failed. Please try again.");
