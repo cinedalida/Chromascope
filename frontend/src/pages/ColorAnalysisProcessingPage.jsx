@@ -1,15 +1,21 @@
 // ColorAnalysisProcessingPage shows progress while the analysis engine runs.
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Microscope, Check, Loader2, X, Fingerprint } from "lucide-react";
+import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucide-react";
 import { auth } from "../firebase";
 
 export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const image = location.state?.image;
-  const [currentStep, setCurrentStep] = useState(0); 
+  const [currentStep, setCurrentStep] = useState(0);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const controllerRef = useRef(null);
+  const confirmOpenRef = useRef(false);
+  // Result that arrived while the cancel pop-up was open — saved only if the user keeps analyzing
+  const pendingFinishRef = useRef(null);
 
   useEffect(() => {
     if (!image) {
@@ -17,35 +23,14 @@ export function ColorAnalysisProcessingPage() {
       return;
     }
 
-    const runAnalysis = async () => {
+    // Aborted on cancel or when leaving the page, so a cancelled analysis is never saved or shown
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const { signal } = controller;
+
+    const saveAndShowResult = async (data, idToken) => {
+      setSaving(true);
       try {
-        const response = await fetch(image);
-        const blob = await response.blob();
-        
-        const formData = new FormData();
-        formData.append("file", blob, "upload.png");
-
-        setCurrentStep(1);
-
-        const idToken = await auth.currentUser?.getIdToken();
-
-        const apiRes = await fetch("http://localhost:8000/api/analyze-color", {
-          method: "POST",
-          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {},
-          body: formData,
-        });
-
-        if (!apiRes.ok) {
-          // 422 = photo problem (blurry, too dark, no face...) — the upload page explains it
-          const body = await apiRes.json().catch(() => null);
-          navigate("/color-analysis", {
-            state: { photoError: body?.detail?.code || "unknown" },
-          });
-          return;
-        }
-
-        const data = await apiRes.json();
-        
         if (idToken) {
           await fetch("http://localhost:8000/api/user/profile", {
             method: "PATCH",
@@ -58,21 +43,88 @@ export function ColorAnalysisProcessingPage() {
               user_lab: data.user_lab || data.lab_color,
               season_confidence_level: data.confidence
             }),
+            signal,
           });
         }
+        if (signal.aborted) return;
 
         setCurrentStep(2);
-        
         navigate("/color-analysis/subtype", { state: { analysisResult: data } });
+      } catch (error) {
+        if (signal.aborted) return;
+        console.error("Profile save error:", error);
+        navigate("/color-analysis", { state: { photoError: "unknown" } });
+      }
+    };
+
+    const runAnalysis = async () => {
+      try {
+        const response = await fetch(image, { signal });
+        const blob = await response.blob();
+
+        const formData = new FormData();
+        formData.append("file", blob, "upload.png");
+
+        setCurrentStep(1);
+
+        const idToken = await auth.currentUser?.getIdToken();
+        if (signal.aborted) return;
+
+        const apiRes = await fetch("http://localhost:8000/api/analyze-color", {
+          method: "POST",
+          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {},
+          body: formData,
+          signal,
+        });
+
+        if (!apiRes.ok) {
+          // 422 = photo problem (blurry, too dark, no face...) — the upload page explains it
+          const body = await apiRes.json().catch(() => null);
+          if (signal.aborted) return;
+          navigate("/color-analysis", {
+            state: { photoError: body?.detail?.code || "unknown" },
+          });
+          return;
+        }
+
+        const data = await apiRes.json();
+        if (signal.aborted) return;
+
+        if (confirmOpenRef.current) {
+          pendingFinishRef.current = () => saveAndShowResult(data, idToken);
+          return;
+        }
+        await saveAndShowResult(data, idToken);
 
       } catch (error) {
+        if (signal.aborted) return;
         console.error("Pipeline error:", error);
         navigate("/color-analysis", { state: { photoError: "unknown" } });
       }
     };
 
     runAnalysis();
+    return () => controller.abort();
   }, [navigate, image]);
+
+  const openCancelConfirm = () => {
+    confirmOpenRef.current = true;
+    setConfirmCancelOpen(true);
+  };
+
+  const keepAnalyzing = () => {
+    confirmOpenRef.current = false;
+    setConfirmCancelOpen(false);
+    const pendingFinish = pendingFinishRef.current;
+    pendingFinishRef.current = null;
+    pendingFinish?.();
+  };
+
+  const cancelAnalysis = () => {
+    controllerRef.current?.abort();
+    pendingFinishRef.current = null;
+    navigate("/color-analysis");
+  };
 
   return (
     <main className="page-shell bg-primary-lightest font-body text-black flex flex-col items-center justify-center">
@@ -115,15 +167,79 @@ export function ColorAnalysisProcessingPage() {
           </div>
         </div>
 
-        <button 
-          onClick={() => navigate("/color-analysis")}
-          className="flex items-center gap-2 text-[#6B7280] hover:text-[#DC2626] font-bold text-sm transition-colors group"
-        >
-          <X size={16} className="group-hover:rotate-90 transition-transform" />
-          Cancel Analysis
-        </button>
+        {/* Hidden once saving starts — a save already sent can't be undone */}
+        {!saving && (
+          <button
+            onClick={openCancelConfirm}
+            className="flex items-center gap-2 text-[#6B7280] hover:text-[#DC2626] font-bold text-sm transition-colors group"
+          >
+            <X size={16} className="group-hover:rotate-90 transition-transform" />
+            Cancel Analysis
+          </button>
+        )}
       </section>
+
+      {confirmCancelOpen && (
+        <CancelAnalysisModal onKeep={keepAnalyzing} onCancel={cancelAnalysis} />
+      )}
     </main>
+  );
+}
+
+function CancelAnalysisModal({ onKeep, onCancel }) {
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onKeep();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onKeep]);
+
+  return (
+    <div className="modal-backdrop" onClick={onKeep}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="cancel-analysis-title"
+        aria-describedby="cancel-analysis-message"
+        className="modal max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onKeep}
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
+        >
+          <X size={18} />
+        </button>
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+          <AlertTriangle size={22} strokeWidth={2.5} />
+        </div>
+        <h3 id="cancel-analysis-title" className="mb-2 font-heading text-lg font-semibold text-black">
+          Cancel analysis?
+        </h3>
+        <p id="cancel-analysis-message" className="mb-6 text-sm text-gray-600 leading-relaxed">
+          Your photo won't be analyzed and nothing will be saved. Your current results will stay the same.
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onKeep}
+            className="flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:bg-gray-50"
+          >
+            Keep Analyzing
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-full bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
+          >
+            Yes, Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
