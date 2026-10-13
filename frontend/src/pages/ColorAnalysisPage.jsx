@@ -80,6 +80,7 @@ export function ColorAnalysisPage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [animateIn, setAnimateIn] = useState(false);
+  const [showSeasonInfo, setShowSeasonInfo] = useState(false);
 
   const [userProfile, setUserProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -344,9 +345,30 @@ export function ColorAnalysisPage() {
                     </div>
                   </div>
 
-                  <p className="text-gray-600 text-sm leading-relaxed max-w-xl pt-2">
-                    {currentSeasonData.desc}
-                  </p>
+                  <div className="max-w-xl border-t border-primary/10 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSeasonInfo((open) => !open)}
+                      aria-expanded={showSeasonInfo}
+                      className="w-full flex justify-between items-center py-3 text-left"
+                    >
+                      <span className="text-xs font-bold text-gray-800">What does this mean?</span>
+                      <ChevronDown
+                        size={18}
+                        className={`text-gray-400 transition-transform duration-300 ease-in-out ${showSeasonInfo ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    <div
+                      aria-hidden={!showSeasonInfo}
+                      className={`grid transition-all duration-300 ease-in-out ${showSeasonInfo ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                    >
+                      <div className="overflow-hidden">
+                        <p className="text-gray-600 text-sm leading-relaxed pb-2">
+                          {currentSeasonData.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Moved and Upgraded Raw Facial Skin Shade UI below Description */}
                   {skinHex && (
