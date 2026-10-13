@@ -202,9 +202,6 @@ export function Sidebar({ collapsed = false, onToggle }) {
                 } ${collapsed ? "justify-center px-0" : ""}`}
                 title={collapsed ? item.label : undefined}
               >
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                )}
                 <SidebarIcon icon={item.icon} active={isActive} hovered={isHovered} />
                 {!collapsed && <span>{item.label}</span>}
               </button>
