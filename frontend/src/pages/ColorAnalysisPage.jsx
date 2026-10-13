@@ -355,12 +355,12 @@ export function ColorAnalysisPage() {
                       <span className="text-xs font-bold text-gray-800">What does this mean?</span>
                       <ChevronDown
                         size={18}
-                        className={`text-gray-400 transition-transform duration-300 ease-in-out ${showSeasonInfo ? "rotate-180" : ""}`}
+                        className={`text-gray-400 transition-transform duration-300 ease-in-out motion-reduce:transition-none ${showSeasonInfo ? "rotate-180" : ""}`}
                       />
                     </button>
                     <div
                       aria-hidden={!showSeasonInfo}
-                      className={`grid transition-all duration-300 ease-in-out ${showSeasonInfo ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                      className={`grid transition-all duration-300 ease-in-out motion-reduce:transition-none ${showSeasonInfo ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
                     >
                       <div className="overflow-hidden">
                         <p className="text-gray-600 text-sm leading-relaxed pb-2">
