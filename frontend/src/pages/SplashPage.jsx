@@ -17,6 +17,7 @@ import splashFrame3 from "../assets/splash-animation/splash-animation-3.jpg";
 import splashFrame4 from "../assets/splash-animation/splash-animation-4.jpg";
 import splashFrame5 from "../assets/splash-animation/splash-animation-5.jpg";
 import chroText from "../assets/logos/chro-text.svg";
+import { getColorName } from "../utils/colorNames";
 
 // Hero background stills, crossfaded in a loop (last frame fades back into the first).
 const splashFrames = [
@@ -436,7 +437,8 @@ export function SplashPage() {
                       className="aspect-2/5 transition-transform duration-300 group-hover:scale-[1.03]"
                       style={{ backgroundColor: hex }}
                       role="img"
-                      aria-label={`${group.season} palette color ${hex}`}
+                      aria-label={`${group.season} palette color ${getColorName(hex)}`}
+                      title={getColorName(hex)}
                     />
                   ))}
                   <div

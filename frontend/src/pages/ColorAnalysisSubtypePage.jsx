@@ -9,9 +9,10 @@ import {
   ScanFace,
   Target,
   ShieldCheck,
-  AlertTriangle,
-  Droplet
+  AlertTriangle
 } from "lucide-react";
+import { getColorName, getSkinToneName } from "../utils/colorNames";
+import { ColorTooltip } from "../components/common/ColorTooltip";
 
 const SEASON_DATABASE = {
   "Bright Spring": {
@@ -174,14 +175,12 @@ export function ColorAnalysisSubtypePage() {
               </div>
 
               <div className="space-y-2 bg-gray-50/50 w-full py-4 rounded-2xl border border-gray-100">
-                <p className="font-mono font-bold text-xl text-black">{skinHex}</p>
-                <div className="flex items-center justify-center gap-2 text-[10px] text-gray-dark uppercase tracking-widest font-bold">
-                  <span className="flex items-center gap-1"><Droplet size={10}/> L* {lab_color[0].toFixed(1)}</span>
-                  <span className="text-gray-lighter">•</span>
-                  <span>a* {lab_color[1].toFixed(1)}</span>
-                  <span className="text-gray-lighter">•</span>
-                  <span>b* {lab_color[2].toFixed(1)}</span>
-                </div>
+                <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)}>
+                  <p className="font-bold text-xl text-black">{getSkinToneName(skinHex)}</p>
+                </ColorTooltip>
+                <p className="text-[10px] text-gray-dark uppercase tracking-widest font-bold">
+                  Your skin tone
+                </p>
               </div>
             </div>
 
@@ -254,14 +253,16 @@ export function ColorAnalysisSubtypePage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
                 {profileData.colors.map((hex, idx) => (
                   <div key={idx} className="group cursor-pointer">
-                    <div
-                      style={{ backgroundColor: hex }}
-                      className="h-32 w-full rounded-2xl shadow-inner border-2 border-white/50 mb-3 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg group-hover:rounded-xl"
-                    />
+                    <ColorTooltip hex={hex} className="w-full mb-3">
+                      <div
+                        style={{ backgroundColor: hex }}
+                        className="h-32 w-full rounded-2xl shadow-inner border-2 border-white/50 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg group-hover:rounded-xl"
+                      />
+                    </ColorTooltip>
                     <div className="flex justify-between items-center px-1">
                       <div>
-                        <p className="text-sm font-bold text-[#111827] uppercase">
-                          {hex}
+                        <p className="text-sm font-bold text-[#111827]">
+                          {getColorName(hex)}
                         </p>
                         <p className="text-[10px] font-bold text-gray uppercase tracking-widest">
                           {PALETTE_LABELS[idx % PALETTE_LABELS.length]}

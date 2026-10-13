@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
+import { getSkinToneName } from "../utils/colorNames";
+import { ColorTooltip } from "../components/common/ColorTooltip";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -392,11 +394,12 @@ export function ProfilePage() {
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-3">Signature Palette</span>
                       <div className="flex flex-wrap gap-2">
                         {currentSeasonColors.map((hex, i) => (
-                          <div
-                            key={i}
-                            style={{ backgroundColor: hex }}
-                            className="w-10 h-10 rounded-full shadow-md border-2 border-white/80 hover:scale-110 transition-transform cursor-default"
-                          />
+                          <ColorTooltip key={i} hex={hex} variant="light">
+                            <div
+                              style={{ backgroundColor: hex }}
+                              className="w-10 h-10 rounded-full shadow-md border-2 border-white/80 hover:scale-110 transition-transform cursor-default"
+                            />
+                          </ColorTooltip>
                         ))}
                       </div>
                     </div>
@@ -410,10 +413,12 @@ export function ProfilePage() {
                           />
                           <div>
                             <p className="text-sm font-bold text-white">Raw Facial Shade</p>
-                            <p className="text-[10px] text-gray-300 uppercase tracking-wider mt-0.5">Raw Hex Signature</p>
+                            <p className="text-[10px] text-gray-300 uppercase tracking-wider mt-0.5">Your skin tone</p>
                           </div>
                         </div>
-                        <span className="font-mono text-sm font-bold text-white bg-white/20 px-3 py-1 rounded-lg border border-white/20 shadow-sm">{skinHex}</span>
+                        <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)} variant="light">
+                          <span className="text-sm font-bold text-white bg-white/20 px-3 py-1 rounded-lg border border-white/20 shadow-sm">{getSkinToneName(skinHex)}</span>
+                        </ColorTooltip>
                       </div>
                     )}
                   </div>

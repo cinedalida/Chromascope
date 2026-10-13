@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
+import { getSkinToneName } from "../utils/colorNames";
+import { ColorTooltip } from "../components/common/ColorTooltip";
 
 // Supporting both True/Warm and True/Cool naming conventions so the DB value always finds its colors
 const SEASON_PALETTES = {
@@ -356,17 +358,18 @@ export function HomePage() {
                     <div className="mt-6 flex flex-wrap justify-center gap-3">
                       {currentSeasonColors.length > 0 ? (
                         currentSeasonColors.slice(0, 6).map((color) => (
-                          <div
-                            key={color}
-                            className="group relative flex h-12 w-12 cursor-default items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-white/10 transition-all duration-300 hover:scale-110 hover:shadow-md hover:ring-white/40"
-                          >
-                            <span
-                              className="absolute inset-[3px] rounded-full shadow-inner transition-transform duration-300 group-hover:scale-105"
-                              style={{ backgroundColor: color }}
+                          <ColorTooltip key={color} hex={color} variant="light">
+                            <div
+                              className="group relative flex h-12 w-12 cursor-default items-center justify-center rounded-full bg-white shadow-sm ring-2 ring-white/10 transition-all duration-300 hover:scale-110 hover:shadow-md hover:ring-white/40"
                             >
-                              <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/20 to-transparent" />
-                            </span>
-                          </div>
+                              <span
+                                className="absolute inset-[3px] rounded-full shadow-inner transition-transform duration-300 group-hover:scale-105"
+                                style={{ backgroundColor: color }}
+                              >
+                                <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/20 to-transparent" />
+                              </span>
+                            </div>
+                          </ColorTooltip>
                         ))
                       ) : (
                         <p className="text-xs text-gray-400 italic">Palette details unavailable.</p>
@@ -383,12 +386,14 @@ export function HomePage() {
                           />
                           <div className="text-left">
                             <p className="text-sm font-bold text-white">Raw Skin Shade</p>
-                            <p className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-400">Base Hex</p>
+                            <p className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-400">Your skin tone</p>
                           </div>
                         </div>
-                        <span className="rounded-lg border border-white/20 bg-white/10 px-3 py-1 font-mono text-sm font-bold text-[#C084FC] shadow-sm">
-                          {skinHex}
-                        </span>
+                        <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)} variant="light">
+                          <span className="rounded-lg border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-[#C084FC] shadow-sm">
+                            {getSkinToneName(skinHex)}
+                          </span>
+                        </ColorTooltip>
                       </div>
                     )}
                   </div>

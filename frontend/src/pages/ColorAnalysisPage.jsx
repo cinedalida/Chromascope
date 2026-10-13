@@ -20,6 +20,8 @@ import {
 import { auth, db } from "../firebase"; 
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { getSkinToneName } from "../utils/colorNames";
+import { ColorTooltip } from "../components/common/ColorTooltip";
 
 const SEASON_DATABASE = {
   "Bright Spring": { colors: ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"], desc: "High clarity with warm, bright undertones. Your features pop with highly saturated, vibrant, and clear colors." },
@@ -332,11 +334,12 @@ export function ColorAnalysisPage() {
                     </h4>
                     <div className="flex flex-wrap gap-2 sm:gap-3">
                       {currentSeasonData.colors.map((hex, i) => (
-                        <div
-                          key={i}
-                          style={{ backgroundColor: hex }}
-                          className="w-10 h-14 sm:w-12 sm:h-16 rounded-xl shadow-sm border-2 border-white hover:scale-110 transition-transform duration-300 cursor-pointer"
-                        />
+                        <ColorTooltip key={i} hex={hex}>
+                          <div
+                            style={{ backgroundColor: hex }}
+                            className="w-10 h-14 sm:w-12 sm:h-16 rounded-xl shadow-sm border-2 border-white hover:scale-110 transition-transform duration-300 cursor-pointer"
+                          />
+                        </ColorTooltip>
                       ))}
                     </div>
                   </div>
@@ -355,12 +358,14 @@ export function ColorAnalysisPage() {
                          </div>
                          <div>
                            <p className="text-sm font-bold text-[#111827]">Raw Facial Skin Shade</p>
-                           <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Biometric Base Hue</p>
+                           <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Your skin tone</p>
                          </div>
                       </div>
-                      <div className="bg-white/60 px-4 py-2 rounded-xl border border-white shadow-inner">
-                         <p className="font-mono font-bold text-primary text-sm">{skinHex}</p>
-                      </div>
+                      <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)}>
+                        <div className="bg-white/60 px-4 py-2 rounded-xl border border-white shadow-inner">
+                           <p className="font-bold text-primary text-sm">{getSkinToneName(skinHex)}</p>
+                        </div>
+                      </ColorTooltip>
                     </div>
                   )}
 
