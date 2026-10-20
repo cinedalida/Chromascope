@@ -16,7 +16,6 @@ import placeholderImg from "../assets/images/placeholder.svg";
 
 export function ProductCatalogPage() {
   const [products, setProducts] = React.useState([]);
-  const [filteredProducts, setFilteredProducts] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("All");
   const [loading, setLoading] = React.useState(true);
@@ -46,7 +45,6 @@ export function ProductCatalogPage() {
       try {
         const data = await getProductCatalog();
         setProducts(data);
-        setFilteredProducts(data);
       } catch (error) {
         console.error("Failed to fetch products:", error);
       } finally {
@@ -56,7 +54,7 @@ export function ProductCatalogPage() {
     fetchProducts();
   }, []);
 
-  React.useEffect(() => {
+  const filteredProducts = React.useMemo(() => {
     let result = products;
 
     if (categoryFilter !== "All") {
@@ -73,8 +71,7 @@ export function ProductCatalogPage() {
       );
     }
 
-    setFilteredProducts(result);
-    setCurrentPage(1);
+    return result;
   }, [searchQuery, categoryFilter, products]);
 
   const totalInventory = products.length;
@@ -103,7 +100,10 @@ export function ProductCatalogPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search database by name, brand, or SKU..."
             className="w-full pl-14 pr-6 py-4 rounded-full bg-white border border-gray-lighter focus:ring-2 focus:ring-primary-light text-black shadow-sm"
           />
@@ -143,6 +143,7 @@ export function ProductCatalogPage() {
                       type="button"
                       onClick={() => {
                         setCategoryFilter(cat);
+                        setCurrentPage(1);
                         setCategoryMenuOpen(false);
                       }}
                       className={`block w-full px-5 py-3 text-left text-[11px] font-black uppercase tracking-widest transition-colors ${

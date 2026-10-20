@@ -98,7 +98,8 @@ export function ColorAnalysisSubtypePage() {
   const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
-    setAnimateIn(true);
+    const frame = requestAnimationFrame(() => setAnimateIn(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   if (!result) {
