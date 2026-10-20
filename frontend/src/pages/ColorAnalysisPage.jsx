@@ -1,6 +1,6 @@
 // ColorAnalysisPage begins the skin tone and palette analysis flow.
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,

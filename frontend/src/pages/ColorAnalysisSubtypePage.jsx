@@ -1,6 +1,6 @@
 // ColorAnalysisSubtypePage shows the subtype-specific results after analysis.
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
   Dna,

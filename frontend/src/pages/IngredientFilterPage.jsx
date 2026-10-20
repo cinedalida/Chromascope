@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService";
 import { useUserStore } from "../store/userStore";
@@ -592,7 +592,6 @@ function StatusLegendModal({ onClose }) {
 function StatusBadge({ type }) {
   const verdict = type?.toLowerCase();
   const isSafe = verdict === "safe";
-  const isCaution = verdict === "caution";
   const isExcluded = verdict === "excluded";
   const styles = isSafe
     ? "bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]"
