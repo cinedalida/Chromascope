@@ -1,0 +1,43 @@
+# Workflow name shown in the GitHub "Actions" tab and on PR checks
+name: CI
+
+# Triggers: when this workflow runs
+on:
+  push:
+    branches: [main]   # every push to main
+  pull_request:        # every pull request (any branch -> main)
+
+jobs:
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest   # fresh Ubuntu VM provided by GitHub
+
+    # Run every `run:` command from inside frontend/
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 1. Clone the repo at the commit being tested
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # 2. Install Node.js and cache npm downloads between runs
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. Clean install exactly what package-lock.json specifies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Fail the job if ESLint reports errors
+      - name: Lint
+        run: npm run lint
+
+      # 5. Fail the job if the Vite production build breaks
+      - name: Build
+        run: npm run build
