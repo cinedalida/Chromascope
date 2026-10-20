@@ -1,6 +1,6 @@
 // ColorAnalysisPage begins the skin tone and palette analysis flow.
 
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
@@ -86,7 +86,8 @@ export function ColorAnalysisPage() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   useEffect(() => {
-    setAnimateIn(true);
+    const frame = requestAnimationFrame(() => setAnimateIn(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -105,10 +106,6 @@ export function ColorAnalysisPage() {
       setIsLoadingProfile(false);
     });
     return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    return () => stopWebcam();
   }, []);
 
   // Clear the error from history so a refresh doesn't reopen the pop-up
@@ -162,6 +159,10 @@ export function ColorAnalysisPage() {
     }
     setIsWebcamActive(false);
   };
+
+  useEffect(() => {
+    return () => stopWebcam();
+  }, []);
 
   const capturePhoto = () => {
     if (videoRef.current) {

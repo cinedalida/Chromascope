@@ -1,6 +1,6 @@
 // ColorAnalysisProcessingPage shows progress while the analysis engine runs.
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucide-react";
 import { auth } from "../firebase";
@@ -9,7 +9,6 @@ export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const image = location.state?.image;
-  const [currentStep, setCurrentStep] = useState(0);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const controllerRef = useRef(null);
@@ -48,7 +47,6 @@ export function ColorAnalysisProcessingPage() {
         }
         if (signal.aborted) return;
 
-        setCurrentStep(2);
         navigate("/color-analysis/subtype", { state: { analysisResult: data } });
       } catch (error) {
         if (signal.aborted) return;
@@ -64,8 +62,6 @@ export function ColorAnalysisProcessingPage() {
 
         const formData = new FormData();
         formData.append("file", blob, "upload.png");
-
-        setCurrentStep(1);
 
         const idToken = await auth.currentUser?.getIdToken();
         if (signal.aborted) return;

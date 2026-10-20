@@ -15,7 +15,8 @@ import { ARTryOnPage } from "../pages/ARTryOnPage.jsx";
 import { ColorAnalysisPage } from "../pages/ColorAnalysisPage.jsx";
 import { ColorAnalysisProcessingPage } from "../pages/ColorAnalysisProcessingPage.jsx";
 import { ColorAnalysisSubtypePage } from "../pages/ColorAnalysisSubtypePage.jsx";
-import { PaletteGuideProductPage } from "../pages/PaletteGuideProductPage.jsx";
+// HIDDEN — re-enable with the /palette-product route below
+// import { PaletteGuideProductPage } from "../pages/PaletteGuideProductPage.jsx";
 import { IngredientFilterPage } from "../pages/IngredientFilterPage.jsx";
 import { ProfilePage } from "../pages/ProfilePage.jsx";
 import { ProductCatalogPage } from "../pages/ProductCatalogPage.jsx";

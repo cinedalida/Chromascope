@@ -7,7 +7,7 @@ import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
-  Dna, Palette, Target, Lock,
+  Dna, Palette, Lock,
   AlertCircle, Edit2, X, Check, RefreshCw
 } from "lucide-react";
 

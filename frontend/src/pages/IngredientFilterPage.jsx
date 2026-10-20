@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService";
 import { useUserStore } from "../store/userStore";
@@ -20,8 +20,15 @@ export function IngredientFilterPage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [skinType, setSkinType] = useState("Normal");
-  const [avoidIngredients, setAvoidIngredients] = useState([]);
+  // Derived from the profile; memoized so the fetch effect doesn't rerun on every render
+  const skinType = user?.skin_type || user?.skin_profile?.base_type || "Normal";
+  const avoidIngredients = useMemo(
+    () =>
+      user?.avoid_ingredients ||
+      user?.skin_profile?.blacklisted_ingredients ||
+      [],
+    [user],
+  );
   const [category, setCategory] = useState("Face");
   const categories = [
     "Face",
@@ -66,17 +73,6 @@ export function IngredientFilterPage() {
     e.currentTarget.onerror = null;
     e.currentTarget.src = placeholderImg;
   };
-
-  useEffect(() => {
-    if (user) {
-      setSkinType(user.skin_type || user.skin_profile?.base_type || "Normal");
-      setAvoidIngredients(
-        user.avoid_ingredients ||
-          user.skin_profile?.blacklisted_ingredients ||
-          [],
-      );
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -592,7 +588,6 @@ function StatusLegendModal({ onClose }) {
 function StatusBadge({ type }) {
   const verdict = type?.toLowerCase();
   const isSafe = verdict === "safe";
-  const isCaution = verdict === "caution";
   const isExcluded = verdict === "excluded";
   const styles = isSafe
     ? "bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]"
