@@ -113,7 +113,7 @@ export function ColorAnalysisPage() {
     if (location.state?.photoError) {
       navigate(location.pathname, { replace: true, state: null });
     }
-  }, []);
+  }, [location.pathname, location.state?.photoError, navigate]);
 
   const closePhotoError = () => setPhotoError(null);
 
