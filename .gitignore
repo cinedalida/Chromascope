@@ -157,6 +157,8 @@ backend/generate_serviceaccount.py
 Chromascope_file.xlsx
 # Survey data (real respondents' health data): never commit
 research/safety-filter/**/*.csv
+# Private data dir (product DB, splits, labels, caches): lives in the private data repo only
+research/safety-filter/data/
 
 # OS files
 .DS_Store
