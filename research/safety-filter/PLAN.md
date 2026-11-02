@@ -84,6 +84,8 @@ This comes before the matching fixes on purpose: the held-out products must not 
     The MI/PPD hard-block keeps its synthetic controlled cases, reported separately and labeled as synthetic.
   - Writes `split.json` (product_url -> dev/test/controlled, seed, strata table) to the private repo and **freezes** it
     (SHA-256 recorded in this plan once made).
+  - **Frozen 2026-11-03:** seed `20261103`; `split.json` SHA-256
+    `68a3a6d13a2e34a5f9d05ea19dfaa0f54a9f87426d2ef3833f3d7893fb9ac3b2` (`make_split.py` version 1).
 - Labeling protocol (for the researchers, not code): two researchers label each case Safe / Caution / Excluded
   **independently**, from Appendix B/C and their own judgement, without seeing filter output. Disagreements are
   adjudicated and logged. Inter-rater Cohen's kappa is reported.
