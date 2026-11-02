@@ -115,6 +115,16 @@ Each fix gets an on/off flag (like `comma_safe`), so the ablation can show its e
   `butyrospermum parkii butter` (shea), `sodium hyaluronate` (HA), `methylchloroisothiazolinone` (MI group
   `[TO VERIFY with Appendix B]`); plus every exclusion above. **Nothing changes in `ALIAS` until a researcher fills
   `approved_by`.** The code loads only approved rows.
+- **Changes found necessary during Phase 3 (dev pool evidence, 2026-11-03):**
+  - Fuzzy tier must not match an alias the whole-word tier rejected as part of a longer word (`dipropylene glycol`
+    was 2 edits from `propylene glycol`).
+  - Fuzzy tier requires the numbers in a name to agree (`quaternium 18` is not `quaternium 15`), except for HARD_BLOCK
+    groups, where a 1-edit digit typo still matches (`neolone 90` -> MI, `c.i. 76006` -> PPD), so a hard block is
+    never missed for a digit typo.
+  - Positions over 60 chars are mostly ingredients run together without commas (46 contained real hits, e.g.
+    `parfum`), so they ARE whole-word matched (all groups found, exclusions respected); only fuzzy is skipped.
+  - Alias additions cannot be judged on the synthetic dev set: its generator uses `benzyl alcohol` and
+    `sodium hyaluronate` as safe filler, so its labels count every new alias as an error (circular by design).
 - **Thresholds:** unchanged unless re-tuned on the dev pool / synthetic dev set only. Any re-tune is reported with
   before/after values.
 - **Validation:**
