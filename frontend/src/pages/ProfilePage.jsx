@@ -8,8 +8,9 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   Dna, Palette, Lock,
-  AlertCircle, Edit2, X, Check, RefreshCw
+  AlertCircle, Edit2, X, Check, RefreshCw, Settings
 } from "lucide-react";
+import { useSettingsStore } from "../store/settingsStore";
 
 const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne Prone"];
 
@@ -69,6 +70,8 @@ function labToHex(l, a, b) {
 export function ProfilePage() {
   const navigate = useNavigate();
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
+  const showPerfStats = useSettingsStore((state) => state.showPerfStats);
+  const setShowPerfStats = useSettingsStore((state) => state.setShowPerfStats);
 
   // UI State
   const [isEditing, setIsEditing] = useState(false);
@@ -356,6 +359,39 @@ export function ProfilePage() {
                   )}
                 </div>
               )}
+            </section>
+
+            {/* App Settings (saved on this device) */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings size={20} className="text-gray-400" />
+                <h3 className="font-heading text-lg font-semibold text-[#1F1924]">App Settings</h3>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p id="perf-stats-label" className="font-medium text-[#111827]">Show performance stats (FPS)</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Shows frame rate and latency on the AR Try-On screen, including the 30-second average.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showPerfStats}
+                  aria-labelledby="perf-stats-label"
+                  data-testid="perf-stats-toggle"
+                  onClick={() => setShowPerfStats(!showPerfStats)}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    showPerfStats ? "bg-primary" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      showPerfStats ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </section>
 
           </div>

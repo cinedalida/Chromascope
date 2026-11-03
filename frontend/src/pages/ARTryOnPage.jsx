@@ -4,6 +4,9 @@ import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
 import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
 import { ARControlBar } from "../components/ar-tryon/ARControlBar.jsx";
 import { useARCamera } from "../hooks/useARCamera.jsx";
+import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
+import { usePerfStats } from "../hooks/usePerfStats.js";
+import { useSettingsStore } from "../store/settingsStore.js";
 import { Check, Smile } from "lucide-react";
 
 //TODO: region toggles (lips/cheeks/full face) are wired via ARControlBar + real state below.
@@ -18,6 +21,12 @@ export function ARTryOnPage() {
   const [started, setStarted] = useState(false);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
+
+  // FPS / latency badge (Profile → App settings). Measures only a live camera feed.
+  const showPerfStats = useSettingsStore((s) => s.showPerfStats);
+  const perfEnabled = showPerfStats && started && isReady && !isMock;
+  const { stats: perfStats, recordFrame } = usePerfStats({ enabled: perfEnabled });
+
   const [toggles, setToggles] = useState({
     lips: true,
     cheeks: true,
@@ -86,7 +95,17 @@ export function ARTryOnPage() {
 
             {/* AR OVERLAY — live landmark tracking + region rendering. `toggles` here is
                 real state now, driven by ARControlBar below, not AROverlayCanvas's internal default. */}
-            <AROverlayCanvas ref={overlayRef} videoRef={cameraRef} isReady={isReady} isMock={isMock} toggles={toggles} />
+            <AROverlayCanvas
+              ref={overlayRef}
+              videoRef={cameraRef}
+              isReady={isReady}
+              isMock={isMock}
+              toggles={toggles}
+              onFrame={perfEnabled ? recordFrame : undefined}
+            />
+
+            {/* PERFORMANCE STATS — FPS + latency, live and 30 s average (survey TR1–TR3) */}
+            {perfEnabled && <PerfStatsBadge stats={perfStats} />}
 
             {/* AR SCAN RETICLE */}
             {isReady && (
