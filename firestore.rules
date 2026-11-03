@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Chromascope Firestore rules (PLAN_OPTIMIZATION.md, Phase A2).
+// - Each user can read and write only their own users/{uid} record, and only the fields the app writes.
+// - Analysis results (seasonal_label, user_lab, season_confidence_level) are written by the backend (Admin SDK,
+//   which bypasses these rules), so the browser can never fake a color-analysis result.
+// - Products are read-only for signed-in users; every other collection is server-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Fields the browser is allowed to write on users/{uid}.
+    function clientFields() {
+      return ['display_name', 'email', 'created_at', 'last_login', 'profile_completed', 'concerns',
+              'avoid_ingredients', 'seasonal_label', 'skin_type', 'ethics_consent', 'setup_at', 'updated_at'];
+    }
+    // Fields the browser may change after the record exists (not email, created_at or the analysis result).
+    function clientEditableFields() {
+      return ['display_name', 'last_login', 'profile_completed', 'concerns', 'avoid_ingredients', 'skin_type',
+              'ethics_consent', 'setup_at', 'updated_at'];
+    }
+    function optString(d, k, max) { return !(k in d) || d[k] == null || (d[k] is string && d[k].size() <= max); }
+    function optList(d, k, max) { return !(k in d) || (d[k] is list && d[k].size() <= max); }
+    function validUser(d) {
+      return optString(d, 'display_name', 80)
+        && optString(d, 'skin_type', 40)
+        && optString(d, 'created_at', 40) && optString(d, 'last_login', 40)
+        && optString(d, 'setup_at', 40) && optString(d, 'updated_at', 40)
+        && optList(d, 'concerns', 20) && optList(d, 'avoid_ingredients', 40)
+        && (!('profile_completed' in d) || d.profile_completed is bool)
+        && (!('ethics_consent' in d) || d.ethics_consent is map);
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(clientFields())
+        && request.resource.data.get('seasonal_label', null) == null
+        && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email)
+        && validUser(request.resource.data);
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(clientEditableFields())
+        && validUser(request.resource.data);
+      allow delete: if isOwner(uid);
+    }
+
+    match /products/{productId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ingredients, safety_profiles, synergy_pairs and anything else: backend only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

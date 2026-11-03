@@ -70,7 +70,7 @@ test("profile page shows the saved account and skin type", async ({ page }) => {
   await page.getByRole("button", { name: /^log in/i }).first().click();
   await page.waitForURL(/\/home/);
   await page.goto("/profile");
-  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByText(email).first()).toBeVisible();
   await expect(page.getByText(/^normal$/i).first()).toBeVisible();
 });
 
