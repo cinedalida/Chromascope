@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucide-react";
 import { auth } from "../firebase";
+import { apiUrl } from "../config";
 
 export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export function ColorAnalysisProcessingPage() {
       setSaving(true);
       try {
         if (idToken) {
-          await fetch("http://localhost:8000/api/user/profile", {
+          await fetch(apiUrl("/user/profile"), {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -66,7 +67,7 @@ export function ColorAnalysisProcessingPage() {
         const idToken = await auth.currentUser?.getIdToken();
         if (signal.aborted) return;
 
-        const apiRes = await fetch("http://localhost:8000/api/analyze-color", {
+        const apiRes = await fetch(apiUrl("/analyze-color"), {
           method: "POST",
           headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {},
           body: formData,

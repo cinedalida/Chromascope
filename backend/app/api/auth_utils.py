@@ -1,12 +1,10 @@
-import firebase_admin
-from firebase_admin import auth, credentials
-from fastapi import Header, HTTPException, status, Depends
+from firebase_admin import auth
+from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import os
 
-if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
+from ..firebase_init import init_firebase
+
+init_firebase()
 
 security = HTTPBearer()
 
