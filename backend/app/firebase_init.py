@@ -12,6 +12,14 @@ from firebase_admin import credentials
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
+class _EmulatorCredential(credentials.Base):
+    """The emulators accept any credential; this avoids looking up Google login credentials on the machine."""
+
+    def get_credential(self):
+        from google.auth.credentials import AnonymousCredentials
+        return AnonymousCredentials()
+
+
 def using_emulators() -> bool:
     return bool(os.environ.get("FIRESTORE_EMULATOR_HOST") or os.environ.get("FIREBASE_AUTH_EMULATOR_HOST"))
 
@@ -23,5 +31,5 @@ def init_firebase(key_filename: str = "serviceAccountKey.json"):
         project_id = os.environ.get("GCLOUD_PROJECT", "demo-chromascope")
         if not project_id.startswith("demo-"):
             raise RuntimeError(f"Emulator mode needs a demo- project ID, got {project_id!r}")
-        return firebase_admin.initialize_app(options={"projectId": project_id})
+        return firebase_admin.initialize_app(_EmulatorCredential(), options={"projectId": project_id})
     return firebase_admin.initialize_app(credentials.Certificate(os.path.join(BACKEND_DIR, key_filename)))

@@ -9,8 +9,9 @@ from firebase_admin import firestore
 
 from .auth_utils import get_current_user
 from ..core.engine import ChromascopeSafetyEngine
-from ..core.skin_analysis.pipeline import AnalyzerPipeline
-from ..core.color_matching import run_color_matching 
+from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
+from ..core.color_matching import run_color_matching
+import os
 
 app = FastAPI()
 db = firestore.client()
@@ -23,7 +24,23 @@ app.add_middleware(
 )
 
 engine = ChromascopeSafetyEngine()
-analyzer = AnalyzerPipeline()
+
+# The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
+# safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
+_analyzer = None
+
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        missing = [os.path.basename(p) for p in (FARL_PATH, CKPT_PATH) if not os.path.exists(p)]
+        if missing:
+            print(f"[WARN] Color analysis unavailable, missing model weights: {missing}")
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "model_unavailable", "message": "Color analysis is temporarily unavailable."},
+            )
+        _analyzer = AnalyzerPipeline()
+    return _analyzer
 
 class FilterRequest(BaseModel):
     skin_type: Optional[str] = None
@@ -152,7 +169,9 @@ async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get
         )
 
     try:
-        result = analyzer.analyze(image)
+        result = get_analyzer().analyze(image)
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
