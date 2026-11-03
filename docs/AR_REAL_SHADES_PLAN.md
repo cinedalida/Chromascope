@@ -44,9 +44,9 @@ Update this table only as part of an approved change plan, after the user says a
 
 | Phase | Status |
 |---|---|
-| 0 Baseline and branch | [ ] |
-| 1 Build the Browse shade catalog | [ ] |
-| 2 Recommended-source investigation (read only) | [ ] |
+| 0 Baseline and branch | [x] |
+| 1 Build the Browse shade catalog | [x] |
+| 2 Recommended-source investigation (read only) | [x] |
 | 3 Frontend data layer (Recommended + Browse) | [ ] |
 | 4 Selected shade drives overlay | [ ] |
 | 4b Blend comparison (only if needed) | [ ] |
@@ -100,13 +100,16 @@ Source: `../MakeUp_Scraper/data/decoded/<store>/csv_<store>_<category>_<subcateg
 - `shade_rgb` and `shade_lab` are text such as `(204, 104, 90)` and `(55.56, 38.28, 26.09)`. Parse with `ast.literal_eval`. A blank means no usable swatch, so drop the row.
 - Dedupe key: `(store, product_url, shade_name, shade_lab)`.
 
-Default mapping and expected counts (deduped, blank colors removed, counted before this plan was written):
+Default mapping and verified counts (Phase 1 output; deduped within each region, blank colors removed):
 
-| AR region | Scraper (category / subcategory) | Shades | Products (summed per subcategory) |
+| AR region | Scraper (category / subcategory) | Shades | Products |
 |---|---|---:|---:|
-| lips | lip / Lipstick, lip / Lip color, lip / Lip gloss, lip / Lip stain & tint | 1,688 | 224 |
+| lips | lip / Lipstick, lip / Lip color, lip / Lip gloss, lip / Lip stain & tint | 1,811 | 251 |
 | cheeks | cheek / Blush | 541 | 99 |
-| eyeshadow | eye / Eye shadow, eye / Eyeshadow | 476 | 63 |
+| eyeshadow | eye / Eye shadow, eye / Eyeshadow | 484 | 64 |
+| total | | 2,836 | |
+
+Dedupe is per region. A shade the store lists in two regions (for example a lip and cheek tint) appears in both files.
 
 Excluded by default: Lip balm, Lip liner, Lip plumper, Bronzer, Contour, Highlighter, Eyebrows, Eyeliner, Mascara, Rustan's Eyeshadow palette (no usable colors), and every Ulta file (R4).
 
@@ -254,14 +257,20 @@ Spec:
    - `export const REGION_KEYS = ["lips", "cheeks", "eyeshadow"]`
    - `export async function getShades(region)`: fetch `${import.meta.env.BASE_URL}data/ar-shades-${region}.json`, check it is an array, cache the promise per region in a module-level `Map`. Reject unknown region keys. Map each entry to the unified shape with `source: "browse"`, `verdict: null`, `seasonMatch: false`. On failure `console.error` and return `[]`.
 2. `frontend/src/services/arRecommendedService.js` (Recommended)
-   - `export async function getRecommended(region)` returns `{ status, items }` where status is `"ok" | "signed_out" | "empty" | "error"`.
-   - If `auth.currentUser` is null, return `signed_out` without calling the API.
-   - Call `runFilter({ category })` with `lips`, `cheeks`, or `eyes` for the region. Use `color_matched` from the response, keeping the backend's order.
-   - Drop items whose verdict is `excluded` (R2) and items with a placeholder or missing hex (see section 5). For `eyeshadow`, keep only the `sub_category` values found in Phase 2. Report how many items each rule dropped in the change summary.
-   - Map to the unified shape with `source: "recommended"`, `shade: null`, `lab` from `lab_L/a/b` when they are not all zero, `seasonMatch` from `is_season_match`.
-   - Cache per region for the session. Provide `clearRecommendedCache()` for when the profile changes.
+   - `export async function getRecommended(region)` returns `{ status, items, seasonFilter, dropped }` where status is `"ok" | "signed_out" | "empty" | "error"`.
+   - Wait for `auth.authStateReady()` first, because `auth.currentUser` is null until Firebase restores the saved session. If there is still no user, return `signed_out` without calling the API.
+   - Call `runFilter({ category })` with `lips`, `cheeks`, or `eyes` for the region. Use `color_matched` from the response, keeping the backend's order. `runFilter` returns empty lists on any failure, so a response without `active_profile` is `error`.
+   - Drop, in this order: items whose `sub_category` is not in the region allowlist, items with a placeholder or missing hex (see section 5), and items whose verdict is `excluded` (R2).
+   - Sub-category allowlists (Phase 2 decision), kept as constants at the top of the file, matched after trimming and lowercasing:
+     - lips: Lipstick, Lipstick (Matte), Lipstick - balm, Lip Tint, Lip Tint (Velvet), Lip (Liquid Matte), Lip Gloss, Lip Oil (Lip Balm / Treatment excluded)
+     - cheeks: Blush, Powder Blush, Liquid Blush, Liquid Blush (Multi-use), Cream Blush Stick, Cream Cheek Tint, Lip and Cheek tint (highlighter, contour, bronzer, and "Blush / Highlight / Contour" excluded)
+     - eyeshadow: Eyeshadow, Eyeshadow Stick
+   - Season rule (Phase 2 decision, matches pseudocode step 5): if the user has a season and at least one remaining item has `is_season_match`, keep only the matches (`seasonFilter: "matched"`). If the user has a season but nothing matches, keep all remaining items in backend order (`"fallback"`). If the user has no season, keep all remaining items (`"no_season"`).
+   - `dropped` reports `{ subCategory: { total, byValue }, placeholder, excluded }`.
+   - Map to the unified shape with `source: "recommended"`, `shade: null`, `lab` from `lab_L/a/b` when they are not all zero, `seasonMatch` from `is_season_match`, `url: null` (Firestore has no product URL), `finish: null`. Firestore `price` is text such as `≈ ₱799`; parse the number, currency `Peso` when `₱` is present, null when blank.
+   - Cache per user and region for the life of the mounted AR page, with a 5-minute expiry as a backstop. Do not cache `signed_out` or `error`. Provide `clearRecommendedCache()`.
 3. `frontend/src/hooks/useARShades.js`
-   - `export function useARShades(region, source)` returns `{ items, status, loading }`. Ignore results that arrive after unmount or after the region or source changed. Follow the repo's react-hooks lint rules.
+   - `export function useARShades(region, source)` returns `{ items, status, loading, seasonFilter }`. Ignore results that arrive after unmount or after the region or source changed. Follow the repo's react-hooks lint rules.
 4. `frontend/src/utils/shadeGroups.js`
    - `groupByProduct(items)`: array of `{ key, source, brand, product, price, currency, finish, url, verdict, seasonMatch, shades }` in original order. For Recommended, each group has exactly one item.
    - `searchProducts(groups, query)`: case-insensitive match on brand, product, or any shade name. An empty query returns all groups.
@@ -274,6 +283,7 @@ Automated checks:
 Manual checks for the user (browser console on the AR page):
 - [ ] `const m = await import('/src/services/arShadeService.js'); (await m.getShades('lips')).length` returns the Phase 1 lips count. Repeat for cheeks and eyeshadow. A second call is instant and the Network tab shows each JSON fetched once.
 - [ ] Signed in: `const r = await import('/src/services/arRecommendedService.js'); await r.getRecommended('lips')` returns `status: "ok"` with items that have no `excluded` verdict and no `#FFFFFF` hex. Signed out: `status: "signed_out"`.
+- [ ] `dropped.subCategory.total` is exactly lips 2, cheeks 5, eyeshadow 14. If not, fix the allowlist strings.
 - [ ] The AR page looks and behaves exactly as before.
 
 Suggested commit: `feat(frontend): add AR shade services, hook, and search helpers`
@@ -330,13 +340,13 @@ Spec:
 1. Delete the dummy `products` array and the `MatchBadge` / `deltaE` display (R8). Do not show any percentage.
 2. Make `AppliedProductsPanel` controlled. Props: `selectedShades`, `onSelectShade(region, shade)`, `onClear()`. Region tabs LIPS, EYESHADOW, BLUSH map to `lips`, `eyeshadow`, `cheeks`.
 3. Inside each region tab add a two-option switch: **Recommended** (default, first) and **Browse**. Use `useARShades(region, source)` and `groupByProduct`.
-4. Recommended list: show a verdict badge (Safe or Caution) and a "Season match" tag when `seasonMatch` is true. Empty states by status: `signed_out` ("Sign in to see products matched to you"), `empty` ("No matched products for this category yet"), `error` ("Could not load your matches"). Each empty state offers a link or button to switch to Browse.
+4. Recommended list: show a verdict badge (Safe or Caution) and a "Season match" tag when `seasonMatch` is true. Empty states by status: `signed_out` ("Sign in to see products matched to you"), `empty` ("No matched products for this category yet"), `error` ("Could not load your matches"). Each empty state offers a link or button to switch to Browse. Notices by `seasonFilter`: `fallback` shows "Showing everything that passed your ingredient check." (do not say "safe matches", because Caution items are included); `no_season` shows a hint to run Color Analysis, with a link.
 5. Browse list: show a short visible note at the top, "Browse shades are not checked by the ingredient safety filter." (R3). Search input using `searchProducts`, debounced 150 ms. Render at most 20 product cards with a "Show more" button that adds 20 more. Reset the count when the tab, source, or query changes.
 6. Each product card shows brand (small caps), product name, price with currency, finish if present, and a `ProductSwatchPicker` row. Recommended cards have one swatch. Browse cards have all of the product's shades.
 7. `ProductSwatchPicker({ shades, selectedId, onSelect })`: a horizontally scrollable row of round swatches (background is `shade.hex`). The selected swatch gets a ring. Each swatch has `title` and `aria-label` set to the shade name, or the product name when there is no shade name.
 8. Applied chips at the top come from `selectedShades`, one per region: a dot with the real hex, the shade or product name, and the brand. Chips for Browse items carry a small "Browse" label. The x button clears that region only. "Clear all" calls `onClear`. The count line reads "N active".
 9. Loading and error states for each fetch, and an empty state for no search results.
-10. In `ARTryOnPage.jsx` pass the new props, delete the Phase 4 debug strip, and remove the old Task 7 TODO comment. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
+10. In `ARTryOnPage.jsx` pass the new props, delete the Phase 4 debug strip, and remove the old Task 7 TODO comment. Call `clearRecommendedCache()` when the AR page mounts, so changed allergens or a new season never show stale results. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
 
 Automated checks:
 - [ ] `npm run lint` and `npm run build` pass.
@@ -407,6 +417,7 @@ Then the user works through section 8.
 3. Which catalog is the long-term source of truth: the Excel and Firestore `PH-` catalog (120 products in the manuscript) or the scraper catalog. Ask the teammate who maintains them.
 4. Eq. D.2 (see section 8): the formula needs rewording to match the `"color"` blend. Your call with the adviser.
 5. The Firestore `lab_L/a/b` gap is separate from this plan, but it can leave Recommended items with placeholder colors, which the service drops.
+6. `SEASON_CODE_MAP` in `backend/app/core/color_matching.py` has no entry for four labels the season model outputs, so those users never get a season match. Proposed fix, as a separate change on its own branch after Phase 3, for approval: Warm Autumn to `au-true`, Cool Summer to `su-true`, Cool Winter to `wi-true`, Bright Spring to `sp-bright`, Warm Spring to `sp-true`. Products carry True, not Warm or Cool, in `season_tag_computed` and `season_tags`.
 
 ## 8. Manuscript changes (the user makes these; do not edit manuscript files)
 
@@ -425,6 +436,9 @@ New content to add:
 - The performance display: what it shows, the 30-second window, and how latency is measured (detect plus render per frame, frames with no face excluded).
 - Blend mode and opacity chosen per region (Phase 4b), if that phase was needed.
 - The AR match percentage in the old panel was dummy data and was removed. Do not describe an AR match score in the thesis.
+- Catalog size: Firestore has 110 products (20 each in Lip, Cheek, Eye, Face, Concealer, 10 in Multi-Use), but the manuscript says 120.
+- Season filtering: `color_matching.py` only sorts Lip, Cheek, and Eye products by season match and never filters. Recommended applies the pseudocode step 5 filter on the frontend, with a fallback to all products that passed the ingredient check when none match.
+- Firestore prices are approximate (`≈ ₱799`); Recommended shows the number only.
 
 Results to check before submission:
 - Sec. 4.4.5 says "Across the 50 sessions, the average frame rate was 38 FPS and the average rendering latency was 72 ms." No measurement exists behind these numbers yet: the app had no performance display, and the Chapter 5 table marks the same row as pending the survey. Replace with real participant data, or mark as pending, before submission.
