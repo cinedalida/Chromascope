@@ -112,7 +112,7 @@ export function OnboardingPage() {
 
   return (
     // Added [-webkit-tap-highlight-color:transparent] globally to the main wrapper
-    <main className="relative flex min-h-screen flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
+    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
       
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />

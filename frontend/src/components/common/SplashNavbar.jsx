@@ -88,7 +88,7 @@ export function SplashNavbar() {
         {/* Mobile Hamburger */}
         <button
           onClick={() => setMobileOpen((o) => !o)}
-          className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg text-primary/70 hover:bg-primary/5 hover:text-primary transition-colors"
+          className="md:hidden flex items-center justify-center h-11 w-11 rounded-lg text-primary/70 hover:bg-primary/5 hover:text-primary transition-colors"
           aria-label="Toggle navigation menu"
         >
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}

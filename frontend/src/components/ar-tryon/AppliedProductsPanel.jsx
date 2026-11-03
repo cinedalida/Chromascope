@@ -176,7 +176,7 @@ export function AppliedProductsPanel() {
           </div>
           <button
             onClick={clearAll}
-            className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70"
+            className="relative text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
           >
             Clear all
           </button>
@@ -195,7 +195,7 @@ export function AppliedProductsPanel() {
               <button
                 onClick={() => toggleProduct(product.id)}
                 aria-label={`Remove ${product.name}`}
-                className="opacity-60 hover:opacity-100 leading-none"
+                className="relative opacity-60 hover:opacity-100 leading-none after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                   <path

@@ -222,7 +222,7 @@ export function SplashPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-primary-lightest font-body">
+    <main className="min-h-dvh bg-primary-lightest font-body">
       <SplashNavbar />
 
       <div className="relative z-10">

@@ -132,7 +132,7 @@ export function Navbar({ onMenuToggle }) {
             {/* Hamburger — opens sidebar on desktop, mobile drawer on mobile */}
             <button
               onClick={handleHamburger}
-              className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-xl text-gray-light transition hover:bg-primary-lighter hover:text-primary"
+              className="inline-flex lg:hidden h-11 w-11 items-center justify-center rounded-xl text-gray-light transition hover:bg-primary-lighter hover:text-primary"
               aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
             >
               {mobileNavOpen ? (

@@ -78,9 +78,9 @@ export function ARTryOnPage() {
   };
 
   return (
-    <main className="min-h-screen bg-primary-lightest font-body">
+    <main className="min-h-dvh bg-primary-lightest font-body">
       {/* Layout */}
-      <div className="mx-auto grid min-h-[calc(100vh-64px)] grid-cols-1 lg:grid-cols-[1fr_400px]">
+      <div className="mx-auto grid min-h-[calc(100dvh-64px)] grid-cols-1 lg:grid-cols-[1fr_400px]">
         {/* CENTER */}
         <section className="relative flex items-center justify-center bg-primary-lightest p-6 min-h-120 lg:h-auto lg:min-h-0">
           <div className="relative aspect-[4/5] w-full max-w-[540px] overflow-hidden rounded-[40px] bg-slate-900 shadow-xl ring-1 ring-black/5">

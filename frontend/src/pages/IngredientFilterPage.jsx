@@ -133,7 +133,7 @@ export function IngredientFilterPage() {
   });
 
   return (
-    <div className="min-h-screen bg-primary-lightest font-body text-[#1F1924]">
+    <div className="min-h-dvh bg-primary-lightest font-body text-[#1F1924]">
       <main className="p-4 sm:p-8 lg:p-12 pt-4 sm:pt-8">
         <section className="max-w-[1200px] mx-auto">
           <div className="mb-10">

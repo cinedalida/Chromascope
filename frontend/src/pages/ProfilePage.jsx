@@ -176,7 +176,7 @@ export function ProfilePage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-primary-lightest">
+    <main className="min-h-dvh bg-primary-lightest">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-10">
         
         <header className="mb-8">
@@ -381,7 +381,7 @@ export function ProfilePage() {
                   aria-labelledby="perf-stats-label"
                   data-testid="perf-stats-toggle"
                   onClick={() => setShowPerfStats(!showPerfStats)}
-                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors after:absolute after:-inset-2 after:content-[''] ${
                     showPerfStats ? "bg-primary" : "bg-gray-300"
                   }`}
                 >
