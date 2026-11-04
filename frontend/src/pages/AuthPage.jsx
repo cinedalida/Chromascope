@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { auth, db } from "../firebase"; 
@@ -20,6 +20,9 @@ import chroNavLogo from "../assets/logos/chro-nav-logo.png";
 export function AuthPage() {
   const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
+  // Page the user tried to open before RequireAuth sent them here (only same-app paths).
+  const location = useLocation();
+  const returnTo = typeof location.state?.from === "string" && location.state.from.startsWith("/") && !location.state.from.startsWith("//") ? location.state.from : "/home";
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -99,7 +102,7 @@ export function AuthPage() {
       if (isLogin) {
         // Teammate's Login Logic
         await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        navigate("/home");
+        navigate(returnTo);
       } else {
         // Teammate's Register Logic
         const userCredential = await createUserWithEmailAndPassword(
@@ -175,7 +178,7 @@ export function AuthPage() {
       }
 
       await setDoc(userRef, { last_login: new Date().toISOString() }, { merge: true });
-      navigate("/home");
+      navigate(returnTo);
     } catch (error) {
       console.error("Google Sign-In Error:", error);
       setAuthError("Google sign-in failed. Please try again.");

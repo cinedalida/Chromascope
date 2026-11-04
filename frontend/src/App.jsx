@@ -9,9 +9,12 @@ import { useUserStore } from "./store/userStore";
 export function App() {
   const setUser = useUserStore((state) => state.setUser);
   const clearUser = useUserStore((state) => state.clearUser);
+  const setAuthStatus = useUserStore((state) => state.setAuthStatus);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Sign-in state is known before the profile loads, so a slow profile fetch never locks a user out.
+      setAuthStatus(firebaseUser ? "signedIn" : "signedOut");
       if (firebaseUser) {
         try {
           const userRef = doc(db, "users", firebaseUser.uid);
@@ -35,7 +38,7 @@ export function App() {
     });
 
     return () => unsubscribe();
-  }, [setUser, clearUser]);
+  }, [setUser, clearUser, setAuthStatus]);
 
   return <AppRouter />;
 }

@@ -26,3 +26,6 @@ playwright-report/
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright login state for UI tests (emulator only)
+playwright/.auth/
