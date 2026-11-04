@@ -21,14 +21,26 @@ export default defineConfig({
   webServer: [
     {
       command: "npx firebase emulators:start --only auth,firestore --project demo-chromascope --config ../firebase.json",
-      url: "http://127.0.0.1:4400/emulators",
+      // Wait for Firestore itself (Java, starts last); the hub on :4400 answers several seconds earlier.
+      url: "http://127.0.0.1:8080/",
       timeout: 180_000,
-      reuseExistingServer: true,
+      // Never reuse: emulators left over from a previous run may be shutting down (flaky "connection refused").
+      // If they are still running, the run stops with a clear "port in use" error instead.
+      reuseExistingServer: false,
+    },
+    {
+      // Readiness check only: also wait for the Auth emulator (:9099) before any test starts.
+      command: "node -e \"setInterval(() => {}, 1 << 30)\"",
+      url: "http://127.0.0.1:9099/",
+      timeout: 180_000,
+      reuseExistingServer: true, // check-only entry: finding Auth already up is the goal
     },
     {
       command: "npm run dev:emulators -- --port 5173 --strictPort",
       url: "http://localhost:5173",
-      reuseExistingServer: true,
+      // Never reuse: a normal dev server on :5173 would point the tests at the REAL Firebase project.
+      // (If port 5173 is busy, the run stops with an error instead.)
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],
