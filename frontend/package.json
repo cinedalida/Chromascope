@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "emulators": "firebase emulators:start --project demo-chromascope --config ../firebase.json",
-    "dev:emulators": "vite --mode emulators"
+    "dev:emulators": "vite --mode emulators",
+    "dev:local": "node scripts/dev-local.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
@@ -38,5 +39,8 @@
     "globals": "^17.5.0",
     "tailwindcss": "^4.3.0",
     "vite": "^8.0.10"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7"
   }
 }
