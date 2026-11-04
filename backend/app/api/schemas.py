@@ -19,6 +19,37 @@ def normalize_label(label: str) -> str:
     return label.strip().lower().replace("-", "_").replace(" ", "_")
 
 
+# The app shows friendly labels ("Fragrance / Parfum"); the filter uses short keys ("fragrance").
+# Without this map, 8 of the 15 "ingredients to avoid" and 2 concerns were silently ignored by the filter.
+AVOID_LABEL_TO_KEY = {
+    "fragrance_/_parfum": "fragrance",
+    "alcohol_(drying)": "alcohol",
+    "sulfates_(sls/sles)": "sulfates",
+    "bismuth_oxychloride": "bismuth",
+    "formaldehyde_releaser": "formaldehyde",
+    "chemical_uv_filters": "octinoxate",   # covers oxybenzone, octinoxate, avobenzone, octocrylene...
+    "mi_/_mit_(preservative)": "mi",
+    "ppd_(hair_dye_chemical)": "ppd",
+    # Appendix B groups added as app options (decision D1-b)
+    "propylene_glycol": "propylene_glycol",
+    "capb_(cocamidopropyl_betaine)": "capb",
+}
+CONCERN_LABEL_TO_KEY = {
+    "pregnancy_safe": "pregnancy",
+    "pih_/_dark_spots": "pih",
+}
+
+
+def avoid_key(label: str) -> str:
+    n = normalize_label(label)
+    return AVOID_LABEL_TO_KEY.get(n, n)
+
+
+def concern_key(label: str) -> str:
+    n = normalize_label(label)
+    return CONCERN_LABEL_TO_KEY.get(n, n)
+
+
 def _check_skin_type(v: Optional[str]) -> Optional[str]:
     if v is None:
         return v

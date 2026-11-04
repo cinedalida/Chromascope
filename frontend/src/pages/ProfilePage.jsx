@@ -5,10 +5,11 @@ import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { apiUrl } from "../config";
 import {
   Dna, Palette, Lock,
-  AlertCircle, Edit2, X, Check, RefreshCw, Settings
+  AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2
 } from "lucide-react";
 import { useSettingsStore } from "../store/settingsStore";
 
@@ -76,6 +77,31 @@ export function ProfilePage() {
   // UI State
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  // Deletes the login and the profile record on the backend (admin rights), then signs out.
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(apiUrl("/user/account"), {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      await signOut(auth).catch(() => {});
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Delete account error:", error);
+      setDeleteError("We couldn't delete your account. Please check your connection and try again.");
+      setConfirmDeleteOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -393,6 +419,55 @@ export function ProfilePage() {
                 </button>
               </div>
             </section>
+
+            {/* Delete account (RA 10173: right to erasure) */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-rose-100" data-testid="delete-account-section">
+              <div className="flex items-center gap-2 mb-2">
+                <Trash2 size={20} className="text-rose-500" />
+                <h3 className="font-heading text-lg font-semibold text-[#1F1924]">Delete account</h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-4">
+                Permanently deletes your account, skin profile, ingredient choices and color results. Photos are never stored.
+                This cannot be undone.
+              </p>
+              {deleteError && <p role="alert" className="text-sm text-rose-600 mb-3">{deleteError}</p>}
+              <button
+                type="button"
+                onClick={() => { setDeleteError(null); setConfirmDeleteOpen(true); }}
+                className="min-h-11 rounded-full border border-rose-300 px-5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+              >
+                Delete my account
+              </button>
+            </section>
+
+            {confirmDeleteOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+                <div className="w-full max-w-sm rounded-[24px] bg-white p-6 shadow-xl">
+                  <h3 id="delete-title" className="font-heading text-lg font-semibold text-[#1F1924]">Delete your account?</h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Your account and all data saved with it will be permanently deleted. You will be signed out.
+                  </p>
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteOpen(false)}
+                      disabled={isDeleting}
+                      className="min-h-11 rounded-full px-5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting}
+                      className="min-h-11 rounded-full bg-rose-600 px-5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                    >
+                      {isDeleting ? "Deleting..." : "Delete permanently"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 

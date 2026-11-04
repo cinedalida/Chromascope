@@ -4,13 +4,17 @@ import io
 import logging
 import os
 from PIL import Image
-from firebase_admin import firestore
+from firebase_admin import auth as fb_auth, firestore
 
 from .auth_utils import get_current_user
 from .limits import ALLOWED_FORMATS, MAX_IMAGE_SIDE, MAX_UPLOAD_BYTES, analysis_limiter
 from . import result_receipt
-from .schemas import AnalysisResultSave, FilterRequest, ProfileUpdate, normalize_label
+from .schemas import AnalysisResultSave, FilterRequest, ProfileUpdate, avoid_key, concern_key, normalize_label
 from ..core.engine import ChromascopeSafetyEngine
+from ..core import bayes_engine
+from ..core.retention import purge_inactive_face_data
+import hmac
+from fastapi import Header
 from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
 from ..core.color_matching import run_color_matching
 
@@ -25,7 +29,7 @@ ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -33,6 +37,9 @@ app.add_middleware(
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE
 
 engine = ChromascopeSafetyEngine()
+# "bayes" (default): the evaluated Bayesian-Chromascope Hybrid filter. "rules": the previous rule-based filter.
+SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
+log.info("Safety filter: %s", SAFETY_FILTER)
 
 # The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
 # safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
@@ -75,8 +82,8 @@ async def update_user_profile(data: ProfileUpdate, user_id: str = Depends(get_cu
         update_data = {
             "display_name": data.display_name,
             "skin_type": normalize_label(data.skin_type) if data.skin_type else None,
-            "concerns": [normalize_label(c) for c in data.concerns] if data.concerns is not None else None,
-            "avoid_ingredients": [normalize_label(a) for a in data.avoid_ingredients] if data.avoid_ingredients is not None else None,
+            "concerns": [concern_key(c) for c in data.concerns] if data.concerns is not None else None,
+            "avoid_ingredients": [avoid_key(a) for a in data.avoid_ingredients] if data.avoid_ingredients is not None else None,
         }
         update_data = {k: v for k, v in update_data.items() if v is not None}
         if update_data:
@@ -103,13 +110,21 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
 
         skin_type = normalize_label(request_data.skin_type or user_profile.get("skin_type") or "normal")
 
-        results = engine.filter(
-            products_list=category_products,
-            skin_type="normal" if skin_type == "sensitive" else skin_type,  # TODO(D1, PLAN_OPTIMIZATION.md)
-            concerns=[normalize_label(c) for c in (request_data.concerns or user_profile.get("concerns", []))],
-            avoid_ingredients=[normalize_label(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))],
-            category=target_cat,
-        )
+        concerns = [concern_key(c) for c in (request_data.concerns or user_profile.get("concerns", []))]
+        avoid = [avoid_key(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))]
+
+        if SAFETY_FILTER == "rules":
+            # Previous rule-based filter, kept for one release as a fallback (set SAFETY_FILTER=rules).
+            results = engine.filter(
+                products_list=category_products,
+                skin_type="normal" if skin_type == "sensitive" else skin_type,
+                concerns=concerns,
+                avoid_ingredients=avoid,
+                category=target_cat,
+            )
+        else:
+            # Decision D1: the Bayesian-Chromascope Hybrid filter evaluated in the paper (see core/bayes_engine.py).
+            results = bayes_engine.filter_products(category_products, skin_type, concerns, avoid)
 
         # Re-merge original Firestore fields (lab_L, lab_a, lab_b, etc.) back in
         # Engine fields (verdict, etc.) take priority via right-side **r
@@ -204,3 +219,40 @@ async def save_analysis_result(data: AnalysisResultSave, user_id: str = Depends(
         return {"status": "success"}
     except Exception:
         raise server_error("save_analysis_result")
+
+@app.delete("/api/user/account")
+async def delete_account(user_id: str = Depends(get_current_user)):
+    """Permanently delete the signed-in user's profile record and login (RA 10173 right to erasure).
+
+    Photos are never stored, so there is nothing else to remove. Runs with admin rights so it works without the
+    "please log in again" step Firebase requires for deletes from the browser.
+    """
+    try:
+        db.collection("users").document(user_id).delete()
+        try:
+            fb_auth.delete_user(user_id)
+        except fb_auth.UserNotFoundError:
+            pass
+        log.info("Deleted account %s", user_id)
+        return {"status": "deleted"}
+    except Exception:
+        raise server_error("delete_account")
+
+@app.post("/api/user/active")
+async def mark_active(user_id: str = Depends(get_current_user)):
+    """Called by the app when a signed-in user opens it; get_current_user records last_active (30-day retention)."""
+    return {"status": "ok"}
+
+@app.post("/internal/retention/purge-face-data")
+async def run_face_data_retention(x_cron_secret: str = Header(default="")):
+    """Daily job (Cloud Scheduler -> this URL, header X-Cron-Secret): removes face data of users inactive 30+ days.
+
+    Disabled unless CRON_SECRET is set on the server. Not reachable from the app (no CORS, no user login).
+    """
+    secret = os.environ.get("CRON_SECRET", "")
+    if not secret or not hmac.compare_digest(secret, x_cron_secret):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    try:
+        return purge_inactive_face_data(db, apply=True)
+    except Exception:
+        raise server_error("run_face_data_retention")

@@ -165,3 +165,10 @@ Thumbs.db
 
 # Ignore rules
 CLAUDE.md
+# Research data (survey/health data). Lives only in the PRIVATE chromascope-data repo; never commit it here.
+research/**/*.csv
+research/**/*.xlsx
+
+# Face images are never kept in git (decision D3). Local, consented test photos only.
+backend/app/core/skin_analysis/test/test_images/
+backend/app/core/skin_analysis/test/test_output/
