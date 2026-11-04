@@ -15,6 +15,13 @@ const env = {
   FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
   GCLOUD_PROJECT: "demo-chromascope",
 };
+// --full-catalog: also load the scraped catalog (chromascope-data/derived/app_catalog.json, built by
+// backend/scripts/build_catalog.py) into the sandbox. Set CHROMASCOPE_DATA_DIR if the data repo is elsewhere.
+if (process.argv.includes("--full-catalog")) {
+  const dataDir = env.CHROMASCOPE_DATA_DIR || path.resolve(frontendDir, "../../chromascope-data");
+  env.CATALOG_JSON = path.join(dataDir, "derived", "app_catalog.json");
+  console.log(`Full catalog: ${env.CATALOG_JSON}`);
+}
 // The Firestore emulator needs Java 21; use JAVA_HOME if it is set but not on PATH yet.
 if (env.JAVA_HOME) env.PATH = `${path.join(env.JAVA_HOME, "bin")}${path.delimiter}${env.PATH}`;
 

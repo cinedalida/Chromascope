@@ -32,4 +32,6 @@ def init_firebase(key_filename: str = "serviceAccountKey.json"):
         if not project_id.startswith("demo-"):
             raise RuntimeError(f"Emulator mode needs a demo- project ID, got {project_id!r}")
         return firebase_admin.initialize_app(_EmulatorCredential(), options={"projectId": project_id})
-    return firebase_admin.initialize_app(credentials.Certificate(os.path.join(BACKEND_DIR, key_filename)))
+    # FIREBASE_KEY_FILE lets the key live outside the repo (never copy it into git-tracked folders).
+    key_path = os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename)
+    return firebase_admin.initialize_app(credentials.Certificate(key_path))

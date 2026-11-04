@@ -39,7 +39,10 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE
 engine = ChromascopeSafetyEngine()
 # "bayes" (default): the evaluated Bayesian-Chromascope Hybrid filter. "rules": the previous rule-based filter.
 SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
-log.info("Safety filter: %s", SAFETY_FILTER)
+# Which product collection the app reads: "products" (current catalog) or "products_v2" (scraped catalog,
+# PLAN_CATALOG.md). Switching back is the rollback.
+PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products").strip()
+log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_COLLECTION)
 
 # The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
 # safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
@@ -69,7 +72,7 @@ async def root():
 
 @app.get("/api/products")
 async def get_all_products(user_id: str = Depends(get_current_user)):
-    docs = db.collection("products").stream()
+    docs = db.collection(PRODUCTS_COLLECTION).stream()
     return [{**doc.to_dict(), "product_id": doc.id} for doc in docs]
 
 @app.get("/api/ingredients")
@@ -99,7 +102,7 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
                         "lip": "Lip", "eyes": "Eye", "eye": "Eye", "multiuse": "Multi-Use", "multi-use": "Multi-Use"}
         target_cat = category_map[request_data.category.lower()]
 
-        product_docs = db.collection("products").where("category", "==", target_cat).stream()
+        product_docs = db.collection(PRODUCTS_COLLECTION).where("category", "==", target_cat).stream()
         category_products = [{**doc.to_dict(), "product_id": doc.id} for doc in product_docs]
 
         # Build lookup BEFORE engine strips the fields
