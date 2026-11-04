@@ -32,7 +32,7 @@ test("manifest is linked, valid, and its icons load at the right sizes", async (
 test("Chromium reports no installability errors", async ({ page }) => {
   test.skip(test.info().project.name !== "android", "one run is enough");
   await page.goto("/");
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForLoadState("load"); // not "networkidle": the signed-in app keeps a Firestore connection open
   const cdp = await page.context().newCDPSession(page);
   const { installabilityErrors } = await cdp.send("Page.getInstallabilityErrors");
   expect(installabilityErrors).toEqual([]);

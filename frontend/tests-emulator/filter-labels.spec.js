@@ -31,3 +31,14 @@ test("without that choice the same product is not excluded for fragrance", async
   const res = await request.post(`${API}/run-filter`, { headers: u.headers, data: { category: "Face", skin_type: "Normal" } });
   expect(verdictOf(await res.json(), "[TEST] Scented Foundation")).not.toBe("excluded");
 });
+
+test("the API runs the Bayesian-Chromascope Hybrid filter (decision D1)", async ({ request }) => {
+  const u = await newUser(request, "bayes");
+  const res = await request.post(`${API}/run-filter`, { headers: u.headers, data: { category: "Face", skin_type: "Normal" } });
+  const body = await res.json();
+  expect(body.safety_results.length).toBeGreaterThan(0);
+  for (const p of body.safety_results) expect(p.filter).toBe("bayes");
+  // MI/PPD-free seeded products: a plain profile gets no exclusions.
+  expect(body.safety_results.every((p) => p.verdict !== "excluded")).toBe(true);
+});
+

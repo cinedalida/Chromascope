@@ -14,7 +14,9 @@ for (const route of ROUTES) {
   test(`fits the screen: ${route}`, async ({ page }, info) => {
     test.skip(info.project.name === "desktop", "phone viewports only");
     await page.goto(route);
-    await page.waitForLoadState("networkidle").catch(() => {});
+    // "load", not "networkidle": signed in, the app keeps a live Firestore connection open, so the network
+    // is never idle and the old wait always ran into its timeout.
+    await page.waitForLoadState("load");
     await page.waitForTimeout(1_500); // let splash / entrance animations settle
 
     const result = await page.evaluate(() => {

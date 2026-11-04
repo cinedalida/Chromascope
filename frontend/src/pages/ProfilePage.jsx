@@ -12,20 +12,10 @@ import {
   AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2
 } from "lucide-react";
 import { useSettingsStore } from "../store/settingsStore";
+import { SKIN_TYPES, SKIN_CONCERNS, AVOID_INGREDIENTS, CONCERNS_WITHOUT_FILTER_RULE } from "../constants/profileOptions";
 
-const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne Prone"];
-
-const SKIN_CONCERNS = [
-  "Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", 
-  "Metal allergy", "Melasma", "PIH / Dark spots"
-];
-
-const INGREDIENTS_TO_AVOID = [
-  "Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", 
-  "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", 
-  "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", 
-  "Phthalates", "Metallic Pigments", "MI / MIT", "PPD"
-];
+// "Acne Prone", "acne-prone" and "acne_prone" are the same choice (older profiles used different spellings).
+const sameLabel = (a, b) => (a || "").toLowerCase().replace(/[\s_-]+/g, "") === (b || "").toLowerCase().replace(/[\s_-]+/g, "");
 
 const SEASON_PALETTES = {
   "Bright Spring": ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
@@ -282,7 +272,7 @@ export function ProfilePage() {
                 {isEditing ? (
                   <div className="flex flex-wrap gap-2">
                     {SKIN_TYPES.map((type) => {
-                      const isActive = selectedSkinType?.toLowerCase() === type.toLowerCase();
+                      const isActive = sameLabel(selectedSkinType, type);
                       return (
                         <button
                           key={type}
@@ -307,6 +297,9 @@ export function ProfilePage() {
 
               <div>
                 <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Active Conditions / Concerns</label>
+                <p className="mb-3 text-xs text-gray-500">
+                  {CONCERNS_WITHOUT_FILTER_RULE.join(", ")} don&apos;t change the safety verdict yet.
+                </p>
                 {isEditing ? (
                   <div className="flex flex-wrap gap-2">
                     {SKIN_CONCERNS.map((concern) => {
@@ -354,7 +347,7 @@ export function ProfilePage() {
                 <>
                   <p className="text-sm text-gray-500 mb-4">Select the ingredients you need our safety engine to block during product recommendations.</p>
                   <div className="flex flex-wrap gap-2">
-                    {INGREDIENTS_TO_AVOID.map((ingredient) => {
+                    {AVOID_INGREDIENTS.map((ingredient) => {
                       const isBlocked = selectedAvoidIngredients.some(i => i.toLowerCase() === ingredient.toLowerCase());
                       return (
                         <button

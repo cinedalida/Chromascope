@@ -30,6 +30,7 @@ AVOID_LABEL_TO_KEY = {
     "chemical_uv_filters": "octinoxate",   # covers oxybenzone, octinoxate, avobenzone, octocrylene...
     "mi_/_mit_(preservative)": "mi",
     "ppd_(hair_dye_chemical)": "ppd",
+    "mi_/_mit": "mi",                      # older profile-page label
     # Appendix B groups added as app options (decision D1-b)
     "propylene_glycol": "propylene_glycol",
     "capb_(cocamidopropyl_betaine)": "capb",
