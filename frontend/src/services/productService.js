@@ -4,7 +4,10 @@ import { API_BASE_URL } from "../config";
 
 export async function getProductCatalog() {
   try {
-    const response = await fetch(`${API_BASE_URL}/products`);
+    const token = await auth.currentUser?.getIdToken();
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) throw new Error('Network response was not ok');
     return await response.json();
   } catch (error) {

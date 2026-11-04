@@ -1,3 +1,5 @@
+import logging
+
 from firebase_admin import auth
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -5,6 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..firebase_init import init_firebase
 
 init_firebase()
+log = logging.getLogger("chromascope.auth")
 
 security = HTTPBearer()
 
@@ -30,13 +33,17 @@ async def get_current_user(res: HTTPAuthorizationCredentials = Depends(security)
             
         return uid  
 
+    except HTTPException:
+        raise
     except auth.ExpiredIdTokenError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Token has expired"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your sign-in has expired. Please log in again."
         )
-    except Exception as e:
+    except Exception:
+        # Details stay in the server log; the client gets a generic message.
+        log.warning("Rejected an invalid ID token", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}"
+            detail="Please log in again."
         )
