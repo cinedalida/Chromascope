@@ -18,6 +18,8 @@ from fastapi import Header
 from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
 from ..core.color_matching import delta_e_ciede2000, run_color_matching
 import threading
+import copy
+import time
 
 log = logging.getLogger("chromascope.api")
 app = FastAPI()
@@ -45,13 +47,28 @@ SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
 PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products").strip()
 log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_COLLECTION)
 
+# Products change only when the catalog is re-imported, so keep one copy in memory for a few minutes instead of reading
+# all ~1,000 documents from Firestore on every request (a single catalog visit would otherwise cost ~2,000 reads).
+PRODUCTS_CACHE_SECONDS = float(os.environ.get("PRODUCTS_CACHE_SECONDS", "600"))
+_products_cache = {"at": 0.0, "items": None}
+_products_lock = threading.Lock()
+
+
+def load_products(category: str | None = None) -> list:
+    """All products (or one category), each a fresh dict copy so callers may modify them."""
+    with _products_lock:
+        if _products_cache["items"] is None or time.monotonic() - _products_cache["at"] > PRODUCTS_CACHE_SECONDS:
+            _products_cache["items"] = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+            _products_cache["at"] = time.monotonic()
+        items = _products_cache["items"]
+    return [copy.deepcopy(p) for p in items if category is None or p.get("category") == category]
+
 
 def _warm_filter_cache():
     """Pre-match every ingredient list once, in the background, so the first filter request is fast."""
     try:
         lists = []
-        for doc in db.collection(PRODUCTS_COLLECTION).stream():
-            d = doc.to_dict() or {}
+        for d in load_products():
             lists += list((d.get("formulas") or {}).values()) or [d.get("full_inci_list", "")]
         log.info("Filter cache warmed: %d ingredient lists", bayes_engine.warm_cache(lists))
     except Exception:
@@ -101,8 +118,7 @@ async def root():
 
 @app.get("/api/products")
 async def get_all_products(user_id: str = Depends(get_current_user)):
-    docs = db.collection(PRODUCTS_COLLECTION).stream()
-    return [{**doc.to_dict(), "product_id": doc.id} for doc in docs]
+    return load_products()
 
 @app.get("/api/catalog/summary")
 async def catalog_summary(user_id: str = Depends(get_current_user)):
@@ -113,7 +129,7 @@ async def catalog_summary(user_id: str = Depends(get_current_user)):
         skin = normalize_label(profile.get("skin_type") or "normal")
         concerns = [concern_key(c) for c in profile.get("concerns", [])]
         avoid = [avoid_key(a) for a in profile.get("avoid_ingredients", [])]
-        products = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+        products = load_products()
         results = bayes_engine.filter_products(products, skin, concerns, avoid)
         counts = {v: sum(1 for r in results if r["verdict"] == v) for v in ("safe", "caution", "excluded")}
         return {"total": len(results), **counts, "filter": "bayes"}
@@ -147,8 +163,7 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
                         "lip": "Lip", "eyes": "Eye", "eye": "Eye", "multiuse": "Multi-Use", "multi-use": "Multi-Use"}
         target_cat = category_map[request_data.category.lower()]
 
-        product_docs = db.collection(PRODUCTS_COLLECTION).where("category", "==", target_cat).stream()
-        category_products = [{**doc.to_dict(), "product_id": doc.id} for doc in product_docs]
+        category_products = load_products(target_cat)
 
         # Build lookup BEFORE engine strips the fields
         product_lookup = {p["product_id"]: p for p in category_products}

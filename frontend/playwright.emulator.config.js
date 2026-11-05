@@ -8,6 +8,7 @@ const emulatorEnv = {
   FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
   GCLOUD_PROJECT: "demo-chromascope",
   CRON_SECRET: "test-cron-secret", // enables the retention endpoint for tests only
+  PRODUCTS_CACHE_SECONDS: "0", // tests add products while the backend runs; always read fresh
 };
 
 export default defineConfig({
