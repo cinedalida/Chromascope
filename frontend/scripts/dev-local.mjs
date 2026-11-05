@@ -14,12 +14,14 @@ const env = {
   FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080",
   FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
   GCLOUD_PROJECT: "demo-chromascope",
+  STORAGE_EMULATOR_HOST: "http://127.0.0.1:9199",
 };
 // --full-catalog: also load the scraped catalog (chromascope-data/derived/app_catalog.json, built by
 // backend/scripts/build_catalog.py) into the sandbox. Set CHROMASCOPE_DATA_DIR if the data repo is elsewhere.
 if (process.argv.includes("--full-catalog")) {
   const dataDir = env.CHROMASCOPE_DATA_DIR || path.resolve(frontendDir, "../../chromascope-data");
   env.CATALOG_JSON = path.join(dataDir, "derived", "app_catalog.json");
+  env.CATALOG_IMAGES_DIR = path.join(dataDir, "derived", "catalog_images"); // photos -> local Storage emulator
   console.log(`Full catalog: ${env.CATALOG_JSON}`);
 }
 // The Firestore emulator needs Java 21; use JAVA_HOME if it is set but not on PATH yet.
@@ -58,7 +60,7 @@ process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
 console.log("Starting the Chromascope sandbox (emulators, backend, app)...\n");
-start("emulators", "npx", ["firebase", "emulators:start", "--only", "auth,firestore", "--project", "demo-chromascope",
+start("emulators", "npx", ["firebase", "emulators:start", "--only", "auth,firestore,storage", "--project", "demo-chromascope",
   "--config", "../firebase.json"], { shell: true });
 start("backend", process.execPath, [path.join(frontendDir, "scripts", "start-test-backend.mjs")]);
 start("app", "npx", ["vite", "--mode", "emulators", "--port", "5173", "--strictPort"], { shell: true });

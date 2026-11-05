@@ -11,7 +11,7 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { getProductCatalog } from "../services/productService"; // Ensure this import exists
+import { getCatalogSummary, getProductCatalog } from "../services/productService";
 import placeholderImg from "../assets/images/placeholder.svg";
 
 export function ProductCatalogPage() {
@@ -19,6 +19,7 @@ export function ProductCatalogPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("All");
   const [loading, setLoading] = React.useState(true);
+  const [summary, setSummary] = React.useState(null); // real verdict counts for this user (or null)
   const [currentPage, setCurrentPage] = React.useState(1);
   const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
   const categoryMenuRef = React.useRef(null);
@@ -43,8 +44,9 @@ export function ProductCatalogPage() {
     async function fetchProducts() {
       setLoading(true);
       try {
-        const data = await getProductCatalog();
+        const [data, sum] = await Promise.all([getProductCatalog(), getCatalogSummary()]);
         setProducts(data);
+        setSummary(sum);
       } catch (error) {
         console.error("Failed to fetch products:", error);
       } finally {
@@ -75,8 +77,9 @@ export function ProductCatalogPage() {
   }, [searchQuery, categoryFilter, products]);
 
   const totalInventory = products.length;
-  const safeCount = products.filter(p => p.status === 'Verified' || p.status === 'Safe').length || Math.floor(totalInventory * 0.95);
-  const flaggedCount = totalInventory - safeCount;
+  // Real numbers from the safety filter for this user's profile; "–" until they load (never a made-up estimate).
+  const safeCount = summary ? summary.safe : "–";
+  const flaggedCount = summary ? summary.caution + summary.excluded : "–";
   
   const uniqueSeasons = new Set();
   products.forEach(p => {
@@ -111,8 +114,8 @@ export function ProductCatalogPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard title="TOTAL INVENTORY" value={totalInventory} icon={<Package className="text-primary" />} bgColor="bg-primary-lighter" />
-          <StatCard title="CLINICALLY SAFE" value={safeCount} icon={<ShieldCheck className="text-success" />} bgColor="bg-[#E8F5F1]" />
-          <StatCard title="FLAGGED ITEMS" value={flaggedCount} icon={<AlertTriangle className="text-danger" />} bgColor="bg-[#FFF1F1]" />
+          <StatCard title="SAFE FOR YOU" value={safeCount} icon={<ShieldCheck className="text-success" />} bgColor="bg-[#E8F5F1]" />
+          <StatCard title="FLAGGED FOR YOU" value={flaggedCount} icon={<AlertTriangle className="text-danger" />} bgColor="bg-[#FFF1F1]" />
           <StatCard title="SEASONS ANALYZED" value={`${seasonsAnalyzed} / 4`} icon={<Sun className="text-warning" />} bgColor="bg-[#FFF8E6]" />
         </div>
 

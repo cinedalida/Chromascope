@@ -24,8 +24,9 @@ while True:
 subprocess.run([sys.executable, "-m", "scripts.seed_emulator"], cwd=BACKEND, check=True)
 # Optional: the full scraped catalog (npm run dev:local -- --full-catalog), into the emulator only.
 if os.environ.get("CATALOG_JSON"):
+    extra = ["--images-dir", os.environ["CATALOG_IMAGES_DIR"]] if os.environ.get("CATALOG_IMAGES_DIR") else []
     subprocess.run([sys.executable, "-m", "scripts.import_catalog", os.environ["CATALOG_JSON"],
-                    "--collection", "products", "--apply"], cwd=BACKEND, check=True)
+                    "--collection", "products", "--apply", *extra], cwd=BACKEND, check=True)
 # subprocess, not os.execv: on Windows execv does not quote arguments, so a path with spaces breaks.
 sys.exit(subprocess.run([sys.executable, "-m", "uvicorn", "app.api.api:app", "--host", "127.0.0.1", "--port", "8000"],
                         cwd=BACKEND).returncode)

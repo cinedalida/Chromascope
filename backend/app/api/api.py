@@ -16,7 +16,8 @@ from ..core.retention import purge_inactive_face_data
 import hmac
 from fastapi import Header
 from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
-from ..core.color_matching import run_color_matching
+from ..core.color_matching import delta_e_ciede2000, run_color_matching
+import threading
 
 log = logging.getLogger("chromascope.api")
 app = FastAPI()
@@ -43,6 +44,34 @@ SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
 # PLAN_CATALOG.md). Switching back is the rollback.
 PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products").strip()
 log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_COLLECTION)
+
+
+def _warm_filter_cache():
+    """Pre-match every ingredient list once, in the background, so the first filter request is fast."""
+    try:
+        lists = []
+        for doc in db.collection(PRODUCTS_COLLECTION).stream():
+            d = doc.to_dict() or {}
+            lists += list((d.get("formulas") or {}).values()) or [d.get("full_inci_list", "")]
+        log.info("Filter cache warmed: %d ingredient lists", bayes_engine.warm_cache(lists))
+    except Exception:
+        log.warning("Could not warm the filter cache", exc_info=True)
+
+
+threading.Thread(target=_warm_filter_cache, daemon=True).start()
+
+
+def _use_closest_shade(products: list, user_lab) -> None:
+    """Face products: match on the shade closest to the user's skin (CIEDE2000), not just the first shade."""
+    if not user_lab or len(user_lab) != 3:
+        return
+    for p in products:
+        best = min((sh for sh in p.get("shades") or [] if sh.get("lab")),
+                   key=lambda sh: delta_e_ciede2000(tuple(user_lab), tuple(sh["lab"])), default=None)
+        if best:
+            p["lab_L"], p["lab_a"], p["lab_b"] = best["lab"]
+            p["hex_color"] = best.get("hex") or p.get("hex_color", "")
+            p["best_shade"] = {"name": best.get("name"), "hex": best.get("hex"), "verdict": best.get("verdict")}
 
 # The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
 # safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
@@ -74,6 +103,22 @@ async def root():
 async def get_all_products(user_id: str = Depends(get_current_user)):
     docs = db.collection(PRODUCTS_COLLECTION).stream()
     return [{**doc.to_dict(), "product_id": doc.id} for doc in docs]
+
+@app.get("/api/catalog/summary")
+async def catalog_summary(user_id: str = Depends(get_current_user)):
+    """Real verdict counts over the whole catalog for this user's profile (replaces the catalog page's made-up
+    '95% safe' statistic)."""
+    try:
+        profile = (db.collection("users").document(user_id).get().to_dict() or {})
+        skin = normalize_label(profile.get("skin_type") or "normal")
+        concerns = [concern_key(c) for c in profile.get("concerns", [])]
+        avoid = [avoid_key(a) for a in profile.get("avoid_ingredients", [])]
+        products = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+        results = bayes_engine.filter_products(products, skin, concerns, avoid)
+        counts = {v: sum(1 for r in results if r["verdict"] == v) for v in ("safe", "caution", "excluded")}
+        return {"total": len(results), **counts, "filter": "bayes"}
+    except Exception:
+        raise server_error("catalog_summary")
 
 @app.get("/api/ingredients")
 async def get_all_ingredients(user_id: str = Depends(get_current_user)):
@@ -139,6 +184,8 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
         color_matched = []
         try:
             user_lab_tuple = tuple(user_lab) if (user_lab and len(user_lab) == 3) else None
+            if target_cat == "Face":
+                _use_closest_shade(results, user_lab_tuple)
             color_matched = run_color_matching(
                 products=results,  # all verdicts — safe/caution/excluded sorted in color_matching
                 seasonal_label=ui_season,

@@ -340,6 +340,7 @@ export function IngredientFilterPage() {
                             {item.price || "N/A"}
                           </span>
                           <StatusBadge type={item.verdict} />
+                          <ShadeSummary item={item} />
                           {category === "Face" && matchPercent && (
                             <span className="text-[10px] font-black text-primary">
                               {matchPercent}% Match
@@ -462,6 +463,7 @@ export function IngredientFilterPage() {
                             )}
                             <td className="px-4 py-5">
                               <StatusBadge type={item.verdict} />
+                          <ShadeSummary item={item} />
                             </td>
                             <td className="px-6 py-5 text-right">
                               <button
@@ -583,6 +585,17 @@ function StatusLegendModal({ onClose }) {
       </div>
     </div>
   );
+}
+
+// "3 of 30 shades excluded": the product verdict is its worst shade, so show how many shades share it.
+function ShadeSummary({ item }) {
+  const counts = item?.shade_verdicts;
+  const total = item?.shade_count || 0;
+  if (!counts || total < 2) return null;
+  const v = item.verdict?.toLowerCase();
+  const n = counts[v] ?? 0;
+  const text = n === total ? `All ${total} shades ${v}` : `${n} of ${total} shades ${v}`;
+  return <span data-testid="shade-summary" className="text-[10px] font-semibold text-[#6B7280]">{text}</span>;
 }
 
 function StatusBadge({ type }) {

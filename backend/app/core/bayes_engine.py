@@ -26,7 +26,39 @@ _DIR = os.path.join(os.path.dirname(__file__), "bayes_filter")
 _THRESHOLDS = json.load(open(os.path.join(_DIR, "chosen_thresholds.json"), encoding="utf-8"))
 _CPT = {(t["group"], t["flag"]): (t["p"], t["weighted_n"])
         for t in json.load(open(os.path.join(_DIR, "cpts.json"), encoding="utf-8"))["tables"]}
-_MATCHER = sf.Matcher()  # as evaluated: v2 rules, no approved alias changes
+
+
+class _CachedMatcher:
+    """The evaluated Matcher (v2 rules, no approved alias changes) with its per-formula results cached.
+    Same output as sf.Matcher(); only repeated work is skipped (catalog Phase 2: speed)."""
+
+    def __init__(self):
+        self._m = sf.Matcher()
+        self._matches, self._tokens = {}, {}
+
+    def matches(self, inci):
+        if inci not in self._matches:
+            self._matches[inci] = self._m.matches(inci)
+        return self._matches[inci]
+
+    def tokens(self, inci):
+        if inci not in self._tokens:
+            self._tokens[inci] = self._m.tokens(inci)
+        return self._tokens[inci]
+
+
+_MATCHER = _CachedMatcher()
+
+
+def warm_cache(ingredient_lists) -> int:
+    """Pre-match ingredient lists (e.g. at startup) so the first filter request is fast. Returns how many."""
+    n = 0
+    for inci in ingredient_lists:
+        if inci:
+            _MATCHER.matches(inci)
+            _MATCHER.tokens(inci)
+            n += 1
+    return n
 
 SKIN_TYPES = {"normal": "Normal", "oily": "Oily", "dry": "Dry", "combination": "Combination",
               "sensitive": "Sensitive", "pigmented": "Pigmented"}
@@ -71,8 +103,11 @@ def _avoided_present(inci: str, extra: list) -> list:
     return hits
 
 
-def evaluate_product(product: dict, user: dict, extra: list) -> dict:
-    inci = product.get("full_inci_list", "") or ""
+ORDER = {"safe": 0, "caution": 1, "excluded": 2}
+
+
+def evaluate_formula(inci: str, user: dict, extra: list) -> tuple[str, list, list]:
+    """(verdict lower-case, reasons, matched groups) for one ingredient list."""
     result = sf.evaluate(inci, user, _CPT, monitor=_THRESHOLDS["monitor_allergy"],
                          monitor_b=_THRESHOLDS["monitor_breakout"], matcher=_MATCHER, return_detail=True)
     verdict, detail = result[0], result[1]
@@ -91,7 +126,27 @@ def evaluate_product(product: dict, user: dict, extra: list) -> dict:
     if avoided:
         verdict = "Excluded"
         flagged = avoided + flagged
-    v = verdict.lower()
+    return verdict.lower(), flagged, sorted({g for _t, g, _h in detail})
+
+
+def evaluate_product(product: dict, user: dict, extra: list) -> dict:
+    """Verdict per formula; each shade takes its formula's verdict; the product shows its WORST shade.
+    Products without shade data (old catalog) are evaluated on full_inci_list as before."""
+    main_inci = product.get("full_inci_list", "") or ""
+    formulas = product.get("formulas") or {"main": main_inci}
+    per_formula = {fid: evaluate_formula(inci or "", user, extra) for fid, inci in formulas.items()}
+    shades = product.get("shades") or []
+    shade_out = [{"shade_id": sh.get("shade_id"), "name": sh.get("name"), "hex": sh.get("hex"), "lab": sh.get("lab"),
+                  "verdict": per_formula.get(sh.get("formula_id"), per_formula[next(iter(per_formula))])[0]}
+                 for sh in shades]
+    if shade_out:
+        counts = {v: sum(1 for x in shade_out if x["verdict"] == v) for v in ORDER}
+        worst_fid = max((sh.get("formula_id") for sh in shades if sh.get("formula_id") in per_formula),
+                        key=lambda f: ORDER[per_formula[f][0]], default=next(iter(per_formula)))
+    else:
+        counts = None
+        worst_fid = max(per_formula, key=lambda f: ORDER[per_formula[f][0]])
+    v, flagged, groups = per_formula[worst_fid]
     return {
         "product_id": product.get("product_id"),
         "product_name": product.get("product_name", ""),
@@ -100,20 +155,23 @@ def evaluate_product(product: dict, user: dict, extra: list) -> dict:
         "sub_category": product.get("sub_category", ""),
         "verdict": v,
         "flagged_ingredients": flagged,
-        "matched_groups": sorted({g for _t, g, _h in detail}),
+        "matched_groups": groups,
         "severity": {"excluded": "high", "caution": "medium"}.get(v, "low"),
         "filter": "bayes",
+        "shade_count": len(shade_out),
+        "shade_verdicts": counts,          # e.g. {"safe": 27, "caution": 3, "excluded": 0}; None for old products
+        "shades": shade_out,
         "season_tags": product.get("season_tags", ""),
         "hex_color": product.get("hex_color", ""),
+        "lab_L": product.get("lab_L"), "lab_a": product.get("lab_a"), "lab_b": product.get("lab_b"),
         "where_to_buy": product.get("where_to_buy", ""),
         "price": product.get("price", ""),
         "image_url": product.get("image_url", ""),
-        "full_inci_list": inci,
+        "full_inci_list": main_inci,
         "key_actives": product.get("key_actives", ""),
     }
 
 
 def filter_products(products: list, skin_type: str, concerns: list, avoid_keys: list) -> list:
     user, extra = to_filter_profile(skin_type, concerns, avoid_keys)
-    order = {"safe": 0, "caution": 1, "excluded": 2}
-    return sorted((evaluate_product(p, user, extra) for p in products), key=lambda r: order[r["verdict"]])
+    return sorted((evaluate_product(p, user, extra) for p in products), key=lambda r: ORDER[r["verdict"]])
