@@ -23,7 +23,7 @@ def main(csv_path: str):
     raw = open(csv_path, "rb").read()
     cpt = build_cpts(pd.read_csv(csv_path))
     data = {
-        "source": "survey/chromascope_500_balanced.csv (private chromascope-data repo)",
+        "source": f"survey/{os.path.basename(csv_path)} (private chromascope-data repo)",
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "prior_strength": 20,
         "note": "Aggregate probabilities only: P(reaction or breakout | group, vulnerable or acne-prone), weighted count.",

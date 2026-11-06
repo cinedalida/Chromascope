@@ -23,9 +23,13 @@ from .bayes_filter import safety_filter as sf
 from .constants import AVOID_TRIGGER_MAP
 
 _DIR = os.path.join(os.path.dirname(__file__), "bayes_filter")
-_THRESHOLDS = json.load(open(os.path.join(_DIR, "chosen_thresholds.json"), encoding="utf-8"))
+# Filter v2 (default): probabilities from 1,064 real survey rows, thresholds tuned on dev (0.34 / 0.48).
+# FILTER_VERSION=v1 rolls back to the version scored 0.903 on the first held-out set (500-row survey, 0.34 / 0.60).
+FILTER_VERSION = os.environ.get("FILTER_VERSION", "v2").strip().lower()
+_SUFFIX = "_v1" if FILTER_VERSION == "v1" else ""
+_THRESHOLDS = json.load(open(os.path.join(_DIR, f"chosen_thresholds{_SUFFIX}.json"), encoding="utf-8"))
 _CPT = {(t["group"], t["flag"]): (t["p"], t["weighted_n"])
-        for t in json.load(open(os.path.join(_DIR, "cpts.json"), encoding="utf-8"))["tables"]}
+        for t in json.load(open(os.path.join(_DIR, f"cpts{_SUFFIX}.json"), encoding="utf-8"))["tables"]}
 
 
 class _CachedMatcher:
