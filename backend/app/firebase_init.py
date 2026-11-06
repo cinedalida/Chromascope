@@ -33,7 +33,13 @@ def init_firebase(key_filename: str = "serviceAccountKey.json"):
             raise RuntimeError(f"Emulator mode needs a demo- project ID, got {project_id!r}")
         return firebase_admin.initialize_app(_EmulatorCredential(), options={
             "projectId": project_id, "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", f"{project_id}.appspot.com")})
-    # FIREBASE_KEY_FILE lets the key live outside the repo (never copy it into git-tracked folders).
-    key_path = os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename)
-    return firebase_admin.initialize_app(credentials.Certificate(key_path), options={
+    # FIREBASE_KEY_JSON: the key's contents in a hosting secret (Hugging Face Space); FIREBASE_KEY_FILE: a path outside
+    # the repo (never copy the key into git-tracked folders).
+    key_json = os.environ.get("FIREBASE_KEY_JSON", "").strip()
+    if key_json:
+        import json
+        cred = credentials.Certificate(json.loads(key_json))
+    else:
+        cred = credentials.Certificate(os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename))
+    return firebase_admin.initialize_app(cred, options={
         "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "chromascope-new.firebasestorage.app")})
