@@ -7,6 +7,8 @@ description = "Known non-secrets"
 regexes = [
   # Firebase WEB API key: public by design (shipped to every browser); access is controlled by firestore.rules.
   '''AIzaSyBNLzlcHAmlXQTRa46tWbZ3pH1BI_r5uuc''',
+  # Same kind of key for the new project "chromascope-new" (PLAN_MIGRATION.md), also public by design.
+  '''AIzaSyAP9Wf7c3u_4X_qusDd7pby33hTmqRe3b0''',
 ]
 paths = [
   # Template with placeholder values only (no real key).
