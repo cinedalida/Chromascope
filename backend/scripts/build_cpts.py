@@ -5,7 +5,11 @@ The Bayesian network's probability tables are computed from the survey exactly a
 and one weighted count per (ingredient group, vulnerable/acne-prone) pair, no respondent rows. The survey itself stays
 in the PRIVATE chromascope-data repo.
 
-Usage (from backend/):  venv\\Scripts\\python -m scripts.build_cpts <path to chromascope-data>/survey/chromascope_500_balanced.csv
+Usage (from backend/):  venv\\Scripts\\python -m scripts.build_cpts <survey csv> [app/core/bayes_filter/priors_essca.json]
+  v1: survey/chromascope_500_balanced.csv (no priors file)
+  v4 (current): survey/chromascope_real150.csv + priors_essca.json (published patch-test prevalence as the prior mean
+      for the Appendix B groups it lists; same Beta formula and prior strength 20)
+  (v2/v3 used a file that turned out not to be real survey data and were removed.)
 """
 import hashlib
 import json

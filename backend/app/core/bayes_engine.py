@@ -23,11 +23,12 @@ from .bayes_filter import safety_filter as sf
 from .constants import AVOID_TRIGGER_MAP
 
 _DIR = os.path.join(os.path.dirname(__file__), "bayes_filter")
-# Filter v3 (default): 1,064 real survey rows on top of published patch-test priors (ESSCA 2015-2018,
-# priors_essca.json), thresholds tuned on dev (0.34 / 0.48). Same verdicts as v2 on all 100 fresh test cases.
-# FILTER_VERSION=v2 (hand-set priors, same survey) or v1 (version scored 0.903 on the first held-out set) roll back.
-FILTER_VERSION = os.environ.get("FILTER_VERSION", "v3").strip().lower()
-_SUFFIX = {"v1": "_v1", "v2": "_v2"}.get(FILTER_VERSION, "")
+# Filter v4 (default): 150 real survey responses (incl. the original 64) on top of published patch-test priors
+# (ESSCA 2015-2018, priors_essca.json), thresholds tuned on dev only (0.34 / 0.52).
+# FILTER_VERSION=v1 rolls back to the version scored 0.903 on the first held-out set (0.34 / 0.60).
+# (v2/v3 were removed: they were trained on a file that turned out not to be real survey data.)
+FILTER_VERSION = os.environ.get("FILTER_VERSION", "v4").strip().lower()
+_SUFFIX = "_v1" if FILTER_VERSION == "v1" else ""
 _THRESHOLDS = json.load(open(os.path.join(_DIR, f"chosen_thresholds{_SUFFIX}.json"), encoding="utf-8"))
 _CPT = {(t["group"], t["flag"]): (t["p"], t["weighted_n"])
         for t in json.load(open(os.path.join(_DIR, f"cpts{_SUFFIX}.json"), encoding="utf-8"))["tables"]}
