@@ -24,9 +24,11 @@ def check(name, cond, info=""):
         fails.append(name)
 
 csv_path, cases_path = sys.argv[1], sys.argv[2]
+priors_path = sys.argv[3] if len(sys.argv) > 3 else ""   # v3: app/core/bayes_filter/priors_essca.json
+from scripts.build_cpts import compute  # noqa: E402
 
-print("(a) same filter, same numbers, same verdicts")
-live = sf.build_cpts(pd.read_csv(csv_path))
+print(f"(a) same filter, same numbers, same verdicts (FILTER_VERSION={be.FILTER_VERSION})")
+live = compute(csv_path, priors_path)
 check("cpts.json equals CPTs rebuilt from the survey", set(live) == set(be._CPT) and
       all(abs(live[k][0] - be._CPT[k][0]) < 1e-12 for k in live), f"({len(live)} entries)")
 th = be._THRESHOLDS

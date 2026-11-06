@@ -1,5 +1,6 @@
 {
  "source": "survey/chromascope_real_plus_newsurvey_v2.csv (private chromascope-data repo)",
+ "priors": "priors_essca.json (sha256 68ce81e5a4e441f5)",
  "source_sha256": "82f3f3c2b47baeb69bc3e0e17f1bb20bc2c441b7432b5db229fdf2a5a92776f1",
  "prior_strength": 20,
  "note": "Aggregate probabilities only: P(reaction or breakout | group, vulnerable or acne-prone), weighted count.",
@@ -31,25 +32,25 @@
   {
    "group": "formaldehyde",
    "flag": false,
-   "p": 0.07867867867867867,
+   "p": 0.0757117117117117,
    "weighted_n": 646.0
   },
   {
    "group": "formaldehyde",
    "flag": true,
-   "p": 0.20121951219512196,
+   "p": 0.1611219512195122,
    "weighted_n": 144.0
   },
   {
    "group": "fragrance",
    "flag": false,
-   "p": 0.2358011049723757,
+   "p": 0.23468508287292816,
    "weighted_n": 885.0
   },
   {
    "group": "fragrance",
    "flag": true,
-   "p": 0.4708994708994709,
+   "p": 0.44121693121693123,
    "weighted_n": 169.0
   },
   {
@@ -91,37 +92,37 @@
   {
    "group": "lanolin",
    "flag": false,
-   "p": 0.03639291465378422,
+   "p": 0.034373590982286636,
    "weighted_n": 601.0
   },
   {
    "group": "lanolin",
    "flag": true,
-   "p": 0.14184397163120568,
+   "p": 0.10883687943262411,
    "weighted_n": 121.0
   },
   {
    "group": "mi",
    "flag": false,
-   "p": 0.09383458646616541,
+   "p": 0.09181654135338346,
    "weighted_n": 645.0
   },
   {
    "group": "mi",
    "flag": true,
-   "p": 0.2733333333333333,
+   "p": 0.23372,
    "weighted_n": 130.0
   },
   {
    "group": "nickel",
    "flag": false,
-   "p": 0.21412103746397693,
+   "p": 0.21690201729106628,
    "weighted_n": 674.0
   },
   {
    "group": "nickel",
    "flag": true,
-   "p": 0.46540880503144655,
+   "p": 0.45616352201257865,
    "weighted_n": 139.0
   },
   {
@@ -139,25 +140,25 @@
   {
    "group": "paraben",
    "flag": false,
-   "p": 0.0961992136304063,
+   "p": 0.09321363040629095,
    "weighted_n": 743.0
   },
   {
    "group": "paraben",
    "flag": true,
-   "p": 0.19428571428571428,
+   "p": 0.15498285714285714,
    "weighted_n": 155.0
   },
   {
    "group": "ppd",
    "flag": false,
-   "p": 0.08522072936660269,
+   "p": 0.08193474088291747,
    "weighted_n": 501.0
   },
   {
    "group": "ppd",
    "flag": true,
-   "p": 0.23577235772357724,
+   "p": 0.18445528455284552,
    "weighted_n": 103.0
   },
   {

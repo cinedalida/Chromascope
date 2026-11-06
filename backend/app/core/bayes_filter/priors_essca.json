@@ -1,0 +1,14 @@
+{
+ "citation": "Uter W, Bauer A, Belloni Fortina A, et al. Patch test results with the European baseline series and additions thereof in the ESSCA network, 2015-2018. Contact Dermatitis. 2021;84(2):109-120. doi:10.1111/cod.13704 (open access, CC BY)",
+ "table": "Table 2, '% positive' (consecutive patients patch tested with the European baseline series)",
+ "use": "Prior mean P(reaction) for both profile strata of the Appendix B group; prior strength 20. Groups not listed keep the safety_filter.build_cpts priors.",
+ "priors": {
+  "fragrance":    {"allergen": "Fragrance mix I 8% pet.",                "tested": 47697, "percent_positive": 6.95},
+  "paraben":      {"allergen": "Paraben mix 16% pet.",                   "tested": 47093, "percent_positive": 0.61},
+  "formaldehyde": {"allergen": "Formaldehyde 1% aq.",                    "tested": 32290, "percent_positive": 2.12},
+  "nickel":       {"allergen": "Nickel(II) sulfate hexahydrate 5% pet.", "tested": 48421, "percent_positive": 17.65},
+  "lanolin":      {"allergen": "Lanolin (wool) alcohols 30% pet.",       "tested": 44607, "percent_positive": 1.73},
+  "mi":           {"allergen": "Methylisothiazolinone 0.2% aq.",         "tested": 25462, "percent_positive": 5.29},
+  "ppd":          {"allergen": "p-Phenylenediamine 1% pet.",             "tested": 37377, "percent_positive": 3.44}
+ }
+}

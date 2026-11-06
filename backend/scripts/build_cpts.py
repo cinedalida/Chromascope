@@ -19,11 +19,39 @@ from app.core.bayes_filter.safety_filter import build_cpts  # noqa: E402
 OUT = os.path.join(os.path.dirname(__file__), "..", "app", "core", "bayes_filter", "cpts.json")
 
 
-def main(csv_path: str):
+def build_cpts_with_priors(df, priors: dict, prior_strength=20):
+    """safety_filter.build_cpts with the allergen prior mean replaced by a published rate where one is given."""
+    from app.core.bayes_filter import safety_filter as sf
+    cpt = build_cpts(df, prior_strength)
+    vul = (df.skin_type == "Sensitive") | (df.diag_eczema == "Yes") | (df.diag_rosacea == "Yes")
+    for g in sf.ALLERGEN:
+        if g not in priors:
+            continue
+        used = df[f"used_{g}"] == "Yes"
+        for flag, mask in ((True, vul), (False, ~vul)):
+            sub = df[used & mask]
+            w, y = sub.weight.values, sub[f"reacted_{g}"].values
+            prior = priors[g]["percent_positive"] / 100
+            a = prior * prior_strength + (w * y).sum()
+            b = (1 - prior) * prior_strength + (w * (1 - y)).sum()
+            cpt[(g, flag)] = (a / (a + b), float(w.sum()))
+    return cpt
+
+
+def compute(csv_path: str, priors_path: str = ""):
+    df = pd.read_csv(csv_path)
+    if priors_path:
+        return build_cpts_with_priors(df, json.load(open(priors_path, encoding="utf-8"))["priors"])
+    return build_cpts(df)
+
+
+def main(csv_path: str, priors_path: str = ""):
     raw = open(csv_path, "rb").read()
-    cpt = build_cpts(pd.read_csv(csv_path))
+    cpt = compute(csv_path, priors_path)
     data = {
         "source": f"survey/{os.path.basename(csv_path)} (private chromascope-data repo)",
+        "priors": (f"{os.path.basename(priors_path)} (sha256 {hashlib.sha256(open(priors_path, 'rb').read()).hexdigest()[:16]})"
+                   if priors_path else "safety_filter.build_cpts defaults"),
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "prior_strength": 20,
         "note": "Aggregate probabilities only: P(reaction or breakout | group, vulnerable or acne-prone), weighted count.",
@@ -36,6 +64,6 @@ def main(csv_path: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
-    main(sys.argv[1])
+    main(*sys.argv[1:])
