@@ -21,6 +21,20 @@ IMAGE_FOLDER = "catalog_v2"   # separate from the old catalog's products/ folder
 CONTENT_TYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp", "avif": "image/avif"}
 
 
+def use_backend_images(products: list, images_dir: str) -> dict:
+    """Free hosting (no Firebase Storage): the backend serves the photos at /catalog-images/<file> and the app puts
+    the backend's address in front. Products without a local photo keep their original link."""
+    files = {f.rsplit(".", 1)[0]: f for f in os.listdir(images_dir)}
+    n = 0
+    for p in products:
+        f = files.get(p["product_id"])
+        if f:
+            p["image_source_url"] = p.get("image_url", "")
+            p["image_url"] = f"/catalog-images/{f}"
+            n += 1
+    return {"served by backend": n, "kept original link": len(products) - n}
+
+
 def upload_images(products: list, images_dir: str, apply: bool, production: bool) -> dict:
     """Upload local photos (scripts/fetch_catalog_images.py) to Storage and point image_url at our copy.
     Production: made public with the same Cloud Storage ACL method as the old catalog (no Storage rules change).
@@ -77,7 +91,9 @@ def main():
     ap.add_argument("--collection", default="products_v2", help="target collection (default products_v2)")
     ap.add_argument("--apply", action="store_true", help="write (default: preview only)")
     ap.add_argument("--production", action="store_true", help="allow the REAL database (needs the key file)")
-    ap.add_argument("--images-dir", default="", help="folder of downloaded photos to upload to Storage (optional)")
+    ap.add_argument("--images-dir", default="", help="folder of downloaded photos (optional)")
+    ap.add_argument("--backend-images", action="store_true",
+                    help="photos are served by the backend (/catalog-images/) instead of uploaded to Storage")
     args = ap.parse_args()
 
     if not using_emulators() and not args.production:
@@ -92,7 +108,9 @@ def main():
     products = json.load(open(args.catalog_json, encoding="utf-8"))["products"]
     target = "REAL DATABASE" if args.production else f"EMULATOR ({os.environ.get('GCLOUD_PROJECT')})"
     print(f"Target: {target} | collection: {args.collection} | {'APPLY' if args.apply else 'PREVIEW (nothing is written)'}")
-    if args.images_dir:
+    if args.images_dir and args.backend_images:
+        print("images:", use_backend_images(products, args.images_dir))
+    elif args.images_dir:
         print("images:", upload_images(products, args.images_dir, args.apply, args.production))
     print(import_catalog(firestore.client(), products, args.collection, args.apply))
 

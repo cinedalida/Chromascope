@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import io
 import logging
 import os
@@ -35,6 +36,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Product photos (scripts/fetch_catalog_images.py), served read-only at /catalog-images/<file>: free hosting
+# without Firebase Storage (PLAN_MIGRATION.md). No directory listing.
+CATALOG_IMAGES_DIR = os.environ.get("CATALOG_IMAGES_DIR") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "catalog_images")
+if os.path.isdir(CATALOG_IMAGES_DIR):
+    app.mount("/catalog-images", StaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
+    log.info("Serving product photos from %s", CATALOG_IMAGES_DIR)
 
 # Pillow refuses images above this many pixels (decompression-bomb guard), before any analysis runs.
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE

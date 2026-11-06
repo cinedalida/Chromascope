@@ -1,4 +1,5 @@
 import React from "react";
+import { assetUrl } from "../config";
 import {
   Search,
   Filter,
@@ -175,7 +176,7 @@ export function ProductCatalogPage() {
                 .map((p) => (
                   <div key={p.product_id || p.sku} className="p-5 flex gap-4">
                     <img
-                      src={p.image_url || placeholderImg}
+                      src={assetUrl(p.image_url) || placeholderImg}
                       alt={p.product_name}
                       className="w-14 h-14 rounded-lg object-cover shadow-sm bg-white shrink-0"
                       onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
@@ -222,7 +223,7 @@ export function ProductCatalogPage() {
                   <tr key={p.product_id || p.sku} className="hover:bg-primary-lightest transition-colors border-b last:border-none border-primary-lightest group">
                     <td className="px-8 py-5">
                       <img
-                        src={p.image_url || placeholderImg}
+                        src={assetUrl(p.image_url) || placeholderImg}
                         alt={p.product_name}
                         className="w-12 h-12 rounded-lg object-cover shadow-sm bg-white"
                         onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}

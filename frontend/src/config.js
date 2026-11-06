@@ -10,3 +10,7 @@ if (!API_BASE_URL) {
 }
 
 export const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+
+// Product photos served by the backend are stored as "/catalog-images/<file>"; full links are used as they are.
+export const assetUrl = (url) =>
+  typeof url === "string" && url.startsWith("/catalog-images/") ? `${API_BASE_URL.replace(/\/api$/, "")}${url}` : url;

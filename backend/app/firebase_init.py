@@ -36,4 +36,4 @@ def init_firebase(key_filename: str = "serviceAccountKey.json"):
     # FIREBASE_KEY_FILE lets the key live outside the repo (never copy it into git-tracked folders).
     key_path = os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename)
     return firebase_admin.initialize_app(credentials.Certificate(key_path), options={
-        "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "chromascopedatabase.firebasestorage.app")})
+        "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "chromascope-new.firebasestorage.app")})

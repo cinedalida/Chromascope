@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService";
+import { assetUrl } from "../config";
 import { useUserStore } from "../store/userStore";
 import {
   Search,
@@ -61,7 +62,7 @@ export function IngredientFilterPage() {
 
   const cleanPath = (url) => {
     if (!url) return placeholderImg;
-    return url.startsWith("/public/") ? url.replace("/public/", "/") : url;
+    return url.startsWith("/public/") ? url.replace("/public/", "/") : assetUrl(url);
   };
 
   const parsePrice = (price) => {
