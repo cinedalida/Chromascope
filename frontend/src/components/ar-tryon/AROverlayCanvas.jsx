@@ -154,6 +154,8 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *    shortcut that flips these three together, not its own render region.
  *  - colors: { lips, cheeks, eyeshadow } hex strings — the shade to apply.
  *  - opacity: blend opacity constant β from Eq. D.2 (manuscript recommends 0.7-0.8).
+ *  - onFrame: optional callback(latencyMs) called once per processed frame with
+ *    the time spent on detection + smoothing + drawing (usePerfStats).
  *
  * Exposes via ref: capture() — composites the mirrored video frame plus the
  * current makeup overlay into one PNG data URL for ARTryOnPage's save
@@ -169,8 +171,14 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   colors = DEFAULT_COLORS,
   opacity = 0.75,
   blendMode = "color",
+  onFrame,
 }, ref) {
   const canvasRef = useRef(null);
+  // Kept in a ref so a new callback never restarts the render loop.
+  const onFrameRef = useRef(onFrame);
+  useEffect(() => {
+    onFrameRef.current = onFrame;
+  }, [onFrame]);
   const landmarkerRef = useRef(null);
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
@@ -281,7 +289,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         video.currentTime !== lastVideoTimeRef.current
       ) {
         lastVideoTimeRef.current = video.currentTime;
-        const result = landmarker.detectForVideo(video, performance.now());
+        const frameStart = performance.now();
+        const result = landmarker.detectForVideo(video, frameStart);
 
         // Keep the canvas's pixel buffer matched to its displayed CSS size
         // so drawing coordinates line up. Cheap to check every frame; only
@@ -333,6 +342,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
             fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, opacity, "nonzero", eyeshadowFeather, blendMode);
           }
         }
+
+        onFrameRef.current?.(performance.now() - frameStart);
       }
 
       rafRef.current = requestAnimationFrame(tick);

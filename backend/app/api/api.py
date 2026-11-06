@@ -1,113 +1,202 @@
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi.staticfiles import StaticFiles
 import io
-import traceback
+import logging
+import os
 from PIL import Image
-from firebase_admin import firestore
+from firebase_admin import auth as fb_auth, firestore
 
 from .auth_utils import get_current_user
+from .limits import ALLOWED_FORMATS, MAX_IMAGE_SIDE, MAX_UPLOAD_BYTES, analysis_limiter
+from . import result_receipt
+from .schemas import AnalysisResultSave, FilterRequest, ProfileUpdate, avoid_key, concern_key, normalize_label
 from ..core.engine import ChromascopeSafetyEngine
-from ..core.skin_analysis.pipeline import AnalyzerPipeline
-from ..core.color_matching import run_color_matching 
+from ..core import bayes_engine
+from ..core.retention import purge_inactive_face_data
+import hmac
+from fastapi import Header
+from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
+from ..core.color_matching import delta_e_ciede2000, run_color_matching
+import threading
+import copy
+import time
 
+log = logging.getLogger("chromascope.api")
 app = FastAPI()
 db = firestore.client()
 
+# Only the app's own sites may call the API from a browser. Production: set ALLOWED_ORIGINS on Cloud Run to the
+# Vercel domain(s), comma-separated (e.g. https://chromascope.vercel.app). Default = local development only.
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
+    "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
+# Product photos (scripts/fetch_catalog_images.py), served read-only at /catalog-images/<file>: free hosting
+# without Firebase Storage (PLAN_MIGRATION.md). No directory listing.
+CATALOG_IMAGES_DIR = os.environ.get("CATALOG_IMAGES_DIR") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "catalog_images")
+if os.path.isdir(CATALOG_IMAGES_DIR):
+    app.mount("/catalog-images", StaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
+    log.info("Serving product photos from %s", CATALOG_IMAGES_DIR)
+
+# Pillow refuses images above this many pixels (decompression-bomb guard), before any analysis runs.
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE
+
 engine = ChromascopeSafetyEngine()
-analyzer = AnalyzerPipeline()
+# "bayes" (default): the evaluated Bayesian-Chromascope Hybrid filter. "rules": the previous rule-based filter.
+SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
+# Which product collection the app reads: "products" (current catalog) or "products_v2" (scraped catalog,
+# PLAN_CATALOG.md). Switching back is the rollback.
+PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products").strip()
+log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_COLLECTION)
 
-class FilterRequest(BaseModel):
-    skin_type: Optional[str] = None
-    concerns: List[str] = []
-    avoid_ingredients: List[str] = []
-    category: str = "Face"
-    user_lab: Optional[List[float]] = None
-    seasonal_label: Optional[str] = None
+# Products change only when the catalog is re-imported, so keep one copy in memory for a few minutes instead of reading
+# all ~1,000 documents from Firestore on every request (a single catalog visit would otherwise cost ~2,000 reads).
+PRODUCTS_CACHE_SECONDS = float(os.environ.get("PRODUCTS_CACHE_SECONDS", "600"))
+_products_cache = {"at": 0.0, "items": None}
+_products_lock = threading.Lock()
 
-class ProfileUpdate(BaseModel):
-    display_name: Optional[str] = None
-    dob: Optional[str] = None
-    melanin_tier: Optional[str] = None
-    skin_type: Optional[str] = None 
-    concerns: Optional[List[str]] = None 
-    avoid_ingredients: Optional[List[str]] = None 
-    seasonal_label: Optional[str] = None     
-    user_lab: Optional[List[float]] = None
-    season_confidence_level: Optional[float] = None 
 
-def normalize_label(label: str) -> str:
-    if not label or not isinstance(label, str): return label
-    return label.lower().replace("-", "_").replace(" ", "_")
+def load_products(category: str | None = None) -> list:
+    """All products (or one category), each a fresh dict copy so callers may modify them."""
+    with _products_lock:
+        if _products_cache["items"] is None or time.monotonic() - _products_cache["at"] > PRODUCTS_CACHE_SECONDS:
+            _products_cache["items"] = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+            _products_cache["at"] = time.monotonic()
+        items = _products_cache["items"]
+    return [copy.deepcopy(p) for p in items if category is None or p.get("category") == category]
+
+
+def _warm_filter_cache():
+    """Pre-match every ingredient list once, in the background, so the first filter request is fast."""
+    try:
+        lists = []
+        for d in load_products():
+            lists += list((d.get("formulas") or {}).values()) or [d.get("full_inci_list", "")]
+        log.info("Filter cache warmed: %d ingredient lists", bayes_engine.warm_cache(lists))
+    except Exception:
+        log.warning("Could not warm the filter cache", exc_info=True)
+
+
+threading.Thread(target=_warm_filter_cache, daemon=True).start()
+
+
+def _use_closest_shade(products: list, user_lab) -> None:
+    """Face products: match on the shade closest to the user's skin (CIEDE2000), not just the first shade."""
+    if not user_lab or len(user_lab) != 3:
+        return
+    for p in products:
+        best = min((sh for sh in p.get("shades") or [] if sh.get("lab")),
+                   key=lambda sh: delta_e_ciede2000(tuple(user_lab), tuple(sh["lab"])), default=None)
+        if best:
+            p["lab_L"], p["lab_a"], p["lab_b"] = best["lab"]
+            p["hex_color"] = best.get("hex") or p.get("hex_color", "")
+            p["best_shade"] = {"name": best.get("name"), "hex": best.get("hex"), "verdict": best.get("verdict")}
+
+# The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
+# safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
+_analyzer = None
+
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        missing = [os.path.basename(p) for p in (FARL_PATH, CKPT_PATH) if not os.path.exists(p)]
+        if missing:
+            log.warning("Color analysis unavailable, missing model weights: %s", missing)
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "model_unavailable", "message": "Color analysis is temporarily unavailable."},
+            )
+        _analyzer = AnalyzerPipeline()
+    return _analyzer
+
+def server_error(where: str) -> HTTPException:
+    """Log the full error on the server; the client only gets a generic message (no internals)."""
+    log.exception("Unhandled error in %s", where)
+    return HTTPException(status_code=500, detail="Something went wrong on our side. Please try again.")
 
 @app.get("/")
 async def root():
-    return {"status": "Chromascope Safety API is running", "database": "Firebase Firestore"}
+    return {"status": "Chromascope Safety API is running"}
 
 @app.get("/api/products")
-async def get_all_products():
-    docs = db.collection("products").stream()
-    return [{**doc.to_dict(), "product_id": doc.id} for doc in docs]
+async def get_all_products(user_id: str = Depends(get_current_user)):
+    return load_products()
+
+@app.get("/api/catalog/summary")
+async def catalog_summary(user_id: str = Depends(get_current_user)):
+    """Real verdict counts over the whole catalog for this user's profile (replaces the catalog page's made-up
+    '95% safe' statistic)."""
+    try:
+        profile = (db.collection("users").document(user_id).get().to_dict() or {})
+        skin = normalize_label(profile.get("skin_type") or "normal")
+        concerns = [concern_key(c) for c in profile.get("concerns", [])]
+        avoid = [avoid_key(a) for a in profile.get("avoid_ingredients", [])]
+        products = load_products()
+        results = bayes_engine.filter_products(products, skin, concerns, avoid)
+        counts = {v: sum(1 for r in results if r["verdict"] == v) for v in ("safe", "caution", "excluded")}
+        return {"total": len(results), **counts, "filter": "bayes"}
+    except Exception:
+        raise server_error("catalog_summary")
 
 @app.get("/api/ingredients")
-async def get_all_ingredients():
+async def get_all_ingredients(user_id: str = Depends(get_current_user)):
     return list(engine.db.ingredient_db.values())
 
 @app.patch("/api/user/profile")
 async def update_user_profile(data: ProfileUpdate, user_id: str = Depends(get_current_user)):
     try:
-        user_ref = db.collection("users").document(user_id)
         update_data = {
             "display_name": data.display_name,
-            "dob": data.dob,
-            "melanin_tier": data.melanin_tier,
             "skin_type": normalize_label(data.skin_type) if data.skin_type else None,
-            "concerns": [normalize_label(c) for c in data.concerns] if data.concerns else None,
-            "avoid_ingredients": [normalize_label(a) for a in data.avoid_ingredients] if data.avoid_ingredients else None,
-            "seasonal_label": data.seasonal_label, 
-            "user_lab": data.user_lab, 
-            "season_confidence_level": data.season_confidence_level,
-            "profile_completed": True
+            "concerns": [concern_key(c) for c in data.concerns] if data.concerns is not None else None,
+            "avoid_ingredients": [avoid_key(a) for a in data.avoid_ingredients] if data.avoid_ingredients is not None else None,
         }
         update_data = {k: v for k, v in update_data.items() if v is not None}
-        user_ref.set(update_data, merge=True)
+        if update_data:
+            db.collection("users").document(user_id).set(update_data, merge=True)
         return {"status": "success", "message": "Profile updated"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise server_error("update_user_profile")
 
 @app.post("/api/run-filter")
 async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str = Depends(get_current_user)):
     try:
-        category_map = {"face": "Face", "concealer": "Concealer", "cheeks": "Cheek", "lips": "Lip", "eyes": "Eye", "multiuse": "Multi-Use"}
-        target_cat = category_map.get(request_data.category.lower(), request_data.category.capitalize())
-        
-        product_docs = db.collection("products").where("category", "==", target_cat).stream()
-        category_products = [{**doc.to_dict(), "product_id": doc.id} for doc in product_docs]
+        category_map = {"face": "Face", "concealer": "Concealer", "cheeks": "Cheek", "cheek": "Cheek", "lips": "Lip",
+                        "lip": "Lip", "eyes": "Eye", "eye": "Eye", "multiuse": "Multi-Use", "multi-use": "Multi-Use"}
+        target_cat = category_map[request_data.category.lower()]
+
+        category_products = load_products(target_cat)
 
         # Build lookup BEFORE engine strips the fields
         product_lookup = {p["product_id"]: p for p in category_products}
 
-        user_ref = db.collection("users").document(user_id)
-        user_doc = user_ref.get()
+        user_doc = db.collection("users").document(user_id).get()
         user_profile = user_doc.to_dict() if user_doc.exists else {}
 
-        skin_type = normalize_label(request_data.skin_type or user_profile.get("skin_type", "normal"))
-        
-        results = engine.filter(
-            products_list=category_products, 
-            skin_type="normal" if skin_type == "sensitive" else skin_type,
-            concerns=[normalize_label(c) for c in (request_data.concerns or user_profile.get("concerns", []))],
-            avoid_ingredients=[normalize_label(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))],
-            category=target_cat,
-        )
+        skin_type = normalize_label(request_data.skin_type or user_profile.get("skin_type") or "normal")
+
+        concerns = [concern_key(c) for c in (request_data.concerns or user_profile.get("concerns", []))]
+        avoid = [avoid_key(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))]
+
+        if SAFETY_FILTER == "rules":
+            # Previous rule-based filter, kept for one release as a fallback (set SAFETY_FILTER=rules).
+            results = engine.filter(
+                products_list=category_products,
+                skin_type="normal" if skin_type == "sensitive" else skin_type,
+                concerns=concerns,
+                avoid_ingredients=avoid,
+                category=target_cat,
+            )
+        else:
+            # Decision D1: the Bayesian-Chromascope Hybrid filter evaluated in the paper (see core/bayes_engine.py).
+            results = bayes_engine.filter_products(category_products, skin_type, concerns, avoid)
 
         # Re-merge original Firestore fields (lab_L, lab_a, lab_b, etc.) back in
         # Engine fields (verdict, etc.) take priority via right-side **r
@@ -119,43 +208,61 @@ async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str =
         color_matched = []
         try:
             user_lab_tuple = tuple(user_lab) if (user_lab and len(user_lab) == 3) else None
+            if target_cat == "Face":
+                _use_closest_shade(results, user_lab_tuple)
             color_matched = run_color_matching(
                 products=results,  # all verdicts — safe/caution/excluded sorted in color_matching
-                seasonal_label=ui_season, 
-                user_lab=user_lab_tuple, 
+                seasonal_label=ui_season,
+                user_lab=user_lab_tuple,
                 category=target_cat
             )
-        except Exception as match_err:
-            print(f"[FATAL] run_color_matching crashed: {match_err}")
-            traceback.print_exc()
+        except Exception:
+            log.exception("run_color_matching failed; returning unmatched results")
             color_matched = results
 
         return {
-            "safety_results": results, 
-            "color_matched": color_matched, 
+            "safety_results": results,
+            "color_matched": color_matched,
             "active_profile": {"skin_type": skin_type, "seasonal_label": ui_season}
         }
-    except Exception as e:
-        print(f"[CRITICAL ERROR] run_safety_and_color_logic: {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Internal filter logic failure.")
+    except Exception:
+        raise server_error("run_safety_and_color_logic")
 
 @app.post("/api/analyze-color")
 async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get_current_user)):
+    allowed, retry_after = analysis_limiter.allow(user_id)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "rate_limited", "message": "Too many analyses. Please try again later."},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    contents = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail={"code": "file_too_large", "message": f"Please use a photo under {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."},
+        )
     try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        image = Image.open(io.BytesIO(contents))
+        if image.format not in ALLOWED_FORMATS:
+            raise ValueError(f"format {image.format}")
+        if max(image.size) > MAX_IMAGE_SIDE:
+            raise ValueError(f"size {image.size}")
+        image = image.convert("RGB")
     except Exception:
         raise HTTPException(
             status_code=422,
-            detail={"code": "invalid_image", "message": "The uploaded file is not a readable image."},
+            detail={"code": "invalid_image", "message": "Please choose a JPG or PNG photo."},
         )
 
     try:
-        result = analyzer.analyze(image)
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        result = get_analyzer().analyze(image)
+    except HTTPException:
+        raise
+    except Exception:
+        raise server_error("analyze_color")
 
     # Photo problems (blurry, dark, no face...) — the frontend shows a pop-up for each code
     if "error" in result:
@@ -163,4 +270,63 @@ async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get
             status_code=422,
             detail={"code": result.get("error_code", "unknown"), "message": result["error"]},
         )
+
+    # Not saved yet: the app saves it via /api/user/analysis-result only if the user does not cancel, using this
+    # signed receipt so the values cannot be altered. The photo itself is never stored (memory only).
+    result["result_token"] = result_receipt.issue(user_id, result["season"], result["lab_color"], result["confidence"])
     return result
+
+@app.post("/api/user/analysis-result")
+async def save_analysis_result(data: AnalysisResultSave, user_id: str = Depends(get_current_user)):
+    if not result_receipt.verify(data.result_token, user_id, data.season, data.lab_color, data.confidence):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "invalid_result", "message": "This result could not be verified. Please run the analysis again."},
+        )
+    try:
+        db.collection("users").document(user_id).set({
+            "seasonal_label": data.season,
+            "user_lab": data.lab_color,
+            "season_confidence_level": data.confidence,
+            "profile_completed": True,
+        }, merge=True)
+        return {"status": "success"}
+    except Exception:
+        raise server_error("save_analysis_result")
+
+@app.delete("/api/user/account")
+async def delete_account(user_id: str = Depends(get_current_user)):
+    """Permanently delete the signed-in user's profile record and login (RA 10173 right to erasure).
+
+    Photos are never stored, so there is nothing else to remove. Runs with admin rights so it works without the
+    "please log in again" step Firebase requires for deletes from the browser.
+    """
+    try:
+        db.collection("users").document(user_id).delete()
+        try:
+            fb_auth.delete_user(user_id)
+        except fb_auth.UserNotFoundError:
+            pass
+        log.info("Deleted account %s", user_id)
+        return {"status": "deleted"}
+    except Exception:
+        raise server_error("delete_account")
+
+@app.post("/api/user/active")
+async def mark_active(user_id: str = Depends(get_current_user)):
+    """Called by the app when a signed-in user opens it; get_current_user records last_active (30-day retention)."""
+    return {"status": "ok"}
+
+@app.post("/internal/retention/purge-face-data")
+async def run_face_data_retention(x_cron_secret: str = Header(default="")):
+    """Daily job (Cloud Scheduler -> this URL, header X-Cron-Secret): removes face data of users inactive 30+ days.
+
+    Disabled unless CRON_SECRET is set on the server. Not reachable from the app (no CORS, no user login).
+    """
+    secret = os.environ.get("CRON_SECRET", "")
+    if not secret or not hmac.compare_digest(secret, x_cron_secret):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    try:
+        return purge_inactive_face_data(db, apply=True)
+    except Exception:
+        raise server_error("run_face_data_retention")

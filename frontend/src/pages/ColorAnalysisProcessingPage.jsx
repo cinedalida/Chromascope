@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucide-react";
 import { auth } from "../firebase";
+import { apiUrl } from "../config";
 
 export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
@@ -31,19 +32,23 @@ export function ColorAnalysisProcessingPage() {
       setSaving(true);
       try {
         if (idToken) {
-          await fetch("http://localhost:8000/api/user/profile", {
-            method: "PATCH",
+          // Saved only now (the user did not cancel). The backend checks its signed receipt (result_token),
+          // so only the exact result it produced for this user can be stored.
+          const saveRes = await fetch(apiUrl("/user/analysis-result"), {
+            method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${idToken}`,
             },
             body: JSON.stringify({
-              seasonal_label: data.seasonal_label || data.season,
-              user_lab: data.user_lab || data.lab_color,
-              season_confidence_level: data.confidence
+              season: data.season,
+              lab_color: data.lab_color,
+              confidence: data.confidence,
+              result_token: data.result_token,
             }),
             signal,
           });
+          if (!saveRes.ok) throw new Error(`Saving the result failed (${saveRes.status})`);
         }
         if (signal.aborted) return;
 
@@ -66,7 +71,7 @@ export function ColorAnalysisProcessingPage() {
         const idToken = await auth.currentUser?.getIdToken();
         if (signal.aborted) return;
 
-        const apiRes = await fetch("http://localhost:8000/api/analyze-color", {
+        const apiRes = await fetch(apiUrl("/analyze-color"), {
           method: "POST",
           headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {},
           body: formData,

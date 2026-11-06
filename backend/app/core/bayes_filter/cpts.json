@@ -1,0 +1,201 @@
+{
+ "source": "survey/chromascope_real150.csv (private chromascope-data repo)",
+ "priors": "priors_essca.json (sha256 68ce81e5a4e441f5)",
+ "source_sha256": "83807228c20958d5a61a4153c3ba74f7db43debe2a05213e9ff78552e76dd323",
+ "prior_strength": 20,
+ "note": "Aggregate probabilities only: P(reaction or breakout | group, vulnerable or acne-prone), weighted count.",
+ "tables": [
+  {
+   "group": "capb",
+   "flag": false,
+   "p": 0.05671641791044776,
+   "weighted_n": 114.0
+  },
+  {
+   "group": "capb",
+   "flag": true,
+   "p": 0.15555555555555556,
+   "weighted_n": 25.0
+  },
+  {
+   "group": "coconut_cocoa",
+   "flag": false,
+   "p": 0.16888888888888887,
+   "weighted_n": 79.0
+  },
+  {
+   "group": "coconut_cocoa",
+   "flag": true,
+   "p": 0.5333333333333333,
+   "weighted_n": 37.0
+  },
+  {
+   "group": "formaldehyde",
+   "flag": false,
+   "p": 0.072,
+   "weighted_n": 97.0
+  },
+  {
+   "group": "formaldehyde",
+   "flag": true,
+   "p": 0.05386666666666667,
+   "weighted_n": 25.0
+  },
+  {
+   "group": "fragrance",
+   "flag": false,
+   "p": 0.18454545454545454,
+   "weighted_n": 123.0
+  },
+  {
+   "group": "fragrance",
+   "flag": true,
+   "p": 0.24760869565217392,
+   "weighted_n": 26.0
+  },
+  {
+   "group": "glycerin_ha_zno",
+   "flag": false,
+   "p": 0.10256410256410256,
+   "weighted_n": 97.0
+  },
+  {
+   "group": "glycerin_ha_zno",
+   "flag": true,
+   "p": 0.11764705882352941,
+   "weighted_n": 48.0
+  },
+  {
+   "group": "ipm_algae",
+   "flag": false,
+   "p": 0.26924731182795697,
+   "weighted_n": 73.0
+  },
+  {
+   "group": "ipm_algae",
+   "flag": true,
+   "p": 0.48000000000000004,
+   "weighted_n": 40.0
+  },
+  {
+   "group": "jojoba_cetyl_mineraloil",
+   "flag": false,
+   "p": 0.1407843137254902,
+   "weighted_n": 82.0
+  },
+  {
+   "group": "jojoba_cetyl_mineraloil",
+   "flag": true,
+   "p": 0.3,
+   "weighted_n": 44.0
+  },
+  {
+   "group": "lanolin",
+   "flag": false,
+   "p": 0.0288448275862069,
+   "weighted_n": 96.0
+  },
+  {
+   "group": "lanolin",
+   "flag": true,
+   "p": 0.030590909090909092,
+   "weighted_n": 24.0
+  },
+  {
+   "group": "mi",
+   "flag": false,
+   "p": 0.13381666666666667,
+   "weighted_n": 100.0
+  },
+  {
+   "group": "mi",
+   "flag": true,
+   "p": 0.22092682926829268,
+   "weighted_n": 21.0
+  },
+  {
+   "group": "nickel",
+   "flag": false,
+   "p": 0.17108333333333334,
+   "weighted_n": 100.0
+  },
+  {
+   "group": "nickel",
+   "flag": true,
+   "p": 0.2507142857142857,
+   "weighted_n": 22.0
+  },
+  {
+   "group": "oxybenzone",
+   "flag": false,
+   "p": 0.19166666666666665,
+   "weighted_n": 76.0
+  },
+  {
+   "group": "oxybenzone",
+   "flag": true,
+   "p": 0.2894736842105263,
+   "weighted_n": 18.0
+  },
+  {
+   "group": "paraben",
+   "flag": false,
+   "p": 0.227515625,
+   "weighted_n": 108.0
+  },
+  {
+   "group": "paraben",
+   "flag": true,
+   "p": 0.2755,
+   "weighted_n": 24.0
+  },
+  {
+   "group": "ppd",
+   "flag": false,
+   "p": 0.053660377358490566,
+   "weighted_n": 86.0
+  },
+  {
+   "group": "ppd",
+   "flag": true,
+   "p": 0.09705263157894736,
+   "weighted_n": 18.0
+  },
+  {
+   "group": "propyleneglycol",
+   "flag": false,
+   "p": 0.12093023255813953,
+   "weighted_n": 109.0
+  },
+  {
+   "group": "propyleneglycol",
+   "flag": true,
+   "p": 0.21739130434782608,
+   "weighted_n": 26.0
+  },
+  {
+   "group": "squalane_sunflower_shea",
+   "flag": false,
+   "p": 0.151340206185567,
+   "weighted_n": 77.0
+  },
+  {
+   "group": "squalane_sunflower_shea",
+   "flag": true,
+   "p": 0.14333333333333334,
+   "weighted_n": 40.0
+  },
+  {
+   "group": "wheatgerm_lanolin",
+   "flag": false,
+   "p": 0.32463768115942027,
+   "weighted_n": 49.0
+  },
+  {
+   "group": "wheatgerm_lanolin",
+   "flag": true,
+   "p": 0.5957446808510638,
+   "weighted_n": 27.0
+  }
+ ]
+}

@@ -17,7 +17,7 @@ export function MainLayout({ children }) {
     : SIDEBAR_EXPANDED_WIDTH;
 
   return (
-    <div className="min-h-screen bg-surface text-black">
+    <div className="min-h-dvh bg-surface text-black">
       {/* Pass sidebar width as CSS var for Navbar positioning on desktop */}
       <style>{`
         @media (min-width: 1024px) {
@@ -33,7 +33,7 @@ export function MainLayout({ children }) {
 
       {/* Main content area */}
       <main
-        className="min-h-screen transition-all duration-300 ease-out"
+        className="min-h-dvh transition-all duration-300 ease-out"
         style={{
           // On desktop: push content right of sidebar
           // On mobile: no margin (sidebar is off-screen)

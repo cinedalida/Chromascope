@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Firebase Storage rules, used by the local Storage emulator (npm run dev:local).
+// Product photos are public to view and never writable from the app; everything else is closed.
+// Production product photos are made public with Cloud Storage ACLs (make_public), the same way as the old catalog,
+// so the catalog import does NOT need these rules deployed. Before running `firebase deploy` for storage, compare with
+// the rules currently in the Firebase console so nothing your team relies on is removed.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /catalog_v2/{file} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /products/{category}/{file} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService";
+import { assetUrl } from "../config";
 import { useUserStore } from "../store/userStore";
 import {
   Search,
@@ -61,7 +62,7 @@ export function IngredientFilterPage() {
 
   const cleanPath = (url) => {
     if (!url) return placeholderImg;
-    return url.startsWith("/public/") ? url.replace("/public/", "/") : url;
+    return url.startsWith("/public/") ? url.replace("/public/", "/") : assetUrl(url);
   };
 
   const parsePrice = (price) => {
@@ -133,7 +134,7 @@ export function IngredientFilterPage() {
   });
 
   return (
-    <div className="min-h-screen bg-primary-lightest font-body text-[#1F1924]">
+    <div className="min-h-dvh bg-primary-lightest font-body text-[#1F1924]">
       <main className="p-4 sm:p-8 lg:p-12 pt-4 sm:pt-8">
         <section className="max-w-[1200px] mx-auto">
           <div className="mb-10">
@@ -340,6 +341,7 @@ export function IngredientFilterPage() {
                             {item.price || "N/A"}
                           </span>
                           <StatusBadge type={item.verdict} />
+                          <ShadeSummary item={item} />
                           {category === "Face" && matchPercent && (
                             <span className="text-[10px] font-black text-primary">
                               {matchPercent}% Match
@@ -462,6 +464,7 @@ export function IngredientFilterPage() {
                             )}
                             <td className="px-4 py-5">
                               <StatusBadge type={item.verdict} />
+                          <ShadeSummary item={item} />
                             </td>
                             <td className="px-6 py-5 text-right">
                               <button
@@ -583,6 +586,17 @@ function StatusLegendModal({ onClose }) {
       </div>
     </div>
   );
+}
+
+// "3 of 30 shades excluded": the product verdict is its worst shade, so show how many shades share it.
+function ShadeSummary({ item }) {
+  const counts = item?.shade_verdicts;
+  const total = item?.shade_count || 0;
+  if (!counts || total < 2) return null;
+  const v = item.verdict?.toLowerCase();
+  const n = counts[v] ?? 0;
+  const text = n === total ? `All ${total} shades ${v}` : `${n} of ${total} shades ${v}`;
+  return <span data-testid="shade-summary" className="text-[10px] font-semibold text-[#6B7280]">{text}</span>;
 }
 
 function StatusBadge({ type }) {

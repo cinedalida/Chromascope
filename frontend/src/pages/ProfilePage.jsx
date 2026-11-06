@@ -5,25 +5,17 @@ import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { apiUrl } from "../config";
 import {
   Dna, Palette, Lock,
-  AlertCircle, Edit2, X, Check, RefreshCw
+  AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2
 } from "lucide-react";
+import { useSettingsStore } from "../store/settingsStore";
+import { SKIN_TYPES, SKIN_CONCERNS, AVOID_INGREDIENTS, CONCERNS_WITHOUT_FILTER_RULE } from "../constants/profileOptions";
 
-const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne Prone"];
-
-const SKIN_CONCERNS = [
-  "Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", 
-  "Metal allergy", "Melasma", "PIH / Dark spots"
-];
-
-const INGREDIENTS_TO_AVOID = [
-  "Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", 
-  "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", 
-  "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", 
-  "Phthalates", "Metallic Pigments", "MI / MIT", "PPD"
-];
+// "Acne Prone", "acne-prone" and "acne_prone" are the same choice (older profiles used different spellings).
+const sameLabel = (a, b) => (a || "").toLowerCase().replace(/[\s_-]+/g, "") === (b || "").toLowerCase().replace(/[\s_-]+/g, "");
 
 const SEASON_PALETTES = {
   "Bright Spring": ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
@@ -69,10 +61,37 @@ function labToHex(l, a, b) {
 export function ProfilePage() {
   const navigate = useNavigate();
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
+  const showPerfStats = useSettingsStore((state) => state.showPerfStats);
+  const setShowPerfStats = useSettingsStore((state) => state.setShowPerfStats);
 
   // UI State
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  // Deletes the login and the profile record on the backend (admin rights), then signs out.
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(apiUrl("/user/account"), {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      await signOut(auth).catch(() => {});
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Delete account error:", error);
+      setDeleteError("We couldn't delete your account. Please check your connection and try again.");
+      setConfirmDeleteOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -173,7 +192,7 @@ export function ProfilePage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-primary-lightest">
+    <main className="min-h-dvh bg-primary-lightest">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pt-10">
         
         <header className="mb-8">
@@ -253,7 +272,7 @@ export function ProfilePage() {
                 {isEditing ? (
                   <div className="flex flex-wrap gap-2">
                     {SKIN_TYPES.map((type) => {
-                      const isActive = selectedSkinType?.toLowerCase() === type.toLowerCase();
+                      const isActive = sameLabel(selectedSkinType, type);
                       return (
                         <button
                           key={type}
@@ -278,6 +297,9 @@ export function ProfilePage() {
 
               <div>
                 <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-[#7E7386]">Active Conditions / Concerns</label>
+                <p className="mb-3 text-xs text-gray-500">
+                  {CONCERNS_WITHOUT_FILTER_RULE.join(", ")} don&apos;t change the safety verdict yet.
+                </p>
                 {isEditing ? (
                   <div className="flex flex-wrap gap-2">
                     {SKIN_CONCERNS.map((concern) => {
@@ -325,7 +347,7 @@ export function ProfilePage() {
                 <>
                   <p className="text-sm text-gray-500 mb-4">Select the ingredients you need our safety engine to block during product recommendations.</p>
                   <div className="flex flex-wrap gap-2">
-                    {INGREDIENTS_TO_AVOID.map((ingredient) => {
+                    {AVOID_INGREDIENTS.map((ingredient) => {
                       const isBlocked = selectedAvoidIngredients.some(i => i.toLowerCase() === ingredient.toLowerCase());
                       return (
                         <button
@@ -357,6 +379,88 @@ export function ProfilePage() {
                 </div>
               )}
             </section>
+
+            {/* App Settings (saved on this device) */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings size={20} className="text-gray-400" />
+                <h3 className="font-heading text-lg font-semibold text-[#1F1924]">App Settings</h3>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p id="perf-stats-label" className="font-medium text-[#111827]">Show performance stats (FPS)</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Shows frame rate and latency on the AR Try-On screen, including the 30-second average.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showPerfStats}
+                  aria-labelledby="perf-stats-label"
+                  data-testid="perf-stats-toggle"
+                  onClick={() => setShowPerfStats(!showPerfStats)}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors after:absolute after:-inset-2 after:content-[''] ${
+                    showPerfStats ? "bg-primary" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      showPerfStats ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            </section>
+
+            {/* Delete account (RA 10173: right to erasure) */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-rose-100" data-testid="delete-account-section">
+              <div className="flex items-center gap-2 mb-2">
+                <Trash2 size={20} className="text-rose-500" />
+                <h3 className="font-heading text-lg font-semibold text-[#1F1924]">Delete account</h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-4">
+                Permanently deletes your account, skin profile, ingredient choices and color results. Photos are never stored.
+                This cannot be undone.
+              </p>
+              {deleteError && <p role="alert" className="text-sm text-rose-600 mb-3">{deleteError}</p>}
+              <button
+                type="button"
+                onClick={() => { setDeleteError(null); setConfirmDeleteOpen(true); }}
+                className="min-h-11 rounded-full border border-rose-300 px-5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+              >
+                Delete my account
+              </button>
+            </section>
+
+            {confirmDeleteOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+                <div className="w-full max-w-sm rounded-[24px] bg-white p-6 shadow-xl">
+                  <h3 id="delete-title" className="font-heading text-lg font-semibold text-[#1F1924]">Delete your account?</h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Your account and all data saved with it will be permanently deleted. You will be signed out.
+                  </p>
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteOpen(false)}
+                      disabled={isDeleting}
+                      className="min-h-11 rounded-full px-5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting}
+                      className="min-h-11 rounded-full bg-rose-600 px-5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                    >
+                      {isDeleting ? "Deleting..." : "Delete permanently"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 

@@ -1,29 +1,27 @@
 # Chromascope Safety Engine
 # Install: pip install -r requirements.txt
+# Versions are pinned (exact) so every build matches what was tested and pip-audit results are meaningful.
+# CPU-only PyTorch (smaller): pip install torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu
 
 # Core
-fastapi>=0.100.0           # API framework
-uvicorn>=0.22.0            # ASGI server to run FastAPI
-firebase-admin>=6.0.0      # Firebase Firestore + Storage
+fastapi==0.162.0           # API framework
+uvicorn==0.54.0            # ASGI server to run FastAPI
+firebase-admin==7.7.0      # Firebase Auth + Firestore (Admin SDK)
+python-multipart==0.0.33   # photo uploads
 
-# Optional but recommended
-rapidfuzz>=3.0.0           # Fuzzy INCI matching (handles label typos/variations)
+# Fuzzy INCI matching (handles label typos/variations)
+rapidfuzz==3.14.6
 
 # --- AI & Computer Vision ---
-torch>=2.3.0
-torchvision>=0.18.0
-timm>=0.9.16 
-open_clip_torch
+torch==2.15.0
+torchvision==0.29.2
+timm==1.0.30
+open_clip_torch==3.3.0
 torchmetrics==1.4.0
-Pillow
-numpy
-pandas
-opencv-python
-pyfacer
-scikit-learn
-scikit-image
-open-clip-torch
-
-
-# Additional
-python-multipart
+Pillow==13.0.0
+numpy==2.5.4
+pandas==3.1.0
+opencv-python==5.0.0.93
+pyfacer==0.0.5
+scikit-learn==1.9.1
+scikit-image==0.26.0

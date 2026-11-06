@@ -1,0 +1,200 @@
+{
+ "source": "survey/chromascope_500_balanced.csv (private chromascope-data repo)",
+ "source_sha256": "bc5c20ed74bcfa68e746d21778107407d11e5d48aa40a8a38a9da9ae17b3f7d9",
+ "prior_strength": 20,
+ "note": "Aggregate probabilities only: P(reaction or breakout | group, vulnerable or acne-prone), weighted count.",
+ "tables": [
+  {
+   "group": "capb",
+   "flag": false,
+   "p": 0.09282296650717704,
+   "weighted_n": 84.49999999999999
+  },
+  {
+   "group": "capb",
+   "flag": true,
+   "p": 0.1896551724137931,
+   "weighted_n": 32.2
+  },
+  {
+   "group": "coconut_cocoa",
+   "flag": false,
+   "p": 0.31755725190839695,
+   "weighted_n": 71.69999999999999
+  },
+  {
+   "group": "coconut_cocoa",
+   "flag": true,
+   "p": 0.5081300813008129,
+   "weighted_n": 29.2
+  },
+  {
+   "group": "formaldehyde",
+   "flag": false,
+   "p": 0.11152764761012185,
+   "weighted_n": 86.69999999999999
+  },
+  {
+   "group": "formaldehyde",
+   "flag": true,
+   "p": 0.26282051282051283,
+   "weighted_n": 26.8
+  },
+  {
+   "group": "fragrance",
+   "flag": false,
+   "p": 0.17833553500660504,
+   "weighted_n": 131.39999999999998
+  },
+  {
+   "group": "fragrance",
+   "flag": true,
+   "p": 0.3366013071895425,
+   "weighted_n": 41.19999999999999
+  },
+  {
+   "group": "glycerin_ha_zno",
+   "flag": false,
+   "p": 0.06213450292397662,
+   "weighted_n": 116.79999999999998
+  },
+  {
+   "group": "glycerin_ha_zno",
+   "flag": true,
+   "p": 0.12500000000000003,
+   "weighted_n": 47.19999999999999
+  },
+  {
+   "group": "ipm_algae",
+   "flag": false,
+   "p": 0.29503030303030303,
+   "weighted_n": 62.5
+  },
+  {
+   "group": "ipm_algae",
+   "flag": true,
+   "p": 0.48702594810379246,
+   "weighted_n": 30.099999999999994
+  },
+  {
+   "group": "jojoba_cetyl_mineraloil",
+   "flag": false,
+   "p": 0.2092497430626927,
+   "weighted_n": 77.3
+  },
+  {
+   "group": "jojoba_cetyl_mineraloil",
+   "flag": true,
+   "p": 0.3954372623574144,
+   "weighted_n": 32.6
+  },
+  {
+   "group": "lanolin",
+   "flag": false,
+   "p": 0.05935613682092556,
+   "weighted_n": 79.39999999999999
+  },
+  {
+   "group": "lanolin",
+   "flag": true,
+   "p": 0.17011494252873563,
+   "weighted_n": 23.5
+  },
+  {
+   "group": "mi",
+   "flag": false,
+   "p": 0.177319587628866,
+   "weighted_n": 76.99999999999999
+  },
+  {
+   "group": "mi",
+   "flag": true,
+   "p": 0.3304347826086957,
+   "weighted_n": 26.000000000000004
+  },
+  {
+   "group": "nickel",
+   "flag": false,
+   "p": 0.1339375629405841,
+   "weighted_n": 79.29999999999998
+  },
+  {
+   "group": "nickel",
+   "flag": true,
+   "p": 0.2840909090909091,
+   "weighted_n": 24.000000000000004
+  },
+  {
+   "group": "oxybenzone",
+   "flag": false,
+   "p": 0.16616915422885573,
+   "weighted_n": 80.49999999999997
+  },
+  {
+   "group": "oxybenzone",
+   "flag": true,
+   "p": 0.2955974842767295,
+   "weighted_n": 27.7
+  },
+  {
+   "group": "paraben",
+   "flag": false,
+   "p": 0.2588947766843301,
+   "weighted_n": 112.09999999999998
+  },
+  {
+   "group": "paraben",
+   "flag": true,
+   "p": 0.3722504230118443,
+   "weighted_n": 39.09999999999998
+  },
+  {
+   "group": "ppd",
+   "flag": false,
+   "p": 0.10958904109589043,
+   "weighted_n": 67.59999999999998
+  },
+  {
+   "group": "ppd",
+   "flag": true,
+   "p": 0.29396325459317585,
+   "weighted_n": 18.1
+  },
+  {
+   "group": "propyleneglycol",
+   "flag": false,
+   "p": 0.1184640522875817,
+   "weighted_n": 102.39999999999998
+  },
+  {
+   "group": "propyleneglycol",
+   "flag": true,
+   "p": 0.21296296296296297,
+   "weighted_n": 33.999999999999986
+  },
+  {
+   "group": "squalane_sunflower_shea",
+   "flag": false,
+   "p": 0.1750826901874311,
+   "weighted_n": 70.69999999999999
+  },
+  {
+   "group": "squalane_sunflower_shea",
+   "flag": true,
+   "p": 0.1950207468879668,
+   "weighted_n": 28.2
+  },
+  {
+   "group": "wheatgerm_lanolin",
+   "flag": false,
+   "p": 0.40803709428129836,
+   "weighted_n": 44.69999999999999
+  },
+  {
+   "group": "wheatgerm_lanolin",
+   "flag": true,
+   "p": 0.6126582278481012,
+   "weighted_n": 19.5
+  }
+ ]
+}

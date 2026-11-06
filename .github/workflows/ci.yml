@@ -8,6 +8,24 @@ on:
   pull_request:        # every pull request (any branch -> main)
 
 jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Full history, so a key committed and later deleted is still caught
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Fails the job if a password, private key or API token is found. Known non-secrets: .gitleaks.toml
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   frontend:
     name: Frontend (lint + build)
     runs-on: ubuntu-latest   # fresh Ubuntu VM provided by GitHub
