@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
 import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
+import { OfflineBanner } from "./components/common/OfflineBanner.jsx";
 
 export function App() {
   const setUser = useUserStore((state) => state.setUser);
@@ -49,7 +50,12 @@ export function App() {
   return (
     <>
       <AppRouter />
-      <PwaUpdatePrompt />
+      {/* Bottom notice stack: the offline pill sits above the update prompt. Clicks pass through
+          the empty space; only the prompt's buttons take them. */}
+      <div className="pointer-events-none fixed inset-x-4 bottom-4 z-80 flex flex-col items-center gap-2">
+        <OfflineBanner />
+        <PwaUpdatePrompt />
+      </div>
     </>
   );
 }
