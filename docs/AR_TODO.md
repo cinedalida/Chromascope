@@ -8,23 +8,35 @@ Lips was checked on 2026-11-03, before the season map fix (`3d812c2`). Re-check 
 
 - [ ] Start the backend and `npm run dev`, sign in, open the app, then run in the browser console:
   ```js
-  const r = await import('/src/services/arRecommendedService.js');
-  for (const region of ['lips', 'cheeks', 'eyeshadow']) {
+  const r = await import("/src/services/arRecommendedService.js");
+  for (const region of ["lips", "cheeks", "eyeshadow"]) {
     const res = await r.getRecommended(region);
-    console.log(region, res.status, res.seasonFilter, res.items.length, res.dropped);
+    console.log(
+      region,
+      res.status,
+      res.seasonFilter,
+      res.items.length,
+      res.dropped,
+    );
   }
   ```
 - [ ] Each region returns `status: "ok"` with items.
-- [ ] `dropped.subCategory.total` is exactly lips 2, cheeks 5, eyeshadow 14. If not, the allowlist in `arRecommendedService.js` needs fixing.
+- [ ] `dropped.subCategory.total` is exactly lips 75, cheeks 115, eyeshadow 206 on `products_v2` (checked 2026-11-08). If not, the allowlist in `arRecommendedService.js` needs fixing.
 - [ ] Record the results in plan section 8, next to the existing lips note.
 
 ## 2. Phase 7: phone test over HTTPS
 
-Phones only allow the camera over HTTPS. Pick one:
-- ngrok (or similar) tunnel to the dev or preview server.
-- Vite HTTPS. May need a new dependency, so approve it first.
+Deferred to the PWA work (`docs/PWA_PLAN.md`, Phase 6 Vercel deploy and Phase 7 phone tests, on its own branch). Run these AR checks on the deployed HTTPS URL, so the numbers come from the build participants use. No tunnel or Vite proxy is needed.
 
-Checks (plan Phase 7):
+Before testing on a Vercel preview URL (not the production domain), add that URL to:
+
+- `ALLOWED_ORIGINS` on Cloud Run, or the API calls fail CORS.
+- Firebase Authentication, Settings, Authorized domains, or sign-in fails.
+
+---
+
+Checks (plan Phase 7)
+
 - [ ] Note device model, browser, and the 30-second average FPS and latency from the perf stats badge.
 - [ ] Worst case: lips, cheeks, and eyeshadow all on.
 - [ ] Browse JSON loads quickly on mobile data (`npm run build`, then `npm run preview`).
@@ -52,6 +64,6 @@ Note: the Phase 4b blend change draws the camera frame into the canvas, renders 
 
 ## 6. Future improvements (optional)
 
-- [ ] Tune blends per finish (matte, satin, gloss) with the dev blend tuning panel (Profile, App Settings, "AR blend tuning (dev)").
-- [ ] Check `ctx.filter` blur support on iPhone Safari. Feathering may not show there.
-- [ ] Code-split the main JS bundle (about 1.09 MB) to clear the Vite chunk size warning.
+- [x] Tune blends per finish (matte, satin, gloss): not possible with the current data (checked 2026-11-08). 658 of 1,811 Browse lip shades have no finish, many list several at once ("Matte, Satin"), and Recommended products have none. Revisit if the catalog gets one finish per shade; the dev blend tuning panel (Profile, App Settings, "AR blend tuning (dev)") is ready for it.
+- [ ] iPhone Safari feathering: `AROverlayCanvas.jsx` now detects missing `ctx.filter` support and feathers with a canvas shadow instead. Compare both paths on desktop with "Force Safari blur fallback" in the dev tuning panel, then check edges on a real iPhone during the PWA phone tests.
+- [ ] Code-split the main JS bundle (about 1.09 MB): on its own branch, not the PWA branch (`docs/PWA_PLAN.md` section 1 lists bundle-size work as out of scope). Lazy-load the pages in `AppRouter.jsx`. If the PWA is merged first, check the precache list afterwards.
