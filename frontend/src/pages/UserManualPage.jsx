@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Palette, Camera, FlaskConical, ShoppingBag, UserCog } from "lucide-react";
 import { SplashNavbar } from "../components/common/SplashNavbar.jsx";
 import { SplashFooter } from "../components/common/SplashFooter.jsx";
+import { InstallAppButton } from "../components/common/InstallAppButton.jsx";
 
 const sections = [
   {
@@ -54,6 +55,8 @@ export function UserManualPage() {
           A quick walkthrough of how to get the most out of Chromascope, from your first
           color analysis to finding products you can trust.
         </p>
+        {/* Shown only when this browser can install the app (and not inside the installed app). */}
+        <InstallAppButton className="mt-6" />
 
         <div className="mt-12 space-y-6">
           {sections.map(({ icon: Icon, title, body }) => (
