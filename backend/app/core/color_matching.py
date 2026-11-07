@@ -1,4 +1,7 @@
 import math
+import re
+
+from . import season_classifier as sc
 
 # Maps human-readable seasonal labels → product season tag codes
 # The season model says Warm/Cool where product tags say True, so both map to the same code.
@@ -76,82 +79,147 @@ def _resolve_season_code(seasonal_label: str) -> tuple:
     family = code.split("-")[0] if "-" in code else code   # "au-soft" → "au"
     return (code, family)
 
-def _product_season_codes(product: dict) -> list:
+def _season_tags(product: dict) -> tuple:
     """
-    Return all season codes/families on the product as a lowercase list.
-    Handles both structured code lists and Firestore prose strings like
-    'Warm shades: SP/AU. Cool: SU/WI'.
-    """
-    import re
-    codes = []
+    (exact, family) season codes a product's stored tags name, both lowercase sets.
 
-    # 1. Resolve season_tag_computed (stored as full label e.g. "Light Spring")
-    computed = product.get("season_tag_computed", "")
+    exact:  specific codes ("au-soft"), from season_tag_computed (a full label such as "Soft Autumn") and from
+            season_tags written as codes ("AU-SOFT, SP-LIGHT") or as a list.
+    family: bare families ("au"), only from legacy prose such as "Warm shades: SP/AU. Cool: SU/WI". A code like
+            "AU-SOFT" does NOT also count as the bare family "au": that made every tag a family-wide match.
+    """
+    exact, family = set(), set()
+
+    computed = str(product.get("season_tag_computed") or "")
     if computed:
-        resolved = SEASON_CODE_MAP.get(computed.lower().strip())
-        if resolved:
-            codes.append(resolved)               # e.g. "sp-light"
-            codes.append(resolved.split("-")[0]) # e.g. "sp"
+        code = SEASON_CODE_MAP.get(computed.lower().strip())
+        if code:
+            exact.add(code)
 
-    # 2. Parse season_tags — handles both list and prose string
-    tags = product.get("season_tags", "")
-    if isinstance(tags, list):
-        for t in tags:
-            r = SEASON_CODE_MAP.get(t.lower().strip())
-            if r:
-                codes.append(r)
-                codes.append(r.split("-")[0])
-            else:
-                codes.append(t.lower().strip())
-    elif isinstance(tags, str) and tags:
-        # Try comma-separated code list first ("AU-SOFT, SP-LIGHT, ...")
-        parts = [p.strip().lower() for p in tags.split(",") if p.strip()]
-        if all(p in SEASON_CODE_MAP.values() or len(p) <= 8 for p in parts):
-            for p in parts:
-                r = SEASON_CODE_MAP.get(p, p)
-                codes.append(r)
-                codes.append(r.split("-")[0] if "-" in r else r)
-        # Extract 2-letter season abbreviations from prose ("Warm shades: SP/AU. Cool: SU/WI")
-        families = re.findall(r'\b(SP|AU|SU|WI)\b', tags, re.IGNORECASE)
-        codes.extend([f.lower() for f in families])
+    tags = product.get("season_tags") or ""
+    parts = [str(t) for t in tags] if isinstance(tags, list) else (re.split(r"[,;]", tags) if isinstance(tags, str) else [])
+    for part in parts:
+        token = part.strip().lower()
+        code = SEASON_CODE_MAP.get(token) or (token if token in SEASON_CODE_MAP.values() else None)
+        if code:
+            exact.add(code)
+        elif token in ("sp", "au", "su", "wi"):
+            family.add(token)
+    if isinstance(tags, str):
+        # Bare 2-letter families in prose, but not the start of a code ("AU-SOFT").
+        family.update(f.lower() for f in re.findall(r"(?<![-\w])(SP|AU|SU|WI)(?![-\w])", tags, re.IGNORECASE))
+    return exact, family
 
-    return list(set(codes))
+
+# Fit (0..1) above which a product counts as a good match. Season fit comes from season_classifier; a skin-tone fit
+# is derived from the colour distance, exp(-dE^2 / (2 * SKIN_SIGMA^2)): dE 3 is 0.84, dE 6 is 0.49, dE 10 is 0.14.
+FIT_TIERS = ((0.75, "best"), (0.55, "good"), (0.35, "fair"))
+SKIN_SIGMA = 5.0
+VERDICT_RANK = {"safe": 0, "caution": 1, "excluded": 2}
+
+
+def _tier(fit: float) -> str:
+    for minimum, name in FIT_TIERS:
+        if fit >= minimum:
+            return name
+    return "low"
+
+
+def _shade_summary(shade: dict, lab) -> dict:
+    return {"shade_id": shade.get("shade_id"), "name": shade.get("name"), "hex": shade.get("hex"),
+            "lab": list(lab) if lab else None, "verdict": shade.get("verdict")}
+
+
+def _use_shade(item: dict, shade: dict, lab) -> None:
+    """Make the product's own color fields (what older clients read) those of the best shade for this user."""
+    item["lab_L"], item["lab_a"], item["lab_b"] = lab
+    if shade.get("hex"):
+        item["hex_color"] = shade["hex"]
+    item["best_shade"] = _shade_summary(shade, lab)
+
+
+def _score_harmony(item: dict, user_code: str) -> None:
+    """Lips, lip liner, blush, eyeshadow: how well the product's best shade fits the user's season."""
+    ranked = sc.rank_shades(item, user_code)
+    if not ranked:
+        return
+    fit, shade = ranked[0]
+    _use_shade(item, shade, sc.shade_lab(shade))
+    item["season_fit"] = round(fit, 3)
+    item["fit_score"] = fit
+    item["fit_tier"] = _tier(fit)
+    item["is_season_match"] = fit >= FIT_TIERS[1][0]
+
+
+def _score_skin(item: dict, skin_lab: tuple, region: str) -> None:
+    """Foundation, concealer, powder, bronzer, contour, highlighter: distance to the user's skin, shifted deeper or
+    lighter where the product should be (e.g. a bronzer about 10 L* below the skin)."""
+    shift = sc.SKIN_TARGET_L_SHIFT[region]
+    target = (skin_lab[0] + shift, skin_lab[1], skin_lab[2])
+    best = None
+    for shade in sc.product_shades(item):
+        lab = sc.shade_lab(shade)
+        if not lab:
+            continue
+        d = delta_e_ciede2000(target, lab)
+        if best is None or d < best[0]:
+            best = (d, shade, lab)
+    if not best:
+        return
+    d, shade, lab = best
+    _use_shade(item, shade, lab)
+    fit = math.exp(-(d ** 2) / (2 * SKIN_SIGMA ** 2))
+    item["skin_delta_e"] = d
+    item["delta_e"] = d  # kept for older clients
+    item["target_shift_L"] = shift
+    item["fit_score"] = fit
+    item["fit_tier"] = _tier(fit)
+
 
 def run_color_matching(products: list, seasonal_label: str, user_lab: tuple, category: str) -> list:
-    scored = []
-    is_face = category.lower() == "face"
+    """
+    Scores and orders products for one user. Order: excluded last, safe before caution, then best fit first.
+
+    Added to each product (all optional, absent when there is nothing to score):
+      match_basis    "harmony" (lips, lip liner, blush, eyeshadow) | "skin" (foundation, concealer, powder, bronzer,
+                     contour, highlighter) | "neutral" (brows, eyeliner, mascara), from season_classifier
+      fit_score      0..1 how well the best shade suits the user; fit_tier: best | good | fair | low
+      season_fit     (harmony) the season classifier's fit of the best shade for the user's season
+      skin_delta_e   (skin) CIEDE2000 distance of the best shade to the user's (shifted) skin; also as delta_e
+      best_shade     {shade_id, name, hex, lab}; the product's hex_color / lab_* are set to it
+      is_season_match  harmony: fit >= 0.55; otherwise whether a stored tag names the user's season
+    Neutral products and users without a season / skin Lab are not scored and keep the incoming order within a verdict.
+    """
     user_code, user_family = _resolve_season_code(seasonal_label)
+    skin = None
+    if user_lab is not None and len(user_lab) == 3:
+        try:
+            skin = tuple(float(v) for v in user_lab)
+        except (TypeError, ValueError):
+            skin = None
 
+    scored = []
     for p in products:
-        product_codes = _product_season_codes(p)
-        # Match on exact code (e.g. "au-soft") OR season family (e.g. "au")
-        is_season = bool(user_code and (user_code in product_codes or user_family in product_codes))
-        item = {**p, "is_season_match": is_season}
-
-
-        # Only calculate color distance for face products
-        if is_face:
-            try:
-                L, a, b = p.get('lab_L'), p.get('lab_a'), p.get('lab_b')
-                if user_lab and L is not None:
-                    prod_lab = (float(L), float(a or 0), float(b or 0))
-                    if any(v != 0 for v in prod_lab):
-                        item["delta_e"] = delta_e_ciede2000(user_lab, prod_lab)
-            except Exception:
-                pass
-
+        item = {**p}
+        exact, family = _season_tags(p)
+        item["is_season_match"] = bool(user_code and (user_code in exact or user_family in family))
+        region = sc.product_region(p)
+        basis = sc.REGION_BASIS.get(region) if region else None
+        if basis:
+            item["match_basis"] = basis
+        try:
+            if basis == "harmony" and user_code in sc.SEASON_PROFILES:
+                _score_harmony(item, user_code)
+            elif basis == "skin" and skin:
+                _score_skin(item, skin, region)
+        except Exception:  # a malformed shade must never break the whole list
+            pass
         scored.append(item)
 
-    if is_face:
-        scored.sort(key=lambda x: (
-            x.get("delta_e", 999) * (0.5 if x.get("is_season_match", False) else 1.0)
-        ))
-    else:
-        # Lips, Eyes, etc. — season matches first, then by verdict (safe → caution → excluded)
-        verdict_order = {"safe": 0, "caution": 1, "excluded": 2}
-        scored.sort(key=lambda x: (
-            0 if x.get("is_season_match") else 1,
-            verdict_order.get(x.get("verdict", "").lower(), 1)
-        ))
+    def sort_key(x):
+        verdict = VERDICT_RANK.get(str(x.get("verdict", "")).lower(), 1)
+        fit = x.get("fit_score")
+        return (verdict, fit is None, -(fit or 0.0))
 
+    scored.sort(key=sort_key)
     return scored
