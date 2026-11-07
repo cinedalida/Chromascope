@@ -32,7 +32,7 @@ This is `CLAUDE.md` section 1 applied to every phase.
 - No Claude or AI attribution anywhere: not in commits, not in code comments, not in docs.
 - No em dashes in code comments, docs, or UI text. Keep comments short and plain.
 - Never invent data. If a value is missing in a source, drop the row and count it in the report.
-- Do not touch Firestore data, `serviceAccountKey.*`, `backend/app/api/*`, or `backend/app/core/*`. Read-only requests to the local API are allowed only with the user's approval.
+- Do not touch Firestore data, `serviceAccountKey.*`, `backend/app/api/*`, or `backend/app/core/*`. Read-only requests to the local API are allowed only with the user's approval. Exception, approved by the user: the `SEASON_CODE_MAP` fix in `backend/app/core/color_matching.py` (section 7, item 6) is on this branch, so Recommended season matches work for all 12 model seasons.
 - Do not edit anything in the sibling repo `MakeUp_Scraper`. Read only. If it is not readable from this session, ask the user to grant access.
 - Do not edit the research manuscript or any file in the Claude project. Manuscript changes are listed in section 8 for the user to make.
 - CI runs lint and build on the frontend. From `frontend/`, `npm run lint` and `npm run build` must pass before any commit. Record the baseline in Phase 0 and never leave it worse.
