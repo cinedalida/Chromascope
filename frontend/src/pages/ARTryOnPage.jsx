@@ -100,6 +100,7 @@ export function ARTryOnPage() {
   const showBlendTuner = useSettingsStore((s) => s.showBlendTuner);
   const tunerEnabled = import.meta.env.DEV && showBlendTuner;
   const [tuning, setTuning] = useState(() => structuredClone(AROverlayCanvas.defaultRender));
+  const [forceShadowBlur, setForceShadowBlur] = useState(false);
 
   // Only regions with a selected shade; AROverlayCanvas draws nothing for the rest.
   // Memoized so the render loop restarts only when a shade actually changes.
@@ -191,6 +192,7 @@ export function ARTryOnPage() {
               toggles={toggles}
               colors={colors}
               render={tunerEnabled ? tuning : undefined}
+              forceShadowBlur={tunerEnabled && forceShadowBlur}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
 
@@ -299,6 +301,8 @@ export function ARTryOnPage() {
           value={tuning}
           onChange={setTuning}
           onReset={() => setTuning(structuredClone(AROverlayCanvas.defaultRender))}
+          forceShadowBlur={forceShadowBlur}
+          onForceShadowBlurChange={setForceShadowBlur}
         />
       )}
     </main>
@@ -306,7 +310,7 @@ export function ARTryOnPage() {
 }
 
 /* DEV only (Phase 4b): live per-region blend, opacity and feather controls. */
-function BlendTuner({ value, onChange, onReset }) {
+function BlendTuner({ value, onChange, onReset, forceShadowBlur, onForceShadowBlurChange }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -403,6 +407,15 @@ function BlendTuner({ value, onChange, onReset }) {
           </fieldset>
         );
       })}
+
+      <label className="mb-2 flex items-center gap-1.5 px-1">
+        <input
+          type="checkbox"
+          checked={forceShadowBlur}
+          onChange={(e) => onForceShadowBlurChange(e.target.checked)}
+        />
+        <span className="text-white/70">Force Safari blur fallback (shadow feather)</span>
+      </label>
 
       <div className="flex gap-2">
         <button type="button" onClick={copyValues} className="flex-1 rounded-lg bg-white/15 py-1.5 font-bold hover:bg-white/25">

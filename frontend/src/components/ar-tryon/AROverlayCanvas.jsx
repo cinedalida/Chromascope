@@ -79,6 +79,17 @@ const REGION_RENDER = {
 // Canvas resolution cap. Above 2x the extra pixels cost frame time with no visible gain.
 const MAX_PIXEL_RATIO = 2;
 
+// Whether this browser applies `ctx.filter` (Safari may not). Where it does not, setting
+// it does nothing and every region gets a hard edge, so fillRegion feathers with a
+// canvas shadow instead.
+function supportsCanvasFilter() {
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx || typeof ctx.filter !== "string") return false;
+  ctx.filter = "blur(1px)";
+  return ctx.filter === "blur(1px)";
+}
+const CANVAS_FILTER = typeof document !== "undefined" && supportsCanvasFilter();
+
 /**
  * The object-cover draw rect for the video inside a canvas of the given size,
  * as [x, y, width, height]. Matches toCanvasSpace() below.
@@ -192,7 +203,7 @@ function radialFill(ctx, points, [r, g, b]) {
  * C(τ) = β·C_shade + (1-β)·C_skin(τ) mix of Eq. D.2 done per blend mode.
  * Without `radial`, all rings form one path so "evenodd" can cut out the inner lips.
  */
-function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, color, settings, fillRule = "nonzero") {
+function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, color, settings, fillRule = "nonzero", forceShadowBlur = false) {
   const pointSets = rings.map((ring) =>
     ring.map((idx) => {
       const lm = landmarks[idx];
@@ -210,14 +221,30 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
     : [{ path: pathOf(pointSets), style: color }];
 
   const feather = canvasW * settings.feather;
-  ctx.filter = feather > 0 ? `blur(${feather}px)` : "none";
+  const shadowFeather = feather > 0 && (forceShadowBlur || !CANVAS_FILTER);
+  if (!shadowFeather) ctx.filter = feather > 0 ? `blur(${feather}px)` : "none";
+  // Shadow fallback: the shape is drawn two canvas widths to the left, off screen, and
+  // only its blurred shadow lands on the face. Shadow offsets ignore the transform, and a
+  // shadowBlur of 2x matches a blur() of 1x. Blend mode and the radial fade's alpha apply
+  // to the shadow too.
+  const offset = canvasW * 2;
   for (const layer of settings.layers) {
     if (!(layer.opacity > 0)) continue;
     ctx.globalCompositeOperation = layer.blend;
     ctx.globalAlpha = layer.opacity;
     for (const { path, style } of shapes) {
       ctx.fillStyle = style;
-      ctx.fill(path, fillRule);
+      if (shadowFeather) {
+        ctx.save();
+        ctx.translate(-offset, 0);
+        ctx.shadowOffsetX = offset;
+        ctx.shadowBlur = feather * 2;
+        ctx.shadowColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        ctx.fill(path, fillRule);
+        ctx.restore();
+      } else {
+        ctx.fill(path, fillRule);
+      }
     }
   }
   ctx.filter = "none";
@@ -244,6 +271,8 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *    partial; a region with no color is not drawn.
  *  - render: per-region blend layers, opacity and feather. Defaults to
  *    REGION_RENDER; the DEV tuning panel passes its own values here.
+ *  - forceShadowBlur: DEV only, uses the shadow feather fallback even where
+ *    `ctx.filter` works, to compare the two on desktop.
  *  - onFrame: optional callback(latencyMs, hasFace) called once per processed
  *    frame with the time spent on detection + smoothing + drawing and whether
  *    a face was found (usePerfStats).
@@ -261,6 +290,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   toggles = DEFAULT_TOGGLES,
   colors = NO_COLORS,
   render = REGION_RENDER,
+  forceShadowBlur = false,
   onFrame,
 }, ref) {
   const canvasRef = useRef(null);
@@ -386,12 +416,12 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           const args = [smoothed, videoW, videoH, canvas.width, canvas.height];
 
           if (toggles.lips && colors.lips) {
-            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, render.lips, "evenodd");
+            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, render.lips, "evenodd", forceShadowBlur);
           }
           if (toggles.cheeks && colors.cheeks) {
             const leftRing = orderRingByAngle(CHEEK_LEFT, smoothed);
             const rightRing = orderRingByAngle(CHEEK_RIGHT, smoothed);
-            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, render.cheeks);
+            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, render.cheeks, "nonzero", forceShadowBlur);
           }
           if (toggles.eyeshadow && colors.eyeshadow) {
             // Region = upper lash line arc + the eyebrow ring that sits closer to the
@@ -402,7 +432,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
             const lidRight = upperArc(EYE_RIGHT, smoothed);
             const shadowLeft = orderRingByAngle([...lidLeft, ...browLeftLower], smoothed);
             const shadowRight = orderRingByAngle([...lidRight, ...browRightLower], smoothed);
-            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, render.eyeshadow);
+            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, render.eyeshadow, "nonzero", forceShadowBlur);
           }
         }
 
@@ -417,7 +447,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, render]);
+  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, render, forceShadowBlur]);
 
   return (
     <canvas
