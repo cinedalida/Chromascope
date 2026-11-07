@@ -234,7 +234,14 @@ export function ARTryOnPage() {
             )}
 
             {/* CONTROLS — region toggles flank the capture button */}
-            <div className="absolute bottom-3 sm:bottom-8 left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4">
+            {/* Expanded, the frame reaches the screen edge, so the controls clear the iPhone home bar. */}
+            <div
+              className={`absolute left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4 ${
+                isExpanded
+                  ? "bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(2rem+env(safe-area-inset-bottom))]"
+                  : "bottom-3 sm:bottom-8"
+              }`}
+            >
               <ARControlBar regionKeys={["lips", "cheeks"]} toggles={toggles} onToggle={handleToggleRegion} />
               <CaptureButton onClick={handleCapture} disabled={!isReady || isMock} />
               <ARControlBar regionKeys={["eyeshadow", "fullFace"]} toggles={toggles} onToggle={handleToggleRegion} />
@@ -250,9 +257,11 @@ export function ARTryOnPage() {
             )}
             {toastMounted && (
               <div
-                className={`pointer-events-none absolute bottom-20 sm:bottom-28 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/80 px-5 py-2.5 text-white shadow-lg backdrop-blur-md transition-all duration-300 ${
-                  toastVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-                }`}
+                className={`pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/80 px-5 py-2.5 text-white shadow-lg backdrop-blur-md transition-all duration-300 ${
+                  isExpanded
+                    ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(7rem+env(safe-area-inset-bottom))]"
+                    : "bottom-20 sm:bottom-28"
+                } ${toastVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
               >
                 <Check size={16} strokeWidth={3} />
                 <span className="text-[11px] font-bold uppercase tracking-wider">Saved</span>

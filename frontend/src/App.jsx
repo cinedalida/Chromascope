@@ -52,7 +52,7 @@ export function App() {
       <AppRouter />
       {/* Bottom notice stack: the offline pill sits above the update prompt. Clicks pass through
           the empty space; only the prompt's buttons take them. */}
-      <div className="pointer-events-none fixed inset-x-4 bottom-4 z-80 flex flex-col items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-80 flex flex-col items-center gap-2">
         <OfflineBanner />
         <PwaUpdatePrompt />
       </div>
