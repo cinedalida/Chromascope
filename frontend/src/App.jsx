@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
+import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
 
 export function App() {
   const setUser = useUserStore((state) => state.setUser);
@@ -45,7 +46,12 @@ export function App() {
     return () => unsubscribe();
   }, [setUser, clearUser, setAuthStatus]);
 
-  return <AppRouter />;
+  return (
+    <>
+      <AppRouter />
+      <PwaUpdatePrompt />
+    </>
+  );
 }
 
 export default App;
