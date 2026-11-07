@@ -38,7 +38,7 @@ const sections = [
 
 export function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-primary-lightest font-body">
+    <main className="min-h-dvh bg-primary-lightest font-body">
       <SplashNavbar />
 
       <div className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-8 sm:pt-32 lg:px-12">

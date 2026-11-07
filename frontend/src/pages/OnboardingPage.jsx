@@ -4,25 +4,23 @@ import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2, AlertCircle } fro
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useUserStore } from "../store/userStore";
+import { SKIN_TYPES, SKIN_CONCERNS, AVOID_INGREDIENTS, CONCERNS_WITHOUT_FILTER_RULE } from "../constants/profileOptions";
 
-const SKIN_TYPES = ["Normal", "Oily", "Dry", "Combination", "Acne-prone"];
-const SKIN_CONCERNS = ["Sensitive", "Rosacea", "Eczema", "Pregnancy-safe", "Metal allergy", "Melasma", "PIH / Dark spots"];
-const AVOID_INGREDIENTS = ["Fragrance / Parfum", "Alcohol (Drying)", "Parabens", "Coconut Oil", "Sulfates (SLS/SLES)", "Silicones", "Essential Oils", "Lanolin", "Bismuth Oxychloride", "Formaldehyde Releaser", "Chemical UV Filters", "Phthalates", "Metallic Pigments", "MI / MIT (Preservative)", "PPD (Hair Dye Chemical)"];
 
 const dataCards = [
   {
-    title: "Encrypted Storage",
-    description: "Your photos and color results are locked with strong encryption, so only Chromascope can read them.",
+    title: "Secure Storage",
+    description: "Your skin profile and color results are stored encrypted, and only you can read them. Your photos are never stored.",
     icon: <Shield size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Secure Processing",
-    description: "Your photo is analyzed right on your device, so it isn't sent anywhere else unless it has to be.",
+    description: "Your photo is sent securely to our analysis server, analyzed in memory, and discarded right away. It is never saved.",
     icon: <Server size={24} className="text-primary" strokeWidth={1.5} />,
   },
   {
     title: "Automatic Disposal",
-    description: "If you don't use Chromascope for 30 days, we permanently delete your photos and face data.",
+    description: "If you don't use Chromascope for 30 days, we permanently delete your face data (season and skin color results). You can delete your whole account anytime in Profile.",
     icon: <Trash2 size={24} className="text-primary" strokeWidth={1.5} />,
   },
 ];
@@ -112,7 +110,7 @@ export function OnboardingPage() {
 
   return (
     // Added [-webkit-tap-highlight-color:transparent] globally to the main wrapper
-    <main className="relative flex min-h-screen flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
+    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
       
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
@@ -169,7 +167,10 @@ export function OnboardingPage() {
           {step === 2 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Any specific concerns?</h1>
-              <p className="mb-8 text-[15px] text-[#4B5563]">Select all that apply. This helps our AI filter out harsh formulas.</p>
+              <p className="mb-2 text-[15px] text-[#4B5563]">Select all that apply. This helps our AI filter out harsh formulas.</p>
+              <p className="mb-8 text-[13px] text-[#6B7280]" data-testid="concerns-note">
+                {CONCERNS_WITHOUT_FILTER_RULE.join(", ")} are saved to your profile but don&apos;t change the safety verdict yet.
+              </p>
               
               <div className="flex flex-wrap gap-3">
                 {SKIN_CONCERNS.map((concern) => {

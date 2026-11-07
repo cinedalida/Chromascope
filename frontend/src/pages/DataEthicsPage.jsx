@@ -43,7 +43,7 @@ export function DataEthicsPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   return (
-    <main className="min-h-screen bg-primary-lightest font-body relative overflow-hidden text-[#374151]">
+    <main className="min-h-dvh bg-primary-lightest font-body relative overflow-hidden text-[#374151]">
       {/* Decorative background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />

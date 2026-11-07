@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { auth, db } from "../firebase"; 
@@ -20,6 +20,9 @@ import chroNavLogo from "../assets/logos/chro-nav-logo.png";
 export function AuthPage() {
   const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
+  // Page the user tried to open before RequireAuth sent them here (only same-app paths).
+  const location = useLocation();
+  const returnTo = typeof location.state?.from === "string" && location.state.from.startsWith("/") && !location.state.from.startsWith("//") ? location.state.from : "/home";
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -99,7 +102,7 @@ export function AuthPage() {
       if (isLogin) {
         // Teammate's Login Logic
         await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        navigate("/home");
+        navigate(returnTo);
       } else {
         // Teammate's Register Logic
         const userCredential = await createUserWithEmailAndPassword(
@@ -175,7 +178,7 @@ export function AuthPage() {
       }
 
       await setDoc(userRef, { last_login: new Date().toISOString() }, { merge: true });
-      navigate("/home");
+      navigate(returnTo);
     } catch (error) {
       console.error("Google Sign-In Error:", error);
       setAuthError("Google sign-in failed. Please try again.");
@@ -236,7 +239,7 @@ export function AuthPage() {
   };
 
   return (
-    <main className="fixed inset-0 z-50 m-0 flex h-screen w-screen overflow-hidden bg-primary-lightest p-0 font-body [-webkit-tap-highlight-color:transparent]">
+    <main className="fixed inset-0 z-50 m-0 flex h-dvh w-screen overflow-hidden bg-primary-lightest p-0 font-body [-webkit-tap-highlight-color:transparent]">
       <AnimatePresence>
         {(isLoading || authError || authNotice) && (
           <motion.div
@@ -445,7 +448,7 @@ export function AuthPage() {
                         type="button" 
                         onClick={handleForgotPassword}
                         disabled={isLoading}
-                        className="font-medium text-[13px] text-primary transition-colors hover:text-[#4A0082] focus:outline-none"
+                        className="relative font-medium text-[13px] text-primary transition-colors hover:text-[#4A0082] focus:outline-none after:absolute after:-inset-y-3 after:-inset-x-1 after:content-['']"
                       >
                         Forgot password?
                       </button>
@@ -466,7 +469,7 @@ export function AuthPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 flex h-full items-center text-[#9CA3AF] transition-colors hover:text-[#4B5563] focus:outline-none"
+                      className="absolute right-1 flex h-full items-center px-3 text-[#9CA3AF] transition-colors hover:text-[#4B5563] focus:outline-none"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -501,7 +504,7 @@ export function AuthPage() {
                           <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-4 flex h-full items-center text-[#9CA3AF] transition-colors hover:text-[#4B5563] focus:outline-none"
+                            className="absolute right-1 flex h-full items-center px-3 text-[#9CA3AF] transition-colors hover:text-[#4B5563] focus:outline-none"
                           >
                             {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                           </button>

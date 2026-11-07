@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// Chromascope Firestore rules (PLAN_OPTIMIZATION.md, Phase A2).
+// - Each user can read and write only their own users/{uid} record, and only the fields the app writes.
+// - Analysis results (seasonal_label, user_lab, season_confidence_level) are written by the backend (Admin SDK,
+//   which bypasses these rules), so the browser can never fake a color-analysis result.
+// - Products are read-only for signed-in users; every other collection is server-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // A text field that is missing, empty (null) or at most `max` characters.
+    function okText(value, max) {
+      return value == null || (value is string && value.size() <= max);
+    }
+
+    // Size and type checks on a users/{uid} record, field by field (a missing field is fine).
+    function validUser(d) {
+      return (!('display_name' in d) || okText(d.display_name, 80))
+        && (!('skin_type' in d) || okText(d.skin_type, 40))
+        && (!('created_at' in d) || okText(d.created_at, 40))
+        && (!('last_login' in d) || okText(d.last_login, 40))
+        && (!('setup_at' in d) || okText(d.setup_at, 40))
+        && (!('updated_at' in d) || okText(d.updated_at, 40))
+        && (!('concerns' in d) || (d.concerns is list && d.concerns.size() <= 20))
+        && (!('avoid_ingredients' in d) || (d.avoid_ingredients is list && d.avoid_ingredients.size() <= 40))
+        && (!('profile_completed' in d) || d.profile_completed is bool)
+        && (!('ethics_consent' in d) || d.ethics_consent.size() <= 5);
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['display_name', 'email', 'created_at', 'last_login',
+             'profile_completed', 'concerns', 'avoid_ingredients', 'seasonal_label', 'skin_type',
+             'ethics_consent', 'setup_at', 'updated_at'])
+        && (!('seasonal_label' in request.resource.data) || request.resource.data.seasonal_label == null)
+        && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email)
+        && validUser(request.resource.data);
+
+      // Not email, created_at or the analysis result (season, LAB colour, confidence).
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['display_name', 'last_login',
+             'profile_completed', 'concerns', 'avoid_ingredients', 'skin_type', 'ethics_consent',
+             'setup_at', 'updated_at'])
+        && validUser(request.resource.data);
+
+      allow delete: if isOwner(uid);
+    }
+
+    match /products/{productId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ingredients, safety_profiles, synergy_pairs and anything else: backend only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

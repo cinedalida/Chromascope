@@ -2,7 +2,7 @@
 
 export function AdminDatabasePage() {
   return (
-    <main className="min-h-screen bg-surface p-8 font-body text-black">
+    <main className="min-h-dvh bg-surface p-8 font-body text-black">
       <div className="mx-auto max-w-5xl space-y-6 pt-20">
         <header className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">

@@ -1,19 +1,14 @@
-import firebase_admin
-from firebase_admin import credentials, firestore
-import os
+from firebase_admin import firestore
+
+from ..firebase_init import init_firebase
 
 class ChromascopeDatabase:
     def __init__(self, key_filename: str = "serviceAccountKey.json"):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        service_account_path = os.path.join(base_dir, "..", "..", key_filename)
-
-        if not firebase_admin._apps:
-            try:
-                cred = credentials.Certificate(service_account_path)
-                firebase_admin.initialize_app(cred)
-            except Exception as e:
-                print(f" [ERROR] Could not initialize Firebase: {e}")
-                raise
+        try:
+            init_firebase(key_filename)
+        except Exception as e:
+            print(f" [ERROR] Could not initialize Firebase: {e}")
+            raise
 
         self.db = firestore.client()
         

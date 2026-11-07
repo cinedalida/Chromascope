@@ -1,10 +1,13 @@
 import { auth } from "../firebase"; 
 
-const API_BASE_URL = 'http://localhost:8000/api';
+import { API_BASE_URL } from "../config";
 
 export async function getProductCatalog() {
   try {
-    const response = await fetch(`${API_BASE_URL}/products`);
+    const token = await auth.currentUser?.getIdToken();
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!response.ok) throw new Error('Network response was not ok');
     return await response.json();
   } catch (error) {
@@ -38,5 +41,19 @@ export async function runFilter(payload) {
   } catch (error) {
     console.error('Error running filter:', error);
     return { safety_results: [], color_matched: [] };
+  }
+}
+// Real verdict counts over the whole catalog for the signed-in user's profile (catalog page statistics).
+export async function getCatalogSummary() {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    const response = await fetch(`${API_BASE_URL}/catalog/summary`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error(`Summary failed (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching catalog summary:', error);
+    return null;
   }
 }

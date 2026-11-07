@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from PIL import Image
@@ -59,11 +60,20 @@ def gray_edge_white_balance(pil_image, sigma=1):
 
     return Image.fromarray(img.astype(np.uint8))
 
+# Face images are NOT kept in git (decision D3: no user face photos stored). Put a consented test photo in the
+# git-ignored folder test/test_images/ (or set TEST_FACE_IMAGE to a path) to run this manual check.
+TEST_IMAGE = os.environ.get("TEST_FACE_IMAGE") or next(
+    (str(p) for p in sorted(Path(f"{BASE_DIR}/test/test_images").glob("*")) if p.suffix.lower() in {".jpg", ".jpeg", ".png"}),
+    None)
+if not TEST_IMAGE or not os.path.exists(TEST_IMAGE):
+    print("Skipped: no local test face image. Add one (with consent) to test/test_images/ or set TEST_FACE_IMAGE.")
+    raise SystemExit(0)
+
 # Initialize the processor (This downloads/loads the models the first time)
 facer_processor = FaceProcessor(device='cpu')
 
 print("Applying white balance...")
-raw_image = Image.open(f"{BASE_DIR}/test/test_images/me-2.jpg").convert("RGB")
+raw_image = Image.open(TEST_IMAGE).convert("RGB")
 # balanced_image = gray_world_white_balance(raw_image)  # ← on full image, before anything else
 balanced_image = gray_edge_white_balance(raw_image) 
 
