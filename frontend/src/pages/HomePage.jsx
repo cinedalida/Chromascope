@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
 import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
+import homePageImg from "../assets/images/home-page-img.jpg";
 
 // Supporting both True/Warm and True/Cool naming conventions so the DB value always finds its colors
 const SEASON_PALETTES = {
@@ -171,7 +172,7 @@ export function HomePage() {
         {/* ── Hero Banner ── */}
         <section className="relative mb-8 min-h-[280px] overflow-hidden rounded-2xl shadow-md sm:min-h-[320px]">
           <img
-            src="/src/assets/images/home-page-img.jpg"
+            src={homePageImg}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
           />

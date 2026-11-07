@@ -51,9 +51,9 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE
 engine = ChromascopeSafetyEngine()
 # "bayes" (default): the evaluated Bayesian-Chromascope Hybrid filter. "rules": the previous rule-based filter.
 SAFETY_FILTER = os.environ.get("SAFETY_FILTER", "bayes").strip().lower()
-# Which product collection the app reads: "products" (current catalog) or "products_v2" (scraped catalog,
-# PLAN_CATALOG.md). Switching back is the rollback.
-PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products").strip()
+# Which product collection the app reads: "products_v2" (scraped catalog, PLAN_CATALOG.md; default, as in
+# production) or "products" (the previous 110-product catalog). Set PRODUCTS_COLLECTION=products to roll back.
+PRODUCTS_COLLECTION = os.environ.get("PRODUCTS_COLLECTION", "products_v2").strip()
 log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_COLLECTION)
 
 # Products change only when the catalog is re-imported, so keep one copy in memory for a few minutes instead of reading

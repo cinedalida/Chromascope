@@ -5,68 +5,100 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  * Definitions (reported in the paper for survey items TR1–TR3):
  *  - FPS: AR frames processed per second, i.e. frames in which face detection
- *    and overlay drawing actually ran.
- *  - Latency: time to process one such frame (MediaPipe detection + landmark
- *    smoothing + canvas drawing), in milliseconds.
+ *    ran. Frames with no face still count, so a lost face does not lower FPS.
+ *  - Latency: time to process one frame (MediaPipe detection + landmark
+ *    smoothing + canvas drawing), in milliseconds. Averaged over frames with a
+ *    face only, since frames without one skip drawing and would look faster.
  *
- * The AR loop calls `recordFrame(latencyMs)` once per processed frame. Samples
- * live in a ref (no re-render per frame); the displayed values refresh every
- * `refreshMs`. "Live" = the last 1 s; "avg" = the last `windowSec` seconds
- * (30 s by default, the window participants read in the survey).
+ * The AR loop calls `recordFrame(latencyMs, hasFace)` once per processed frame.
+ * Samples live in refs (no re-render per frame); the displayed values refresh
+ * every `refreshMs`. "Live" = the last 1 s. The `windowSec` average (30 s, the
+ * window participants read in the survey) starts at the first frame with a
+ * face and, once complete, stays fixed until the meter is turned off or the
+ * page is left.
  */
 export function usePerfStats({ enabled = true, windowSec = 30, refreshMs = 500 } = {}) {
-  const samplesRef = useRef([]); // [{ t: ms timestamp, ms: latency }]
-  const startRef = useRef(null);
+  const liveRef = useRef([]); // [{ t: ms timestamp, ms: latency, face }], last 1 s
+  const samplesRef = useRef([]); // same shape, inside the averaging window
+  const startRef = useRef(null); // time of the first frame with a face
+  const resultRef = useRef(null); // fixed result once the window is complete
   const [stats, setStats] = useState(null);
 
+  const clearSamples = () => {
+    liveRef.current = [];
+    samplesRef.current = [];
+    startRef.current = null;
+    resultRef.current = null;
+  };
+
   const recordFrame = useCallback(
-    (latencyMs) => {
+    (latencyMs, hasFace = true) => {
       if (!enabled) return;
-      const t = performance.now();
-      if (startRef.current === null) startRef.current = t;
-      samplesRef.current.push({ t, ms: latencyMs });
+      const sample = { t: performance.now(), ms: latencyMs, face: hasFace };
+      liveRef.current.push(sample);
+      if (startRef.current === null) {
+        if (!hasFace) return;
+        startRef.current = sample.t;
+      }
+      if (resultRef.current === null && sample.t - startRef.current <= windowSec * 1000) {
+        samplesRef.current.push(sample);
+      }
     },
-    [enabled]
+    [enabled, windowSec]
   );
 
   const reset = useCallback(() => {
-    samplesRef.current = [];
-    startRef.current = null;
+    clearSamples();
     setStats(null);
   }, []);
 
   useEffect(() => {
     if (!enabled) return;
+    const mean = (arr) => arr.reduce((sum, s) => sum + s.ms, 0) / arr.length;
+
     const id = setInterval(() => {
       const now = performance.now();
-      const windowMs = windowSec * 1000;
-      const samples = samplesRef.current;
-      // Drop samples older than the averaging window.
-      while (samples.length && samples[0].t < now - windowMs) samples.shift();
-      if (startRef.current === null || samples.length === 0) {
+      const live = liveRef.current;
+      while (live.length && live[0].t < now - 1000) live.shift();
+      if (live.length === 0 && startRef.current === null) {
         setStats(null);
         return;
       }
 
-      const live = samples.filter((s) => s.t >= now - 1000);
-      const elapsedSec = Math.min((now - startRef.current) / 1000, windowSec);
-      const mean = (arr) => arr.reduce((sum, s) => sum + s.ms, 0) / arr.length;
+      const liveFaces = live.filter((s) => s.face);
+      const liveStats = {
+        liveFps: live.length,
+        liveLatencyMs: liveFaces.length ? mean(liveFaces) : null,
+        windowSec,
+      };
+      if (startRef.current === null) {
+        setStats({ ...liveStats, started: false });
+        return;
+      }
+
+      if (resultRef.current === null && now - startRef.current >= windowSec * 1000) {
+        const samples = samplesRef.current;
+        const faces = samples.filter((s) => s.face);
+        resultRef.current = {
+          avgFps: samples.length / windowSec,
+          avgLatencyMs: faces.length ? mean(faces) : null,
+          faceShare: samples.length ? faces.length / samples.length : 0,
+        };
+        samplesRef.current = [];
+      }
 
       setStats({
-        liveFps: live.length,
-        liveLatencyMs: live.length ? mean(live) : null,
-        avgFps: elapsedSec > 0 ? samples.length / elapsedSec : 0,
-        avgLatencyMs: mean(samples),
-        elapsedSec,
-        windowSec,
-        windowFull: elapsedSec >= windowSec,
+        ...liveStats,
+        started: true,
+        elapsedSec: Math.min((now - startRef.current) / 1000, windowSec),
+        windowFull: resultRef.current !== null,
+        ...resultRef.current,
       });
     }, refreshMs);
     return () => {
       // Turning the meter off (or leaving the page) starts the next session from zero.
       clearInterval(id);
-      samplesRef.current = [];
-      startRef.current = null;
+      clearSamples();
       setStats(null);
     };
   }, [enabled, windowSec, refreshMs]);

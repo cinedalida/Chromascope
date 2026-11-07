@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Menu } from "lucide-react";
+import chroNavLogo from "../../assets/logos/chro-nav-logo.png";
 
 // Scroll-aware navbar with glossy effect for the SplashPage.
 // Hides on scroll down, appears on scroll up. Has a mobile drawer.
@@ -59,7 +60,7 @@ export function SplashNavbar() {
           className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200 no-underline"
         >
           <img
-            src="/src/assets/logos/chro-nav-logo.png"
+            src={chroNavLogo}
             alt="Chromascope logo"
             className="h-8 w-auto shrink-0 sm:h-10"
           />

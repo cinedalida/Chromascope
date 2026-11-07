@@ -159,6 +159,7 @@ Chromascope_file.xlsx
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Ignore weights
 *.pth
