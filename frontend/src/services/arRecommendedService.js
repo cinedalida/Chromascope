@@ -4,7 +4,9 @@ import { runFilter } from "./productService";
 // Recommended shades: products returned by the safety filter and matching engine.
 
 // Firestore sub_category values that are color products for each AR region.
-// Taken from the Phase 2 catalog check. Matched after trimming and lowercasing.
+// Old `products` names from the Phase 2 catalog check, plus the `products_v2` (scraper)
+// names. Matched after trimming and lowercasing. Lip balm, liner and plumper on their
+// own are left out: they are often clear or outline-only, which a lip fill misrepresents.
 export const SUB_CATEGORY_ALLOWLIST = {
   lips: [
     "Lipstick",
@@ -15,6 +17,8 @@ export const SUB_CATEGORY_ALLOWLIST = {
     "Lip (Liquid Matte)",
     "Lip Gloss",
     "Lip Oil",
+    "Lip stain & tint",
+    "Lip color",
   ],
   cheeks: [
     "Blush",
@@ -28,6 +32,7 @@ export const SUB_CATEGORY_ALLOWLIST = {
   eyeshadow: [
     "Eyeshadow",
     "Eyeshadow Stick",
+    "Eye shadow",
   ],
 };
 
@@ -43,6 +48,14 @@ const normalize = (value) => String(value ?? "").trim().toLowerCase();
 const ALLOWED = Object.fromEntries(
   Object.entries(SUB_CATEGORY_ALLOWLIST).map(([region, values]) => [region, new Set(values.map(normalize))]),
 );
+
+// products_v2 joins several sub-categories with ";" (for example "Blush;Lipstick").
+// A product counts for a region when any one of them is on that region's allowlist.
+function isAllowedSubCategory(region, subCategory) {
+  return String(subCategory ?? "")
+    .split(";")
+    .some((part) => ALLOWED[region].has(normalize(part)));
+}
 
 function emptyResult(status) {
   return { status, items: [], seasonFilter: null, dropped: null };
@@ -98,7 +111,7 @@ async function loadRecommended(region) {
   const kept = [];
 
   for (const product of response.color_matched ?? []) {
-    if (!ALLOWED[region].has(normalize(product.sub_category))) {
+    if (!isAllowedSubCategory(region, product.sub_category)) {
       const value = product.sub_category || "(blank)";
       dropped.subCategory.total += 1;
       dropped.subCategory.byValue[value] = (dropped.subCategory.byValue[value] ?? 0) + 1;
