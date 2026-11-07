@@ -42,17 +42,17 @@ This is `CLAUDE.md` section 1 applied to every phase.
 
 Update this table only as part of an approved change plan, after the user says a phase passed.
 
-| Phase | Status |
-|---|---|
-| 0 Baseline and branch | [x] |
-| 1 Build the Browse shade catalog | [x] |
-| 2 Recommended-source investigation (read only) | [x] |
-| 3 Frontend data layer (Recommended + Browse) | [x] |
-| 4 Selected shade drives overlay | [x] |
-| 4b Blend comparison (only if needed) | [x] |
-| 5 Applied Products panel | [x] |
-| 6 In-app performance display | [x] |
-| 7 Phone test and manuscript notes | deferred |
+| Phase                                          | Status   |
+| ---------------------------------------------- | -------- |
+| 0 Baseline and branch                          | [x]      |
+| 1 Build the Browse shade catalog               | [x]      |
+| 2 Recommended-source investigation (read only) | [x]      |
+| 3 Frontend data layer (Recommended + Browse)   | [x]      |
+| 4 Selected shade drives overlay                | [x]      |
+| 4b Blend comparison (only if needed)           | [x]      |
+| 5 Applied Products panel                       | [x]      |
+| 6 In-app performance display                   | [x]      |
+| 7 Phone test and manuscript notes              | deferred |
 
 ---
 
@@ -71,16 +71,16 @@ Out of scope: Firestore data changes, backend routes and engine code, the Excel 
 
 Every phase must respect these. If a phase would break one, stop and report.
 
-| # | Rule | Manuscript basis |
-|---|---|---|
-| R1 | AR renders the shades returned by the safety filter and the matching engine. Recommended is the default and appears first in the panel. | Sec. 3.3-D intro, user walkthrough (Sec. 4.1.1, p.100 to 101), Objective 3 ("renders recommended cosmetic shades"), `region_colors` input of the pseudocode |
-| R2 | Products with verdict Excluded never appear in Recommended. | Walkthrough: Excluded products "are not recommended" |
-| R3 | Browse shades are not checked by the safety filter. The panel must say so visibly, and the manuscript needs a paragraph describing Browse (section 8). Adviser sign-off needed. | Safety filter scope, Sec. 1.7 |
-| R4 | Catalog is limited to the Philippine market. Browse uses an allowlist of stores: `sephora`, `rustans`, `maybelline`. Ulta (US) is excluded. | Sec. 1.7, Sec. 4.1.1 |
-| R5 | Regions are lips, cheeks, eyeshadow. Full Face is only a UI shortcut that flips the three. 478 landmarks. Do not reintroduce per-triangle rendering. | Pseudocode (p.59), Sprint 5 deliverable |
-| R6 | The app has a built-in performance display. After 30 seconds of try-on, participants read the average FPS and the latency in ms from it and enter them as TR1 and TR2. Latency is the time to process and render one camera frame. | Sec. 4.4.2 (Technical Performance Log), Sec. 4.4.4.2 |
-| R7 | The camera feed is processed only on the device and is not recorded or transmitted. Capture saves a PNG locally only. Do not add any upload of frames. | Sec. 3.7 privacy paragraph (p.86 to 87) |
-| R8 | No made-up match percentages. CIEDE2000 distance is computed only for Face products today, so lips, cheeks, and eyeshadow show no percentage. | Sec. 3.3-C, Step 4 |
+| #   | Rule                                                                                                                                                                                                                               | Manuscript basis                                                                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | AR renders the shades returned by the safety filter and the matching engine. Recommended is the default and appears first in the panel.                                                                                            | Sec. 3.3-D intro, user walkthrough (Sec. 4.1.1, p.100 to 101), Objective 3 ("renders recommended cosmetic shades"), `region_colors` input of the pseudocode |
+| R2  | Products with verdict Excluded never appear in Recommended.                                                                                                                                                                        | Walkthrough: Excluded products "are not recommended"                                                                                                        |
+| R3  | Browse shades are not checked by the safety filter. The panel must say so visibly, and the manuscript needs a paragraph describing Browse (section 8). Adviser sign-off needed.                                                    | Safety filter scope, Sec. 1.7                                                                                                                               |
+| R4  | Catalog is limited to the Philippine market. Browse uses an allowlist of stores: `sephora`, `rustans`, `maybelline`. Ulta (US) is excluded.                                                                                        | Sec. 1.7, Sec. 4.1.1                                                                                                                                        |
+| R5  | Regions are lips, cheeks, eyeshadow. Full Face is only a UI shortcut that flips the three. 478 landmarks. Do not reintroduce per-triangle rendering.                                                                               | Pseudocode (p.59), Sprint 5 deliverable                                                                                                                     |
+| R6  | The app has a built-in performance display. After 30 seconds of try-on, participants read the average FPS and the latency in ms from it and enter them as TR1 and TR2. Latency is the time to process and render one camera frame. | Sec. 4.4.2 (Technical Performance Log), Sec. 4.4.4.2                                                                                                        |
+| R7  | The camera feed is processed only on the device and is not recorded or transmitted. Capture saves a PNG locally only. Do not add any upload of frames.                                                                             | Sec. 3.7 privacy paragraph (p.86 to 87)                                                                                                                     |
+| R8  | No made-up match percentages. CIEDE2000 distance is computed only for Face products today, so lips, cheeks, and eyeshadow show no percentage.                                                                                      | Sec. 3.3-C, Step 4                                                                                                                                          |
 
 ## 3. Locked decisions
 
@@ -102,12 +102,12 @@ Source: `../MakeUp_Scraper/data/decoded/<store>/csv_<store>_<category>_<subcateg
 
 Default mapping and verified counts (Phase 1 output; deduped within each region, blank colors removed):
 
-| AR region | Scraper (category / subcategory) | Shades | Products |
-|---|---|---:|---:|
-| lips | lip / Lipstick, lip / Lip color, lip / Lip gloss, lip / Lip stain & tint | 1,811 | 251 |
-| cheeks | cheek / Blush | 541 | 99 |
-| eyeshadow | eye / Eye shadow, eye / Eyeshadow | 484 | 64 |
-| total | | 2,836 | |
+| AR region | Scraper (category / subcategory)                                         | Shades | Products |
+| --------- | ------------------------------------------------------------------------ | -----: | -------: |
+| lips      | lip / Lipstick, lip / Lip color, lip / Lip gloss, lip / Lip stain & tint |  1,811 |      251 |
+| cheeks    | cheek / Blush                                                            |    541 |       99 |
+| eyeshadow | eye / Eye shadow, eye / Eyeshadow                                        |    484 |       64 |
+| total     |                                                                          |  2,836 |          |
 
 Dedupe is per region. A shade the store lists in two regions (for example a lip and cheek tint) appears in both files.
 
@@ -118,6 +118,7 @@ Limits of the data (go in the paper notes): colors are averaged from small swatc
 ## 5. File map
 
 New:
+
 - `backend/scripts/build_ar_shade_catalog.py`
 - `frontend/public/data/ar-shades-lips.json`, `ar-shades-cheeks.json`, `ar-shades-eyeshadow.json`
 - `frontend/src/services/arShadeService.js` (Browse)
@@ -128,6 +129,7 @@ New:
 - `frontend/src/hooks/useARPerformance.js`
 
 Modified:
+
 - `frontend/src/pages/ARTryOnPage.jsx`
 - `frontend/src/components/ar-tryon/AROverlayCanvas.jsx`
 - `frontend/src/components/ar-tryon/AppliedProductsPanel.jsx`
@@ -159,6 +161,7 @@ Re-check them when you read the files, and tell the user if any changed.
 Read first: `CLAUDE.md`, this file, `.github/workflows/*`, `frontend/package.json`.
 
 Do:
+
 1. Ask the user whether to pull the latest before starting.
 2. `git status` and `git branch --show-current`. The base branch should be `feature/ar-tryon-enhancements` with only the untracked `.vscode/` and `docs/` showing. Report anything else.
 3. After approval, create and switch to `feature/ar-real-shades`. If `.git/index.lock` blocks git, stop and tell the user. Do not delete it yourself.
@@ -166,6 +169,7 @@ Do:
 5. Confirm `../MakeUp_Scraper/data/decoded/{sephora,rustans,maybelline}` is readable.
 
 Manual checks for the user:
+
 - [ ] `npm run dev` starts, the AR page opens, the camera starts, and the face is tracked.
 - [ ] Lips, Cheeks, Eyeshadow, and Full Face toggles behave as before. Capture saves a PNG.
 
@@ -178,6 +182,7 @@ Commit: none. Optionally the user may ask to commit this plan as `docs: add AR r
 Read first: this file sections 2 and 4, the scraper's `data/README.md`, one CSV per store (header and a few rows), `backend/scripts/migrate_to_firebase.py` for the repo's script style.
 
 Spec for `backend/scripts/build_ar_shade_catalog.py` (Python 3, standard library only, no new dependencies):
+
 1. Arguments: `--src` (default `../MakeUp_Scraper/data/decoded`) and `--out` (default `frontend/public/data`).
 2. Two constants at the top of the file: `STORES = ("sephora", "rustans", "maybelline")` (R4) and `REGION_MAP`, a dict of region -> list of `(category, subcategory)` pairs matching section 4. Skip any store folder not in `STORES` and count its rows as "store not allowed" in the report.
 3. Read every CSV under `src/<store>/` with `csv.DictReader` and `utf-8-sig`. Keep only rows whose `(category, subcategory)` is in the map.
@@ -185,24 +190,25 @@ Spec for `backend/scripts/build_ar_shade_catalog.py` (Python 3, standard library
 5. Dedupe on `(store, product_url, shade_name, shade_lab)`.
 6. Output one JSON file per region: `ar-shades-<region>.json`. Each entry has exactly these keys:
 
-| Key | Type | Rule |
-|---|---|---|
-| `id` | string | first 12 hex characters of sha1 of `store\|product_url\|shade_name\|shade_lab`, using the CSV text for `shade_lab` |
-| `store` | string | folder name |
-| `brand` | string | `product_brand` |
-| `product` | string | `product_name` with any trailing ` • <size>` removed |
-| `shade` | string | `shade_name` |
-| `hex` | string | `#RRGGBB`, uppercase, from `shade_rgb`. Example: `(204, 104, 90)` -> `#CC685A` |
-| `lab` | [number, number, number] | `[L, a, b]` from `shade_lab` |
-| `price` | number or null | from `price`, null if blank |
-| `currency` | string | `price_currency` as written (`Peso` or `Dollar`) |
-| `finish` | string or null | Sephora `finish`, otherwise null |
-| `url` | string | `product_url` |
+| Key        | Type                     | Rule                                                                                                               |
+| ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `id`       | string                   | first 12 hex characters of sha1 of `store\|product_url\|shade_name\|shade_lab`, using the CSV text for `shade_lab` |
+| `store`    | string                   | folder name                                                                                                        |
+| `brand`    | string                   | `product_brand`                                                                                                    |
+| `product`  | string                   | `product_name` with any trailing ` • <size>` removed                                                               |
+| `shade`    | string                   | `shade_name`                                                                                                       |
+| `hex`      | string                   | `#RRGGBB`, uppercase, from `shade_rgb`. Example: `(204, 104, 90)` -> `#CC685A`                                     |
+| `lab`      | [number, number, number] | `[L, a, b]` from `shade_lab`                                                                                       |
+| `price`    | number or null           | from `price`, null if blank                                                                                        |
+| `currency` | string                   | `price_currency` as written (`Peso` or `Dollar`)                                                                   |
+| `finish`   | string or null           | Sephora `finish`, otherwise null                                                                                   |
+| `url`      | string                   | `product_url`                                                                                                      |
 
 7. Sort entries by brand, product, shade, then id. Write compact JSON with `ensure_ascii=False`, UTF-8 without a byte-order mark, and `\n` line endings, so two runs give byte-identical files.
 8. Print a report: rows read, rows kept, rows dropped by reason (store not allowed, not in map, blank color, invalid value, duplicate), shades and unique products per region and per store, output file sizes, and 5 sample entries per region with a fixed random seed.
 
 Automated checks:
+
 - [ ] Script runs without errors and prints the report.
 - [ ] Counts match section 4. Any difference must be explained by a reason in the report.
 - [ ] Each file parses as JSON, every entry has all keys, `hex` matches `^#[0-9A-F]{6}$`, `lab` has 3 numbers, `id` values are unique within each file, and no entry has `store` equal to `ulta`.
@@ -211,10 +217,12 @@ Automated checks:
 - [ ] `git status` shows only the new script and the three JSON files.
 
 Manual checks for the user:
+
 - [ ] Pick 3 random sample entries, find them in the source CSV by `product_url` and `shade_name`, and confirm the hex equals the converted `shade_rgb`.
 - [ ] Paste 10 hex values from the lips file into any color picker. They should read as reds, pinks, nudes, and berries.
 
 Suggested commits (two):
+
 - `feat(backend): add AR shade catalog build script`
 - `chore(frontend): add generated AR shade catalog`
 
@@ -229,6 +237,7 @@ Read: `backend/app/api/api.py`, `backend/app/core/color_matching.py`, `engine.py
 To see real data, ask the user to either approve starting the backend locally for read-only GET requests, or paste the output of `http://localhost:8000/api/products`. Do not write to Firestore.
 
 Report in under 400 words:
+
 1. How the AR page is reached: does it require sign-in, and does the signed-in user always have `seasonal_label` and `user_lab` on their profile?
 2. For categories Lip, Cheek, and Eye: how many products exist, the distinct `sub_category` values with counts, how many have a real `hex_color` (not empty and not the `#FFFFFF` placeholder with Lab all zero), and the distinct `season_tag_computed` values.
 3. Which `sub_category` values correspond to eyeshadow, blush, and lip color products, so `arRecommendedService` can filter correctly. Do not guess.
@@ -253,6 +262,7 @@ Unified shade item shape used everywhere:
 ```
 
 Spec:
+
 1. `frontend/src/services/arShadeService.js` (Browse)
    - `export const REGION_KEYS = ["lips", "cheeks", "eyeshadow"]`
    - `export async function getShades(region)`: fetch `${import.meta.env.BASE_URL}data/ar-shades-${region}.json`, check it is an array, cache the promise per region in a module-level `Map`. Reject unknown region keys. Map each entry to the unified shape with `source: "browse"`, `verdict: null`, `seasonMatch: false`. On failure `console.error` and return `[]`.
@@ -278,9 +288,11 @@ Spec:
 Do not modify any existing component or `productService.js`. No new dependencies.
 
 Automated checks:
+
 - [ ] `npm run lint` and `npm run build` pass, no worse than baseline.
 
 Manual checks for the user (browser console on the AR page):
+
 - [ ] `const m = await import('/src/services/arShadeService.js'); (await m.getShades('lips')).length` returns the Phase 1 lips count. Repeat for cheeks and eyeshadow. A second call is instant and the Network tab shows each JSON fetched once.
 - [ ] Signed in: `const r = await import('/src/services/arRecommendedService.js'); await r.getRecommended('lips')` returns `status: "ok"` with items that have no `excluded` verdict and no `#FFFFFF` hex. Signed out: `status: "signed_out"`.
 - [ ] `dropped.subCategory.total` is exactly lips 2, cheeks 5, eyeshadow 14. If not, fix the allowlist strings.
@@ -295,15 +307,18 @@ Suggested commit: `feat(frontend): add AR shade services, hook, and search helpe
 Read first: `ARTryOnPage.jsx`, `AROverlayCanvas.jsx` (the whole file, especially the render effect and its dependency array).
 
 Spec:
+
 1. In `ARTryOnPage.jsx` add state `selectedShades = { lips: null, cheeks: null, eyeshadow: null }` with `selectShade(region, shade)` and `clearShades()`. Build `colors` with `useMemo`: for each region use `selectedShades[region]?.hex` and leave the key out when nothing is selected. Pass `colors` to `AROverlayCanvas`. Do not change the toggles logic.
 2. In `AROverlayCanvas`, merge a partial `colors` prop over `DEFAULT_COLORS` so a missing key never becomes `undefined`. If changing `colors` restarts the render loop or resets smoothing in a visible way, store the colors in a ref instead, and tell the user why.
 3. Add a DEV-only debug strip (render only when `import.meta.env.DEV`) above the controls with buttons: "Random lips", "Random cheeks", "Random eyeshadow" (Browse source), "Recommended lips" (first Recommended item), "Darkest lips", and "Lightest lips" (lowest and highest `lab[0]` in Browse). Each calls the service, applies the shade through `selectShade`, and shows `brand - product - shade (hex)` in small text. Mark the strip with a TODO saying it is removed in Phase 5.
 
 Automated checks:
+
 - [ ] `npm run lint` and `npm run build` pass.
 - [ ] The strip is not present in the production build (`import.meta.env.DEV` guard).
 
 Manual checks for the user:
+
 - [ ] Each button changes only its matching region on the live face.
 - [ ] Toggles still work. Full Face still flips all three. A toggled-off region does not draw even with a shade selected.
 - [ ] Capture PNG includes the new colors.
@@ -317,6 +332,7 @@ Suggested commit: `feat(frontend): drive AR overlay colors from selected shades`
 Why: the overlay uses the `"color"` blend mode, which keeps the skin's brightness and takes only the shade's hue and saturation. Dark and light shades of a similar hue can look the same.
 
 Spec:
+
 1. In `AROverlayCanvas.jsx` add a `REGION_RENDER` constant: `{ lips: { blend, opacity }, cheeks: { blend, opacity }, eyeshadow: { blend, opacity } }`, seeded with the current values (`"color"` and `0.75`). Use it in the `fillRegion` calls instead of the single `blendMode` and `opacity` props.
 2. Add a DEV-only control with one dropdown per region for blend (`color`, `multiply`, `soft-light`, `overlay`, `hard-light`) and one slider per region for opacity (0.3 to 1). Changes apply live.
 3. Do not choose a winner. The user compares by eye using the darkest and lightest shade of each region and reports the choice.
@@ -337,6 +353,7 @@ Read first: `AppliedProductsPanel.jsx`, `ProductSwatchPicker.jsx`, `ARTryOnPage.
 Keep the current look: tabs, chips, toggle style, and the Tailwind tokens already used. Only the data and behavior change.
 
 Spec:
+
 1. Delete the dummy `products` array and the `MatchBadge` / `deltaE` display (R8). Do not show any percentage.
 2. Make `AppliedProductsPanel` controlled. Props: `selectedShades`, `onSelectShade(region, shade)`, `onClear()`. Region tabs LIPS, EYESHADOW, BLUSH map to `lips`, `eyeshadow`, `cheeks`.
 3. Inside each region tab add a two-option switch: **Recommended** (default, first) and **Browse**. Use `useARShades(region, source)` and `groupByProduct`.
@@ -351,11 +368,13 @@ Spec:
 12. Later UI additions (user request): the Recommended / Browse switch sits above the region tabs and is styled purple as the main choice. A full-screen button (top-right of the camera frame, next to the performance toggle) expands the camera to the whole window and also uses the browser's full screen where supported. iPhone Safari has no element full screen, so there it fills the window only. Esc, the button, or leaving browser full screen exits. The shade panel is hidden while expanded. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
 
 Automated checks:
+
 - [ ] `npm run lint` and `npm run build` pass.
 - [ ] `grep` finds no remaining `deltaE`, `MatchBadge`, or dummy product data in the panel.
 - [ ] No code sends camera frames or canvas data anywhere (R7). Capture still saves locally only.
 
 Manual checks for the user:
+
 - [ ] Each region tab opens on Recommended. Recommended shows no Excluded products and no white placeholder swatches.
 - [ ] Signed out, Recommended shows the sign-in message and Browse still works.
 - [ ] Browse shows the safety note. Search "fenty" shows Fenty products only. A nonsense query shows the empty state.
@@ -377,6 +396,7 @@ Why: the manuscript (R6) has participants read the 30-second average FPS and lat
 Read first: `AROverlayCanvas.jsx` (the detect and render loop), `ARTryOnPage.jsx`, and manuscript Sec. 4.4.2 as summarized in R6.
 
 Spec (revised after merging `main`, which already has Jan's display: `usePerfStats.js`, `PerfStatsBadge.jsx`, the Profile setting "Show performance stats (FPS)", and the `onFrame` callback in `AROverlayCanvas.jsx`):
+
 1. Build on Jan's files. No `useARPerformance.js` or `ARPerformanceDisplay.jsx`.
 2. `AROverlayCanvas.jsx`: `onFrame(latencyMs, hasFace)`. Latency stays `performance.now()` after drawing minus `performance.now()` just before `detectForVideo`. Do not change what is drawn.
 3. `usePerfStats.js`: the 30-second window starts at the first frame with a face. When 30 seconds have passed, the result is computed once and stays fixed until the setting is turned off or the page is left. The live line keeps updating. Samples stay in refs; state updates every 500 ms.
@@ -387,10 +407,12 @@ Spec (revised after merging `main`, which already has Jan's display: `usePerfSta
 8. Remove nothing else. No frame data leaves the device (R7).
 
 Automated checks:
+
 - [ ] `npm run lint` and `npm run build` pass.
 - [ ] The display renders in the production build (`npm run build`, then `npm run preview`).
 
 Manual checks for the user:
+
 - [ ] After 30 seconds the fixed average appears and matches what the live values were showing.
 - [ ] Turning on lips, cheeks, and eyeshadow together (heaviest case) raises latency visibly, as expected.
 - [ ] The display does not reduce frame rate when hidden or shown.
@@ -404,6 +426,7 @@ Suggested commit: `feat(frontend): fix the AR performance average to a 30 s face
 Phones only allow camera access over HTTPS. Use an HTTPS tunnel such as ngrok or Vite HTTPS, not a plain LAN address.
 
 Manual checks for the user:
+
 - [ ] On a real phone over HTTPS: note device model, browser, and the 30-second average FPS and latency from the display.
 - [ ] Worst case: lips, cheeks, and eyeshadow all on, with feathering.
 - [ ] Browse JSON loads quickly on mobile data (`npm run build`, then `npm run preview`).
@@ -428,6 +451,7 @@ Then the user works through section 8.
 Page numbers are the printed numbers in manuscript v7.
 
 Wording that still disagrees with the corrected pseudocode and complexity text:
+
 - p.58: "returns 468 points" -> 478 (468 base mesh points plus 10 iris points).
 - p.59: "lips, cheeks, or full face" -> lips, cheeks, or eyeshadow. Replace "a subset of triangles from MediaPipe's canonical face mesh topology ... each triangle ... filled" with the boundary-ring description used in the pseudocode (single smoothed path per region, fill, feather).
 - p.66, Eq. D.2 "Region Triangle Fill": the code does not do a per-triangle alpha mix. It fills a smoothed region path with the canvas `"color"` blend (shade hue and saturation, skin brightness) at opacity 0.75, with edge feathering. Reword the name and the definition of the symbols to match. Decide the exact formula with the adviser.
@@ -435,6 +459,7 @@ Wording that still disagrees with the corrected pseudocode and complexity text:
 - Sec. 4.1.3 module list, item 5 (AR Visualization): "lips, cheeks, or full face" -> lips, cheeks, or eyeshadow. Full Face is a UI shortcut, not a region.
 
 New content to add:
+
 - Data source paragraph (if Browse ships): Trance, M. (2026). Make-Up Web Scraper: a shade-color and ingredient dataset from four make-up retailers. https://github.com/KMarttt/MakeUp_Scraper. Snapshots: Sephora PH and Rustan's PH 2026-09-23, Maybelline PH 2026-09-29. Say that only the Philippine retailers are used, give the Browse counts per region, and state that Browse shades are not checked by the safety filter.
 - How shade color was obtained (swatch image averages, approximation, not calibrated) and that retailer data rights remain with the retailers.
 - The performance display: what it shows, the 30-second window, and how latency is measured (detect plus render per frame, frames with no face excluded).
@@ -450,6 +475,7 @@ New content to add:
 - Phase 3 Recommended check, lips (2026-11-03, one signed-in test profile): status ok, seasonFilter matched, 5 items shown. Dropped: sub-category 2, placeholder 0, excluded 11. Cheeks and eyeshadow not checked yet.
 
 Results to check before submission:
+
 - Sec. 4.4.5 says "Across the 50 sessions, the average frame rate was 38 FPS and the average rendering latency was 72 ms." No measurement exists behind these numbers yet: the app had no performance display, and the Chapter 5 table marks the same row as pending the survey. Replace with real participant data, or mark as pending, before submission.
 
 ## 9. Definition of done

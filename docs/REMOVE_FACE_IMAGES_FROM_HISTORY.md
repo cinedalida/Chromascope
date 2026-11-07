@@ -8,12 +8,14 @@ The dataset is licensed "for scientific and research purposes only", so redistri
 Rewriting history changes every commit ID. Everyone must re-clone afterwards, and open pull requests must be re-created.
 
 ## Files to purge
+
 ```
 backend/app/core/skin_analysis/test/test_images/
 backend/app/core/skin_analysis/test/test_output/
 ```
 
 ## Steps
+
 1. Tell the team to push everything and stop pushing until step 6.
 2. Install git-filter-repo (`pip install git-filter-repo`), then make a fresh **mirror** clone:
    ```
