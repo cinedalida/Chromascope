@@ -3,8 +3,8 @@ import numpy as np
 
 # Thresholds — plain image statistics, no model involved. Tune against real photos.
 MIN_SKIN_PIXELS = 500       # fewer skin pixels than this = face too small / covered
-BLUR_CROP_WIDTH = 256       # face crop is resized to this width before measuring sharpness
-BLUR_THRESHOLD = 15.0       # Laplacian variance below this = blurry
+BLUR_CROP_WIDTH = 512       # face crop is resized to this width before measuring sharpness
+BLUR_THRESHOLD = 3.0        # Laplacian variance below this = blurry (smooth skin scores low, so keep it lenient)
 DARK_L_THRESHOLD = 30.0     # mean skin L* (0-100) below this = too dark
 BRIGHT_L_THRESHOLD = 85.0   # mean skin L* (0-100) above this = washed out
 
@@ -29,14 +29,23 @@ def skin_brightness(image_np, mask_np):
 
 
 def face_sharpness(image_np, mask_np):
-    """Laplacian variance of the face region, measured at a fixed width so
+    """Laplacian variance over skin pixels only, measured at a fixed width so
     the score doesn't depend on the photo's resolution."""
     ys, xs = np.nonzero(mask_np)
     crop = image_np[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    scale = BLUR_CROP_WIDTH / crop.shape[1]
-    crop = cv2.resize(crop, (BLUR_CROP_WIDTH, max(1, round(crop.shape[0] * scale))))
+    mask = mask_np[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.uint8)
+    scale = min(1.0, BLUR_CROP_WIDTH / crop.shape[1])  # never upscale
+    if scale < 1.0:
+        size = (BLUR_CROP_WIDTH, max(1, round(crop.shape[0] * scale)))
+        crop = cv2.resize(crop, size, interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(mask, size, interpolation=cv2.INTER_NEAREST)
     gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
-    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    lap = cv2.Laplacian(gray, cv2.CV_64F)
+    # Erode so mask borders (eyes, lips, hair edges) don't count
+    inner = cv2.erode(mask, np.ones((5, 5), np.uint8)).astype(bool)
+    if inner.sum() < 100:
+        inner = mask.astype(bool)
+    return float(lap[inner].var())
 
 
 def check_photo_quality(pil_image, skin_mask):
@@ -58,5 +67,7 @@ def check_photo_quality(pil_image, skin_mask):
     if brightness > BRIGHT_L_THRESHOLD:
         raise PhotoQualityError("too_bright", "The photo is overexposed and the skin tone is washed out.")
 
-    if face_sharpness(image_np, skin_mask) < BLUR_THRESHOLD:
+    sharpness = face_sharpness(image_np, skin_mask)
+    print(f"[quality] sharpness={sharpness:.2f} (threshold {BLUR_THRESHOLD}) brightness={brightness:.1f}")
+    if sharpness < BLUR_THRESHOLD:
         raise PhotoQualityError("too_blurry", "The face in the photo is out of focus.")
