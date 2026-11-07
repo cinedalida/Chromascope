@@ -17,6 +17,13 @@ import splashFrame3 from "../assets/splash-animation/splash-animation-3.jpg";
 import splashFrame4 from "../assets/splash-animation/splash-animation-4.jpg";
 import splashFrame5 from "../assets/splash-animation/splash-animation-5.jpg";
 import chroText from "../assets/logos/chro-text.svg";
+import clinicalIntegrityImg from "../assets/images/clinical-integrity-img.png";
+import aiPersonalizationImg from "../assets/images/ai-personalization-img.png";
+import ingredientAnalysisImg from "../assets/images/ingredient-analysis-img.png";
+import tryOn1Img from "../assets/images/tryon-1.png";
+import tryOn2Img from "../assets/images/tryon-2.png";
+import tryOn3Img from "../assets/images/tryon-3.png";
+import chromaHomeImg from "../assets/images/chroma-home-img.png";
 import { getColorName } from "../utils/colorNames";
 
 // Hero background stills, crossfaded in a loop (last frame fades back into the first).
@@ -126,19 +133,19 @@ const heroFeatures = [
     title: "Clinical Integrity",
     description:
       "Dermatologist-vetted algorithms ensuring safe and efficacious results.",
-    image: "/src/assets/images/clinical-integrity-img.png",
+    image: clinicalIntegrityImg,
   },
   {
     title: "AI Personalization",
     description:
       "Generative beauty regimens tailored to your skin's unique genetic markers.",
-    image: "/src/assets/images/ai-personalization-img.png",
+    image: aiPersonalizationImg,
   },
   {
     title: "Ingredient Analysis",
     description:
       "Deep-scan imaging identifying ingredient interactions at a cellular level.",
-    image: "/src/assets/images/ingredient-analysis-img.png",
+    image: ingredientAnalysisImg,
   },
 ];
 
@@ -153,17 +160,17 @@ const seasonGroups = [
 
 const tryOnSlides = [
   {
-    image: "/src/assets/images/tryon-1.png",
+    image: tryOn1Img,
     caption:
       "The virtual try-on lets users simulate exactly what a shade or product looks like on their own skin, in real time.",
   },
   {
-    image: "/src/assets/images/tryon-2.png",
+    image: tryOn2Img,
     caption:
       "The scientific filter cross-checks every product against your restrictions, flagging anything that doesn't clear your clinical profile.",
   },
   {
-    image: "/src/assets/images/tryon-3.png",
+    image: tryOn3Img,
     caption:
       "The product catalog stays organized by season and safety status, so recommendations always match who you actually are.",
   },
@@ -559,7 +566,7 @@ export function SplashPage() {
               className="group relative block overflow-hidden rounded-3xl shadow-[0_20px_50px_rgba(20,5,37,0.15)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(20,5,37,0.28)]"
             >
               <img
-                src="/src/assets/images/chroma-home-img.png"
+                src={chromaHomeImg}
                 alt="Chromascope dashboard preview"
                 className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />

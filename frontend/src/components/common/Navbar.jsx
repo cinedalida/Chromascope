@@ -4,6 +4,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { useUserStore } from "../../store/userStore";
 import { LogOut, X, Menu } from "lucide-react";
+import chroLogoViolet from "../../assets/logos/chro-logo-violet.png";
 
 const navItems = [
   { label: "Home", icon: "home", path: "/home" },
@@ -145,7 +146,7 @@ export function Navbar({ onMenuToggle }) {
             {/* Brand / Breadcrumb */}
             <div className="flex items-center gap-2 text-xs sm:text-sm uppercase tracking-[0.2em] sm:tracking-[0.32em] text-primary">
               <img
-                src="/src/assets/logos/chro-logo-violet.png"
+                src={chroLogoViolet}
                 alt="Chromascope"
                 className="h-6 w-6 rounded-full lg:hidden"
               />
