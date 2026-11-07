@@ -48,7 +48,7 @@ Update this table only as part of an approved change plan, after the user says a
 | 1 Build the Browse shade catalog | [x] |
 | 2 Recommended-source investigation (read only) | [x] |
 | 3 Frontend data layer (Recommended + Browse) | [ ] |
-| 4 Selected shade drives overlay | [ ] |
+| 4 Selected shade drives overlay | [x] |
 | 4b Blend comparison (only if needed) | [ ] |
 | 5 Applied Products panel | [ ] |
 | 6 In-app performance display | [ ] |
@@ -346,7 +346,8 @@ Spec:
 7. `ProductSwatchPicker({ shades, selectedId, onSelect })`: a horizontally scrollable row of round swatches (background is `shade.hex`). The selected swatch gets a ring. Each swatch has `title` and `aria-label` set to the shade name, or the product name when there is no shade name.
 8. Applied chips at the top come from `selectedShades`, one per region: a dot with the real hex, the shade or product name, and the brand. Chips for Browse items carry a small "Browse" label. The x button clears that region only. "Clear all" calls `onClear`. The count line reads "N active".
 9. Loading and error states for each fetch, and an empty state for no search results.
-10. In `ARTryOnPage.jsx` pass the new props, delete the Phase 4 debug strip, and remove the old Task 7 TODO comment. Call `clearRecommendedCache()` when the AR page mounts, so changed allergens or a new season never show stale results. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
+10. In `ARTryOnPage.jsx` pass the new props, delete the Phase 4 debug strip, and remove the old Task 7 TODO comment. Call `clearRecommendedCache()` when the AR page mounts, so changed allergens or a new season never show stale results. Use `useLayoutEffect` for this: a parent's plain effect runs after its children's effects, so the panel would read the old cache first.
+11. Phase 5 decisions: the per-product on/off switch is removed, since a shade is applied by tapping its swatch and removed by tapping it again. The verdict badge copies the `StatusBadge` colors from the Ingredient Filter page instead of sharing the component, so that page is not edited. Swatches are 40 px to pass the tap-target audit. The "signed out" manual check no longer applies, because `/ar-tryon` now requires login. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
 
 Automated checks:
 - [ ] `npm run lint` and `npm run build` pass.

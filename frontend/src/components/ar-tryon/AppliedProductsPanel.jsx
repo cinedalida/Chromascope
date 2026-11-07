@@ -1,165 +1,160 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useARShades } from "../../hooks/useARShades.js";
+import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
+import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
 
-const categories = ["LIPS", "EYESHADOW", "BLUSH"];
+// Tab label -> AR region key.
+const categories = [
+  { label: "LIPS", region: "lips" },
+  { label: "EYESHADOW", region: "eyeshadow" },
+  { label: "BLUSH", region: "cheeks" },
+];
+const REGION_LABEL = Object.fromEntries(categories.map((c) => [c.region, c.label]));
 
-// DUMMY DATA — placeholder applied-products list until this panel is wired
-// to the real AR try-on state (live product selections / backend). Each
-// item carries a `category` so the LIPS/EYESHADOW/BLUSH tabs actually filter
-// the list instead of just relabeling the same five items.
-const products = [
-  {
-    id: 1,
-    category: "LIPS",
-    name: "Velvet Orchid #12",
-    type: "MATTE FINISH",
-    description: "Full-coverage clinical pigment",
-    deltaE: "0.4",
-    active: true,
-    gradient: "linear-gradient(135deg, #5D0E41 0%, #3A0022 100%)",
-  },
-  {
-    id: 2,
-    category: "LIPS",
-    name: "Crimson Quartz",
-    type: "SATIN GLOSS",
-    description: "Hyaluronic-infused serum",
-    deltaE: "1.2",
-    active: false,
-    gradient: "linear-gradient(135deg, #9C274B 0%, #7B1C39 100%)",
-  },
-  {
-    id: 3,
-    category: "LIPS",
-    name: "Neon Peony",
-    type: "HYDRA-SHEER",
-    description: "Lightweight botanical balm",
-    deltaE: "1.5",
-    active: false,
-    gradient: "linear-gradient(135deg, #E91E63 0%, #AD1457 100%)",
-  },
-  {
-    id: 4,
-    category: "LIPS",
-    name: "Amber Sunset",
-    type: "MATTE LIQUID",
-    description: "All-day wear lab formula",
-    deltaE: "2.1",
-    active: false,
-    gradient: "linear-gradient(135deg, #FF9800 0%, #E65100 100%)",
-  },
-  {
-    id: 5,
-    category: "LIPS",
-    name: "Cacao Elixir",
-    type: "DEEP SATIN",
-    description: "Organic derived micro-pigments",
-    deltaE: "0.9",
-    active: false,
-    gradient: "linear-gradient(135deg, #795548 0%, #3E2723 100%)",
-  },
-  {
-    id: 6,
-    category: "EYESHADOW",
-    name: "Amethyst Smoke",
-    type: "SHIMMER",
-    description: "Pearl-finish shadow duo",
-    deltaE: "0.7",
-    active: false,
-    gradient: "linear-gradient(135deg, #7C3AED 0%, #4C1D95 100%)",
-  },
-  {
-    id: 7,
-    category: "EYESHADOW",
-    name: "Bronze Ember",
-    type: "MATTE",
-    description: "Warm-tone eye pigment",
-    deltaE: "1.8",
-    active: false,
-    gradient: "linear-gradient(135deg, #B45309 0%, #78350F 100%)",
-  },
-  {
-    id: 8,
-    category: "BLUSH",
-    name: "Rose Glow Blush",
-    type: "CREAM",
-    description: "Blendable cheek tint",
-    deltaE: "1.1",
-    active: true,
-    gradient: "linear-gradient(135deg, #F472B6 0%, #BE185D 100%)",
-  },
-  {
-    id: 9,
-    category: "BLUSH",
-    name: "Coral Dust",
-    type: "POWDER",
-    description: "Buildable micronized pigment",
-    deltaE: "1.4",
-    active: false,
-    gradient: "linear-gradient(135deg, #FB923C 0%, #C2410C 100%)",
-  },
+const SOURCES = [
+  { key: "recommended", label: "Recommended" },
+  { key: "browse", label: "Browse" },
 ];
 
-/* ── Color match badge — ΔE (perceptual color difference) isn't meaningful
-   to most users, so it's converted to a plain-language percentage using the
-   same formula as the Ingredient Filter table, for consistency. */
-function MatchBadge({ deltaE }) {
-  const percent = Math.max(0, 100 - parseFloat(deltaE) * 5).toFixed(0);
-  const excellent = percent >= 95;
+const PAGE_SIZE = 20;
+const SEARCH_DELAY_MS = 150;
+
+const EMPTY_MESSAGES = {
+  signed_out: "Sign in to see products matched to you.",
+  empty: "No matched products for this category yet.",
+  error: "Could not load your matches.",
+};
+
+function formatPrice(price, currency) {
+  if (price === null || price === undefined) return null;
+  const amount = price.toLocaleString("en-PH", { maximumFractionDigits: 2 });
+  if (currency === "Peso") return `₱${amount}`;
+  if (currency === "Dollar") return `$${amount}`;
+  return amount;
+}
+
+/* ── Verdict badge: same colors as StatusBadge on the Ingredient Filter page ── */
+function VerdictBadge({ verdict }) {
+  const isSafe = verdict === "safe";
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${
-        excellent
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-gray-lightest text-gray-light"
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-2 py-0.5 ${
+        isSafe ? "bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]" : "bg-[#FFFBEB] border-[#FEF3C7] text-[#D97706]"
       }`}
     >
-      {percent}% Match
+      <span className={`h-1 w-1 rounded-full ${isSafe ? "bg-[#10B981]" : "bg-[#F59E0B]"}`} />
+      <span className="text-[9px] font-black uppercase tracking-widest">{isSafe ? "Safe" : "Caution"}</span>
     </span>
   );
 }
 
-/* ── iOS-style toggle ─────────────────────── */
-function ToggleSwitch({ active, onToggle }) {
+function Notice({ children }) {
   return (
-    <button
-      onClick={onToggle}
-      aria-label="Toggle product"
-      className="relative flex h-10 w-11 shrink-0 items-center focus:outline-none border-0"
+    <p className="rounded-xl bg-primary-lightest px-3 py-2 text-[11px] leading-snug text-primary-darker">{children}</p>
+  );
+}
+
+function EmptyState({ message, actionLabel, onAction }) {
+  return (
+    <div className="py-10 text-center">
+      <p className="text-[11px] text-gray-light">{message}</p>
+      {onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70"
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── One product with its swatch row ── */
+function ProductCard({ group, selected, onSelect }) {
+  const selectedId = selected?.source === group.source ? selected.id : null;
+  const isActive = group.shades.some((shade) => shade.id === selectedId);
+  const price = formatPrice(group.price, group.currency);
+
+  return (
+    <div
+      className="rounded-2xl p-3.5 transition-all duration-200"
+      style={{
+        backgroundColor: isActive ? "var(--color-primary-lightest)" : "#FAFAFA",
+        border: isActive ? "1.5px solid #C084FC" : "1.5px solid transparent",
+      }}
     >
-      <span
-        aria-hidden="true"
-        className={`h-6 w-11 rounded-full transition-colors duration-200 ${
-          active ? "bg-primary" : "bg-gray-lighter"
-        }`}
-      />
-      <span
-        aria-hidden="true"
-        className={`absolute left-0.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          active ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
-    </button>
+      <div className="mb-0.5 flex items-center justify-between gap-2">
+        <span className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">{group.brand}</span>
+        {group.source === "recommended" && group.verdict && <VerdictBadge verdict={group.verdict} />}
+      </div>
+      <p className="font-heading text-sm font-semibold leading-tight text-black">{group.product}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-light">
+        {price && <span>{price}</span>}
+        {group.finish && <span>{group.finish}</span>}
+        {group.source === "browse" && <span>{group.shades.length} {group.shades.length === 1 ? "shade" : "shades"}</span>}
+        {group.seasonMatch && (
+          <span className="rounded-md bg-primary-lighter px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter text-primary">
+            Season match
+          </span>
+        )}
+      </div>
+      <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={onSelect} />
+    </div>
+  );
+}
+
+/* ── Paged card list. Remounted (keyed) when tab, source or query changes, which resets the page count. ── */
+function ProductList({ groups, selected, onSelect }) {
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  return (
+    <>
+      {groups.slice(0, visible).map((group) => (
+        <ProductCard key={group.key} group={group} selected={selected} onSelect={onSelect} />
+      ))}
+      {groups.length > visible && (
+        <button
+          type="button"
+          onClick={() => setVisible((n) => n + PAGE_SIZE)}
+          className="w-full rounded-2xl border border-gray-lighter py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:bg-primary-lightest"
+        >
+          Show more ({groups.length - visible} left)
+        </button>
+      )}
+    </>
   );
 }
 
 /* ── Main panel ───────────────────────────── */
-export function AppliedProductsPanel() {
-  const [activeCategory, setActiveCategory] = useState("LIPS");
-  const [productList, setProductList] = useState(products);
+export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear }) {
+  const [activeRegion, setActiveRegion] = useState("lips");
+  const [source, setSource] = useState("recommended");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
-  const toggleProduct = (id) =>
-    setProductList((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, active: !p.active } : p)),
-    );
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), SEARCH_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [query]);
 
-  const clearAll = () =>
-    setProductList((prev) => prev.map((p) => ({ ...p, active: false })));
-
-  const activeProducts = productList.filter((p) => p.active);
-  const activeCount = activeProducts.length;
-  const visibleProducts = productList.filter(
-    (p) => p.category === activeCategory,
+  const { items, status, loading, seasonFilter } = useARShades(activeRegion, source);
+  const groups = useMemo(() => groupByProduct(items), [items]);
+  const visibleGroups = useMemo(
+    () => (source === "browse" ? searchProducts(groups, debouncedQuery) : groups),
+    [groups, source, debouncedQuery],
   );
+
+  const applied = Object.entries(selectedShades).filter(([, shade]) => shade);
+  const selected = selectedShades[activeRegion];
+  const selectForRegion = (shade) => onSelectShade(activeRegion, shade);
+
+  const switchSource = (next) => {
+    setSource(next);
+    setQuery("");
+    setDebouncedQuery("");
+  };
 
   return (
     <div className="flex h-full flex-col bg-white font-body">
@@ -171,30 +166,37 @@ export function AppliedProductsPanel() {
               Applied Products
             </h2>
             <p className="text-[11px] text-gray-light mt-0.5">
-              {activeCount} active · live AR overlay
+              {applied.length} active · live AR overlay
             </p>
           </div>
           <button
-            onClick={clearAll}
+            onClick={onClear}
             className="relative text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
           >
             Clear all
           </button>
         </div>
 
-        {/* Applied chips — derived from productList so they stay in sync
-            with the toggles below instead of tracking their own state. */}
+        {/* Applied chips, one per region, straight from selectedShades. */}
         <div className="flex flex-wrap gap-1.5">
-          {activeProducts.map((product) => (
+          {applied.map(([region, shade]) => (
             <span
-              key={product.id}
-              className="inline-flex items-center gap-1.5 rounded-full py-1 pl-2.5 pr-2 text-[11px] font-semibold text-white"
-              style={{ backgroundImage: product.gradient }}
+              key={region}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-lightest py-1 pl-1.5 pr-2 text-[11px] font-semibold text-black"
             >
-              {product.name}
+              <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+              <span className="truncate">
+                {shade.shade || shade.product}
+                <span className="font-normal text-gray-light"> · {shade.brand}</span>
+              </span>
+              {shade.source === "browse" && (
+                <span className="rounded-md bg-white px-1.5 text-[8px] font-black uppercase tracking-wider text-gray-light">
+                  Browse
+                </span>
+              )}
               <button
-                onClick={() => toggleProduct(product.id)}
-                aria-label={`Remove ${product.name}`}
+                onClick={() => onSelectShade(region, null)}
+                aria-label={`Remove ${REGION_LABEL[region].toLowerCase()} shade`}
                 className="relative opacity-60 hover:opacity-100 leading-none after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
@@ -212,21 +214,42 @@ export function AppliedProductsPanel() {
       </div>
 
       {/* ── Category Tabs ── */}
-      <div className="px-4 py-3 border-b border-gray-lightest/60 bg-white">
+      <div className="px-4 py-3 border-b border-gray-lightest/60 bg-white space-y-2">
         <div className="flex p-1.5 bg-gray-lightest/60 rounded-2xl gap-1">
-          {categories.map((cat) => {
-            const isActive = activeCategory === cat;
+          {categories.map(({ label, region }) => {
+            const isActive = activeRegion === region;
             return (
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
+                key={region}
+                onClick={() => setActiveRegion(region)}
                 className={`flex-1 rounded-xl py-2.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
                   isActive
                     ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
                     : "text-gray-light hover:text-gray hover:bg-black/5"
                 }`}
               >
-                {cat}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Source switch: Recommended first (R1), Browse second. */}
+        <div className="flex p-1 bg-gray-lightest/60 rounded-xl gap-1">
+          {SOURCES.map(({ key, label }) => {
+            const isActive = source === key;
+            return (
+              <button
+                key={key}
+                onClick={() => switchSource(key)}
+                aria-pressed={isActive}
+                className={`flex-1 rounded-lg py-2 text-[10px] font-bold tracking-[0.06em] transition-all duration-300 ${
+                  isActive
+                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                    : "text-gray-light hover:text-gray hover:bg-black/5"
+                }`}
+              >
+                {label}
               </button>
             );
           })}
@@ -235,54 +258,48 @@ export function AppliedProductsPanel() {
 
       {/* ── Product List ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {visibleProducts.length === 0 ? (
-          <p className="py-10 text-center text-[11px] text-gray-light">
-            No products applied in this category yet.
-          </p>
+        {source === "browse" && (
+          <>
+            <Notice>Browse shades are not checked by the ingredient safety filter.</Notice>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search brand, product, or shade"
+              aria-label="Search Browse shades"
+              className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2.5 text-[12px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
+            />
+          </>
+        )}
+
+        {source === "recommended" && !loading && status === "ok" && seasonFilter === "fallback" && (
+          <Notice>Showing everything that passed your ingredient check.</Notice>
+        )}
+        {source === "recommended" && !loading && status === "ok" && seasonFilter === "no_season" && (
+          <Notice>
+            <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to see shades for your season.
+          </Notice>
+        )}
+
+        {loading ? (
+          <p className="py-10 text-center text-[11px] text-gray-light">Loading shades…</p>
+        ) : source === "recommended" && status !== "ok" ? (
+          <EmptyState
+            message={EMPTY_MESSAGES[status] ?? EMPTY_MESSAGES.error}
+            actionLabel="Browse instead"
+            onAction={() => switchSource("browse")}
+          />
+        ) : source === "browse" && status !== "ok" ? (
+          <EmptyState message="Could not load Browse shades." />
+        ) : visibleGroups.length === 0 ? (
+          <EmptyState message={`No products match "${debouncedQuery}".`} />
         ) : (
-          visibleProducts.map((product) => (
-            <div
-              key={product.id}
-              className="group flex items-center gap-3 rounded-2xl p-3.5 transition-all duration-200"
-              style={{
-                backgroundColor: product.active ? "var(--color-primary-lightest)" : "#FAFAFA",
-                border: product.active
-                  ? "1.5px solid #C084FC"
-                  : "1.5px solid transparent",
-              }}
-            >
-              {/* Swatch */}
-              <div
-                className="h-12 w-12 flex-shrink-0 rounded-xl shadow-sm"
-                style={{
-                  background: product.gradient,
-                  boxShadow: "inset 0 2px 4px rgba(0,0,0,0.08)",
-                }}
-              />
-
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">
-                    {product.type}
-                  </span>
-                  <MatchBadge deltaE={product.deltaE} />
-                </div>
-                <p className="font-heading text-sm font-semibold text-black truncate leading-tight">
-                  {product.name}
-                </p>
-                <p className="text-[11px] text-gray-light mt-0.5 truncate">
-                  {product.description}
-                </p>
-              </div>
-
-              {/* Toggle */}
-              <ToggleSwitch
-                active={product.active}
-                onToggle={() => toggleProduct(product.id)}
-              />
-            </div>
-          ))
+          <ProductList
+            key={`${activeRegion}:${source}:${debouncedQuery}`}
+            groups={visibleGroups}
+            selected={selected}
+            onSelect={selectForRegion}
+          />
         )}
       </div>
     </div>

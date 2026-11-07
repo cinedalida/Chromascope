@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
 import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
@@ -7,15 +7,10 @@ import { useARCamera } from "../hooks/useARCamera.jsx";
 import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
 import { useSettingsStore } from "../store/settingsStore.js";
-import { getShades } from "../services/arShadeService.js";
-import { getRecommended } from "../services/arRecommendedService.js";
+import { clearRecommendedCache } from "../services/arRecommendedService.js";
 import { Check, Smile } from "lucide-react";
 
 const NO_SHADES = { lips: null, cheeks: null, eyeshadow: null };
-
-//TODO: region toggles (lips/cheeks/full face) are wired via ARControlBar + real state below.
-// Product colors are still the placeholder DEFAULT_COLORS inside AROverlayCanvas — Task 7 replaces
-// those with real hex_color values from /api/run-filter via AppliedProductsPanel.
 
 export function ARTryOnPage() {
   // Camera access (and its permission prompt) is gated behind the "Start
@@ -25,6 +20,12 @@ export function ARTryOnPage() {
   const [started, setStarted] = useState(false);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
+
+  // Fresh Recommended results on every visit, so changed allergens or a new season show at once.
+  // A layout effect runs before the panel's data effects; a plain effect would run after them.
+  useLayoutEffect(() => {
+    clearRecommendedCache();
+  }, []);
 
   // FPS / latency badge (Profile → App settings). Measures only a live camera feed.
   const showPerfStats = useSettingsStore((s) => s.showPerfStats);
@@ -42,7 +43,7 @@ export function ARTryOnPage() {
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
 
-  // Only regions with a selected shade; AROverlayCanvas fills in the rest.
+  // Only regions with a selected shade; AROverlayCanvas draws nothing for the rest.
   // Memoized so the render loop restarts only when a shade actually changes.
   const colors = useMemo(() => {
     const next = {};
@@ -200,81 +201,10 @@ export function ARTryOnPage() {
 
         {/* RIGHT PANEL */}
         <aside className="border-t lg:border-t-0 lg:border-l border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)]">
-          {import.meta.env.DEV && (
-            <ShadeDebugStrip selectedShades={selectedShades} onSelect={selectShade} onClear={clearShades} />
-          )}
-          <AppliedProductsPanel />
+          <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
         </aside>
       </div>
     </main>
-  );
-}
-
-/* Dev-only shade test strip */
-// TODO: removed in Phase 5, when AppliedProductsPanel selects shades.
-const randomOf = (list) => list[Math.floor(Math.random() * list.length)];
-const darkestOf = (list) => list.reduce((best, s) => (s.lab[0] < best.lab[0] ? s : best));
-const lightestOf = (list) => list.reduce((best, s) => (s.lab[0] > best.lab[0] ? s : best));
-
-const describeShade = (s) => `${s.brand} - ${s.product}${s.shade ? ` - ${s.shade}` : ""} (${s.hex})`;
-
-function ShadeDebugStrip({ selectedShades, onSelect, onClear }) {
-  const [message, setMessage] = useState(null);
-
-  const pickBrowse = async (region, pick) => {
-    const shades = await getShades(region);
-    if (shades.length === 0) {
-      setMessage(`No ${region} shades loaded`);
-      return;
-    }
-    setMessage(null);
-    onSelect(region, pick(shades));
-  };
-
-  const pickRecommendedLips = async () => {
-    const { status, items } = await getRecommended("lips");
-    if (items.length === 0) {
-      setMessage(`Recommended lips: ${status}`);
-      return;
-    }
-    setMessage(null);
-    onSelect("lips", items[0]);
-  };
-
-  const buttons = [
-    ["Random lips", () => pickBrowse("lips", randomOf)],
-    ["Random cheeks", () => pickBrowse("cheeks", randomOf)],
-    ["Random eyeshadow", () => pickBrowse("eyeshadow", randomOf)],
-    ["Recommended lips", pickRecommendedLips],
-    ["Darkest lips", () => pickBrowse("lips", darkestOf)],
-    ["Lightest lips", () => pickBrowse("lips", lightestOf)],
-    ["Clear", () => { setMessage(null); onClear(); }],
-  ];
-
-  return (
-    <div className="border-b border-dashed border-gray-lighter px-4 py-3 font-body">
-      <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">Dev: shade test</p>
-      <div className="flex flex-wrap gap-1.5">
-        {buttons.map(([label, onClick]) => (
-          <button
-            key={label}
-            type="button"
-            onClick={onClick}
-            className="rounded-full border border-gray-lighter px-2.5 py-1 text-[10px] font-bold text-primary transition hover:bg-primary-lightest"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <ul className="mt-2 space-y-0.5 text-[10px] text-gray-light">
-        {Object.entries(selectedShades).map(([region, shade]) => (
-          <li key={region} className="truncate">
-            <span className="font-bold uppercase">{region}:</span> {shade ? describeShade(shade) : "placeholder"}
-          </li>
-        ))}
-        {message && <li className="text-primary">{message}</li>}
-      </ul>
-    </div>
   );
 }
 

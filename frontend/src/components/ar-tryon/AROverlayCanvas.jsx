@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
 import {
@@ -18,11 +18,9 @@ import {
 } from "../../utils/meshRegions.js";
 
 /**
- * Placeholder toggle/color state. Task 6 replaced DEFAULT_TOGGLES with
- * real state from ARControlBar; Task 7 replaces DEFAULT_COLORS with real
- * product hex_color values from AppliedProductsPanel / the /api/run-filter
- * response. Full face defaults off since it visually covers lips/cheeks
- * underneath it.
+ * Default toggles, used only when no `toggles` prop is passed (ARTryOnPage
+ * always passes real state from ARControlBar). There are no default colors:
+ * a region is drawn only when ARTryOnPage passes a selected shade for it.
  *
  * Eyeliner was tried (stroke-based, along the upper lash line with a
  * wing-tip flick) and removed after visual testing, it read as too faint/
@@ -37,11 +35,7 @@ const DEFAULT_TOGGLES = {
   cheeks: true,
   eyeshadow: true,
 };
-const DEFAULT_COLORS = {
-  lips: "#B5432A",
-  cheeks: "#E8A2A2",
-  eyeshadow: "#8B6F5C",
-};
+const NO_COLORS = {};
 
 /**
  * Maps a point in the video's own pixel space onto the canvas, replicating
@@ -152,8 +146,8 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *  - toggles: { lips, cheeks, eyeshadow } booleans — which regions render. There
  *    is no separate "fullFace" toggle here — ARControlBar's Full Face pill is a
  *    shortcut that flips these three together, not its own render region.
- *  - colors: { lips, cheeks, eyeshadow } hex strings, the shade to apply. May be
- *    partial; a missing region falls back to DEFAULT_COLORS.
+ *  - colors: { lips, cheeks, eyeshadow } hex strings, the selected shades. May be
+ *    partial; a region with no color is not drawn.
  *  - opacity: blend opacity constant β from Eq. D.2 (manuscript recommends 0.7-0.8).
  *  - onFrame: optional callback(latencyMs) called once per processed frame with
  *    the time spent on detection + smoothing + drawing (usePerfStats).
@@ -169,7 +163,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   isMock,
   alpha = 0.5,
   toggles = DEFAULT_TOGGLES,
-  colors = DEFAULT_COLORS,
+  colors = NO_COLORS,
   opacity = 0.75,
   blendMode = "color",
   onFrame,
@@ -177,7 +171,6 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const canvasRef = useRef(null);
   // Changing a shade restarts the render loop below; smoothing state lives in
   // refs, so the restart costs at most one frame and no tracking jump.
-  const resolvedColors = useMemo(() => ({ ...DEFAULT_COLORS, ...colors }), [colors]);
   // Kept in a ref so a new callback never restarts the render loop.
   const onFrameRef = useRef(onFrame);
   useEffect(() => {
@@ -326,15 +319,15 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           const cheekFeather = canvas.width * 0.02;
           const eyeshadowFeather = canvas.width * 0.015;
 
-          if (toggles.lips) {
-            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, resolvedColors.lips, opacity, "evenodd", lipFeather, blendMode);
+          if (toggles.lips && colors.lips) {
+            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, opacity, "evenodd", lipFeather, blendMode);
           }
-          if (toggles.cheeks) {
+          if (toggles.cheeks && colors.cheeks) {
             const leftRing = orderRingByAngle(CHEEK_LEFT, smoothed);
             const rightRing = orderRingByAngle(CHEEK_RIGHT, smoothed);
-            fillRegion(ctx, [leftRing, rightRing], ...args, resolvedColors.cheeks, opacity, "nonzero", cheekFeather, blendMode);
+            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, opacity, "nonzero", cheekFeather, blendMode);
           }
-          if (toggles.eyeshadow) {
+          if (toggles.eyeshadow && colors.eyeshadow) {
             // Region = upper lash line arc + the eyebrow ring that sits closer to the
             // eye, angle-sorted into a closed blob (same technique as cheeks).
             const browLeftLower = pickCloserRing(EYEBROW_LEFT_A, EYEBROW_LEFT_B, smoothed);
@@ -343,7 +336,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
             const lidRight = upperArc(EYE_RIGHT, smoothed);
             const shadowLeft = orderRingByAngle([...lidLeft, ...browLeftLower], smoothed);
             const shadowRight = orderRingByAngle([...lidRight, ...browRightLower], smoothed);
-            fillRegion(ctx, [shadowLeft, shadowRight], ...args, resolvedColors.eyeshadow, opacity, "nonzero", eyeshadowFeather, blendMode);
+            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, opacity, "nonzero", eyeshadowFeather, blendMode);
           }
         }
 
@@ -358,7 +351,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, resolvedColors, opacity, blendMode]);
+  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, opacity, blendMode]);
 
   return (
     <canvas
