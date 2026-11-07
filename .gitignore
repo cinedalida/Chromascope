@@ -155,6 +155,8 @@ backend/serviceAccountKey.json
 backend/generate_serviceaccount.py
 *.xlsx
 Chromascope_file.xlsx
+# Survey data (real respondents' health data): never commit
+research/safety-filter/**/*.csv
 
 # OS files
 .DS_Store
