@@ -7,7 +7,6 @@ import {
   Sparkles,
   ArrowRight,
   ScanFace,
-  Target,
   ShieldCheck,
   AlertTriangle
 } from "lucide-react";
@@ -106,7 +105,7 @@ export function ColorAnalysisSubtypePage() {
     return <Navigate to="/color-analysis" replace />;
   }
 
-  const { season, confidence, lab_color, low_confidence } = result;
+  const { season, lab_color, low_confidence } = result;
   const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
 
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
@@ -204,29 +203,10 @@ export function ColorAnalysisSubtypePage() {
 
           <div className={`col-span-1 lg:col-span-8 space-y-6 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
             
+            {low_confidence && (
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
-              <div className="flex justify-between items-end mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <Target size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
-                    <p className="text-[10px] text-gray uppercase tracking-wider">Model accuracy calculation</p>
-                  </div>
-                </div>
-                <p className="text-3xl font-black text-primary">
-                  {confidence.toFixed(1)}%
-                </p>
-              </div>
-              <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
-                <div 
-                  className="h-full bg-gradient-to-r from-primary via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
-                  style={{ width: animateIn ? `${confidence}%` : '0%' }}
-                />
-              </div>
-              {low_confidence && (
-                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <div>
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                   <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
                   <div className="space-y-2">
                     <p className="text-sm text-amber-800 leading-relaxed">
@@ -241,8 +221,9 @@ export function ColorAnalysisSubtypePage() {
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
+            )}
 
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
               <div className="flex justify-between items-center mb-8">

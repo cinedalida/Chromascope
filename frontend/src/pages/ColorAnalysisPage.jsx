@@ -14,8 +14,7 @@ import {
   ArrowRight,
   Lock,
   Loader2,
-  Dna,
-  Target
+  Dna
 } from "lucide-react";
 import { auth, db } from "../firebase"; 
 import { doc, getDoc } from "firebase/firestore";
@@ -178,7 +177,6 @@ export function ColorAnalysisPage() {
   };
 
   const userSeason = userProfile?.seasonal_label;
-  const userConfidence = userProfile?.season_confidence_level; 
   const currentSeasonData = userSeason && SEASON_DATABASE[userSeason] ? SEASON_DATABASE[userSeason] : null;
 
   // Convert the user's DB lab values to Hex to display their raw shade
@@ -310,24 +308,6 @@ export function ColorAnalysisPage() {
                     <h2 className="font-heading text-4xl sm:text-6xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#111827] to-primary italic">
                       {userSeason}
                     </h2>
-                  </div>
-
-                  <div className="bg-gray-50/50 p-4 rounded-2xl border border-white shadow-inner">
-                    <div className="flex justify-between items-end mb-2">
-                      <div className="flex items-center gap-2">
-                        <Target size={16} className="text-primary" />
-                        <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
-                      </div>
-                      <p className="text-lg font-black text-primary">
-                        {userConfidence !== undefined && userConfidence !== null ? `${Number(userConfidence).toFixed(1)}%` : "N/A"}
-                      </p>
-                    </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-primary to-[#C084FC] rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: userConfidence ? `${userConfidence}%` : '0%' }}
-                      />
-                    </div>
                   </div>
 
                   <div className="space-y-4 pt-2">
