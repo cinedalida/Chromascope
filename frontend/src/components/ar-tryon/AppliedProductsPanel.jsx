@@ -4,14 +4,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
-
-// Tab label -> AR region key.
-const categories = [
-  { label: "LIPS", region: "lips" },
-  { label: "EYESHADOW", region: "eyeshadow" },
-  { label: "BLUSH", region: "cheeks" },
-];
-const REGION_LABEL = Object.fromEntries(categories.map((c) => [c.region, c.label]));
+import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
 
 const SOURCES = [
   { key: "recommended", label: "Recommended" },
@@ -74,7 +67,9 @@ function EmptyState({ message, actionLabel, onAction }) {
   );
 }
 
-function selectedIdFor(group, selected) {
+// Id of the selected shade in this product's region, if it came from the same source as the product.
+function selectedIdFor(group, selectedShades) {
+  const selected = selectedShades?.[group.region];
   return selected?.source === group.source ? selected.id : null;
 }
 
@@ -96,11 +91,25 @@ function ProductInfo({ group }) {
         {group.source === "recommended" && group.verdict && <VerdictBadge verdict={group.verdict} />}
       </div>
       <p className="truncate font-heading text-[13px] font-semibold leading-tight text-black">{group.product}</p>
-      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-gray-light">
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-light">
+        {group.region && (
+          <span className="rounded-md bg-gray-lightest px-1.5 py-px text-[8px] font-black uppercase tracking-wider text-black/60">
+            {REGION_LABEL[group.region] ?? group.region}
+          </span>
+        )}
         {price && <span>{price}</span>}
         {group.finish && <span className="truncate">{group.finish}</span>}
         {count > 1 && <span>{count} shades</span>}
-        {group.seasonMatch && (
+        {group.fitTier && (
+          <span
+            className={`rounded-md px-1.5 py-px text-[8px] font-black uppercase tracking-tighter ${
+              group.fitTier === "great" ? "bg-[#ECFDF5] text-[#059669]" : "bg-primary-lighter text-primary"
+            }`}
+          >
+            {group.fitTier === "great" ? "Great match" : "Good match"}
+          </span>
+        )}
+        {group.seasonMatch && !group.fitTier && (
           <span className="rounded-md bg-primary-lighter px-1.5 py-px text-[8px] font-black uppercase tracking-tighter text-primary">
             Season match
           </span>
@@ -111,13 +120,13 @@ function ProductInfo({ group }) {
 }
 
 /* ── A product with one shade: the whole row is the swatch ── */
-function SingleShadeRow({ group, selected, onSelect }) {
+function SingleShadeRow({ group, selectedShades, onSelect }) {
   const shade = group.shades[0];
-  const isActive = shade.id === selectedIdFor(group, selected);
+  const isActive = shade.id === selectedIdFor(group, selectedShades);
   return (
     <button
       type="button"
-      onClick={() => onSelect(isActive ? null : shade)}
+      onClick={() => onSelect(group.region, isActive ? null : shade)}
       aria-pressed={isActive}
       aria-label={`${group.brand} ${group.product} ${shade.shade || ""}`.trim()}
       className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all duration-200 hover:brightness-[0.98]"
@@ -133,8 +142,8 @@ function SingleShadeRow({ group, selected, onSelect }) {
 }
 
 /* ── A product with many shades: collapsed shows a dot preview, expanded shows the full grid ── */
-function MultiShadeRow({ group, selected, onSelect, open, onToggle }) {
-  const selectedId = selectedIdFor(group, selected);
+function MultiShadeRow({ group, selectedShades, onSelect, open, onToggle }) {
+  const selectedId = selectedIdFor(group, selectedShades);
   const isActive = group.shades.some((shade) => shade.id === selectedId);
   const preview = group.shades.slice(0, PREVIEW_COUNT);
   const extra = group.shades.length - preview.length;
@@ -149,7 +158,7 @@ function MultiShadeRow({ group, selected, onSelect, open, onToggle }) {
         />
       </button>
       {open ? (
-        <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={onSelect} />
+        <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={(shade) => onSelect(group.region, shade)} />
       ) : (
         <button type="button" onClick={onToggle} aria-label={`Show ${group.shades.length} shades`} className="mt-2 flex items-center">
           {preview.map((shade) => (
@@ -168,21 +177,21 @@ function MultiShadeRow({ group, selected, onSelect, open, onToggle }) {
 
 /* ── Paged row list. Remounted (keyed) when tab, source or query changes, which resets the page count
       and reopens the row that holds the selected shade. One row is open at a time. ── */
-function ProductList({ groups, selected, onSelect }) {
+function ProductList({ groups, selectedShades, onSelect }) {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openKey, setOpenKey] = useState(
-    () => groups.find((group) => group.shades.some((shade) => shade.id === selectedIdFor(group, selected)))?.key ?? null,
+    () => groups.find((group) => group.shades.some((shade) => shade.id === selectedIdFor(group, selectedShades)))?.key ?? null,
   );
   return (
     <>
       {groups.slice(0, visible).map((group) =>
         group.shades.length === 1 ? (
-          <SingleShadeRow key={group.key} group={group} selected={selected} onSelect={onSelect} />
+          <SingleShadeRow key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} />
         ) : (
           <MultiShadeRow
             key={group.key}
             group={group}
-            selected={selected}
+            selectedShades={selectedShades}
             onSelect={onSelect}
             open={openKey === group.key}
             onToggle={() => setOpenKey((current) => (current === group.key ? null : group.key))}
@@ -203,8 +212,10 @@ function ProductList({ groups, selected, onSelect }) {
 }
 
 /* ── Main panel ───────────────────────────── */
-export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear }) {
-  const [activeRegion, setActiveRegion] = useState("lips");
+export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion }) {
+  const [activeGroup, setActiveGroup] = useState(() => groupOfRegion(initialRegion) ?? "lips");
+  // Product type inside the tab ("all" or a region key such as "eyeliner"), so liner, brows and shadow don't mix.
+  const [activeType, setActiveType] = useState(() => initialRegion ?? "all");
   const [source, setSource] = useState("recommended");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -214,16 +225,22 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
     return () => clearTimeout(id);
   }, [query]);
 
-  const { items, status, loading, seasonFilter } = useARShades(activeRegion, source);
+  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source);
   const groups = useMemo(() => groupByProduct(items), [items]);
-  const visibleGroups = useMemo(
-    () => (source === "browse" ? searchProducts(groups, debouncedQuery) : groups),
-    [groups, source, debouncedQuery],
-  );
+  const typeCounts = useMemo(() => {
+    const counts = {};
+    for (const group of groups) counts[group.region] = (counts[group.region] ?? 0) + 1;
+    return counts;
+  }, [groups]);
+  const typeOptions = groupByKey(activeGroup).regions.filter((region) => typeCounts[region]);
+  // A type with no products in this tab/source (e.g. after switching source) falls back to showing everything.
+  const effectiveType = typeCounts[activeType] ? activeType : "all";
+  const visibleGroups = useMemo(() => {
+    const ofType = effectiveType === "all" ? groups : groups.filter((group) => group.region === effectiveType);
+    return source === "browse" ? searchProducts(ofType, debouncedQuery) : ofType;
+  }, [groups, effectiveType, source, debouncedQuery]);
 
   const applied = Object.entries(selectedShades).filter(([, shade]) => shade);
-  const selected = selectedShades[activeRegion];
-  const selectForRegion = (shade) => onSelectShade(activeRegion, shade);
 
   const switchSource = (next) => {
     setSource(next);
@@ -261,6 +278,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
               className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-lightest py-1 pl-1.5 pr-2 text-[11px] font-semibold text-black"
             >
               <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-primary">{REGION_LABEL[region] ?? region}</span>
               <span className="truncate">
                 {shade.shade || shade.product}
                 <span className="font-normal text-gray-light"> · {shade.brand}</span>
@@ -272,7 +290,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
               )}
               <button
                 onClick={() => onSelectShade(region, null)}
-                aria-label={`Remove ${REGION_LABEL[region].toLowerCase()} shade`}
+                aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
                 className="relative opacity-60 hover:opacity-100 leading-none after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
@@ -315,12 +333,15 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
 
         {/* Region filters */}
         <div className="flex p-0.5 bg-gray-lightest/60 rounded-xl gap-1">
-          {categories.map(({ label, region }) => {
-            const isActive = activeRegion === region;
+          {AR_GROUPS.map(({ label, key }) => {
+            const isActive = activeGroup === key;
             return (
               <button
-                key={region}
-                onClick={() => setActiveRegion(region)}
+                key={key}
+                onClick={() => {
+                  setActiveGroup(key);
+                  setActiveType("all");
+                }}
                 className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
                   isActive
                     ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
@@ -332,6 +353,32 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
             );
           })}
         </div>
+
+        {/* Product type inside the tab, with how many products each has */}
+        {!loading && typeOptions.length > 1 && (
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Product type">
+            {[["all", "All", groups.length], ...typeOptions.map((region) => [region, REGION_LABEL[region], typeCounts[region]])].map(
+              ([key, label, count]) => {
+                const isActive = effectiveType === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveType(key)}
+                    aria-pressed={isActive}
+                    className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary text-white"
+                        : "border-gray-lighter bg-white text-black/70 hover:border-primary-light"
+                    }`}
+                  >
+                    {label} <span className={isActive ? "text-white/70" : "text-gray-light"}>{count}</span>
+                  </button>
+                );
+              },
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Product List ── */}
@@ -353,13 +400,16 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
           </div>
         )}
 
-        {source === "recommended" && !loading && status === "ok" && seasonFilter === "fallback" && (
-          <Notice>Showing everything that passed your ingredient check.</Notice>
+        {source === "recommended" && !loading && status === "ok" && ranked && (
+          <Notice>Everything that passed your ingredient check, sorted by how well it suits your colors. Best match first.</Notice>
         )}
-        {source === "recommended" && !loading && status === "ok" && seasonFilter === "no_season" && (
+        {source === "recommended" && !loading && status === "ok" && !ranked && seasonFilter === "no_season" && (
           <Notice>
-            <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to see shades for your season.
+            <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to sort these by how well they suit you.
           </Notice>
+        )}
+        {source === "recommended" && !loading && status === "ok" && !ranked && seasonFilter !== "no_season" && (
+          <Notice>Showing everything that passed your ingredient check, safest first.</Notice>
         )}
 
         {loading ? (
@@ -376,10 +426,10 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
           <EmptyState message={`No products match "${debouncedQuery}".`} />
         ) : (
           <ProductList
-            key={`${activeRegion}:${source}:${debouncedQuery}`}
+            key={`${activeGroup}:${effectiveType}:${source}:${debouncedQuery}`}
             groups={visibleGroups}
-            selected={selected}
-            onSelect={selectForRegion}
+            selectedShades={selectedShades}
+            onSelect={onSelectShade}
           />
         )}
       </div>

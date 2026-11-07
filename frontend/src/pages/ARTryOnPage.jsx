@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
 import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
@@ -7,19 +8,17 @@ import { useARCamera } from "../hooks/useARCamera.jsx";
 import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
 import { useSettingsStore } from "../store/settingsStore.js";
-import { clearRecommendedCache } from "../services/arRecommendedService.js";
+import { clearRecommendedCache, productToTryOn } from "../services/arRecommendedService.js";
+import { renderFinishFromText } from "../utils/arProductMap.js";
+import { ALL_REGIONS, AR_GROUPS, REGION_LABEL, groupOfRegion } from "../utils/arGroups.js";
 import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
-const NO_SHADES = { lips: null, cheeks: null, eyeshadow: null };
+const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
 
 // DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
 // Profile, App Settings, "AR blend tuning (dev)" is on.
 const BLEND_MODES = ["color", "multiply", "soft-light", "overlay", "hard-light"];
-const TUNING_REGIONS = [
-  { key: "lips", label: "Lips" },
-  { key: "cheeks", label: "Cheeks" },
-  { key: "eyeshadow", label: "Eyeshadow" },
-];
+const TUNING_REGIONS = ALL_REGIONS.map((key) => ({ key, label: REGION_LABEL[key] }));
 
 // Browser full screen where supported. iPhone Safari has no element full screen (the
 // method is missing), so the CSS expanded view is used alone there.
@@ -35,7 +34,33 @@ export function ARTryOnPage() {
   // Try-On Now" screen below — useARCamera only requests the stream once
   // `started` is true, so the page doesn't ambush the user with a camera
   // prompt the instant it loads.
-  const [started, setStarted] = useState(false);
+  //
+  // Exception: a "Try on" button on the Ingredient Filter or Product Catalog sends the product in
+  // location.state. Then the page starts the camera right away (the browser still asks for
+  // permission if it hasn't been granted yet; a refusal shows the usual camera error) and
+  // pre-selects that product's shade.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [incoming] = useState(() => (location.state?.product ? productToTryOn(location.state.product) : null));
+  const [started, setStarted] = useState(Boolean(incoming));
+  // Camera permission already granted: skip the "Start Try-On Now" gate. The Permissions API can't query "camera"
+  // in every browser (e.g. Safari), and then the gate simply stays, as it does for first-time users.
+  useEffect(() => {
+    let active = true;
+    navigator.permissions
+      ?.query({ name: "camera" })
+      .then((status) => {
+        if (active && status.state === "granted") setStarted(true);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  // Drop the product from history state so a refresh doesn't re-apply it.
+  useEffect(() => {
+    if (location.state?.product) navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate]);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
 
@@ -84,14 +109,17 @@ export function ARTryOnPage() {
   const perfEnabled = showPerfStats && started && isReady && !isMock;
   const { stats: perfStats, recordFrame } = usePerfStats({ enabled: perfEnabled });
 
-  const [toggles, setToggles] = useState({
-    lips: true,
-    cheeks: true,
-    eyeshadow: true,
-  });
+  // One toggle per group (lips, cheeks, eyes, face); the overlay gets it expanded to every region in the group.
+  const [toggles, setToggles] = useState(() => Object.fromEntries(AR_GROUPS.map((group) => [group.key, true])));
+  const regionToggles = useMemo(
+    () => Object.fromEntries(ALL_REGIONS.map((region) => [region, toggles[groupOfRegion(region)]])),
+    [toggles],
+  );
 
   // Selected shade item per region (unified shape from arShadeService / arRecommendedService).
-  const [selectedShades, setSelectedShades] = useState(NO_SHADES);
+  const [selectedShades, setSelectedShades] = useState(() =>
+    incoming ? { ...NO_SHADES, [incoming.region]: incoming.shade } : NO_SHADES,
+  );
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
 
@@ -103,12 +131,16 @@ export function ARTryOnPage() {
 
   // Only regions with a selected shade; AROverlayCanvas draws nothing for the rest.
   // Memoized so the render loop restarts only when a shade actually changes.
-  const colors = useMemo(() => {
-    const next = {};
+  const { colors, finishes } = useMemo(() => {
+    const colors = {};
+    const finishes = {};
     for (const [region, shade] of Object.entries(selectedShades)) {
-      if (shade?.hex) next[region] = shade.hex;
+      if (!shade?.hex) continue;
+      colors[region] = shade.hex;
+      const finish = shade.renderFinish ?? renderFinishFromText(region, shade.finish);
+      if (finish) finishes[region] = finish;
     }
-    return next;
+    return { colors, finishes };
   }, [selectedShades]);
 
   // Shutter-flash + "Saved" toast shown briefly after a successful capture.
@@ -140,15 +172,13 @@ export function ARTryOnPage() {
     setTimeout(() => setToastMounted(false), 1450);
   };
 
-  // "Full Face" isn't its own render region (see AROverlayCanvas) — it's a
-  // shortcut that switches lips + cheeks + eyeshadow on/off together. If
-  // they're all already on, pressing it turns all three off; otherwise it
-  // turns all three on, regardless of their individual current states.
+  // "Full Face" isn't its own render region (see AROverlayCanvas); it's a shortcut that switches every group
+  // on or off together. If they're all already on, pressing it turns all off; otherwise it turns all on.
   const handleToggleRegion = (key) => {
     if (key === "fullFace") {
       setToggles((prev) => {
-        const allOn = prev.lips && prev.cheeks && prev.eyeshadow;
-        return { ...prev, lips: !allOn, cheeks: !allOn, eyeshadow: !allOn };
+        const allOn = AR_GROUPS.every((group) => prev[group.key]);
+        return Object.fromEntries(AR_GROUPS.map((group) => [group.key, !allOn]));
       });
       return;
     }
@@ -188,8 +218,9 @@ export function ARTryOnPage() {
               videoRef={cameraRef}
               isReady={isReady}
               isMock={isMock}
-              toggles={toggles}
+              toggles={regionToggles}
               colors={colors}
+              finishes={finishes}
               render={tunerEnabled ? tuning : undefined}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
@@ -234,9 +265,9 @@ export function ARTryOnPage() {
 
             {/* CONTROLS — region toggles flank the capture button */}
             <div className="absolute bottom-3 sm:bottom-8 left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4">
-              <ARControlBar regionKeys={["lips", "cheeks"]} toggles={toggles} onToggle={handleToggleRegion} />
+              <ARControlBar regionKeys={["lips", "cheeks", "eyes"]} toggles={toggles} onToggle={handleToggleRegion} />
               <CaptureButton onClick={handleCapture} disabled={!isReady || isMock} />
-              <ARControlBar regionKeys={["eyeshadow", "fullFace"]} toggles={toggles} onToggle={handleToggleRegion} />
+              <ARControlBar regionKeys={["face", "fullFace"]} toggles={toggles} onToggle={handleToggleRegion} />
             </div>
 
             {/* SAVE FEEDBACK — brief shutter flash + "Saved" toast after a capture */}
@@ -290,7 +321,7 @@ export function ARTryOnPage() {
 
         {/* RIGHT PANEL */}
         <aside className="h-[55dvh] min-h-0 overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
-          <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+          <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
         </aside>
       </div>
 

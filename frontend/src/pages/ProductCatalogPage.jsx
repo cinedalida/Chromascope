@@ -1,6 +1,11 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { assetUrl } from "../config";
+import { productToTryOn } from "../services/arRecommendedService";
+import { tryOnUnavailableTooltip } from "../utils/arProductMap";
+import { SEASON_COUNT, seasonChips, seasonCodes } from "../utils/seasonLabels";
 import {
+  Eye,
   Search,
   Filter,
   Package,
@@ -16,6 +21,7 @@ import { getCatalogSummary, getProductCatalog } from "../services/productService
 import placeholderImg from "../assets/images/placeholder.svg";
 
 export function ProductCatalogPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("All");
@@ -82,14 +88,10 @@ export function ProductCatalogPage() {
   const safeCount = summary ? summary.safe : "–";
   const flaggedCount = summary ? summary.caution + summary.excluded : "–";
   
+  // Distinct seasons named by any product's tags; when nothing is tagged yet, every season is covered.
   const uniqueSeasons = new Set();
-  products.forEach(p => {
-    if (p.season_tags) {
-      const tags = Array.isArray(p.season_tags) ? p.season_tags : p.season_tags.split(',');
-      tags.forEach(s => uniqueSeasons.add(s.trim()));
-    }
-  });
-  const seasonsAnalyzed = uniqueSeasons.size || 4;
+  products.forEach(p => seasonCodes(p).forEach(code => uniqueSeasons.add(code)));
+  const seasonsAnalyzed = uniqueSeasons.size || SEASON_COUNT;
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
@@ -117,7 +119,7 @@ export function ProductCatalogPage() {
           <StatCard title="TOTAL INVENTORY" value={totalInventory} icon={<Package className="text-primary" />} bgColor="bg-primary-lighter" />
           <StatCard title="SAFE FOR YOU" value={safeCount} icon={<ShieldCheck className="text-success" />} bgColor="bg-[#E8F5F1]" />
           <StatCard title="FLAGGED FOR YOU" value={flaggedCount} icon={<AlertTriangle className="text-danger" />} bgColor="bg-[#FFF1F1]" />
-          <StatCard title="SEASONS ANALYZED" value={`${seasonsAnalyzed} / 4`} icon={<Sun className="text-warning" />} bgColor="bg-[#FFF8E6]" />
+          <StatCard title="SEASONS ANALYZED" value={`${seasonsAnalyzed} / ${SEASON_COUNT}`} icon={<Sun className="text-warning" />} bgColor="bg-[#FFF8E6]" />
         </div>
 
         <section className="bg-white rounded-[32px] border border-primary-lighter shadow-sm overflow-hidden">
@@ -182,15 +184,18 @@ export function ProductCatalogPage() {
                       onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
                     />
                     <div className="min-w-0 flex-1 space-y-2">
-                      <div>
-                        <div className="font-bold text-[#1F1924] truncate uppercase tracking-tight italic">{p.product_name || p.name}</div>
-                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{p.brand}</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-bold text-[#1F1924] truncate uppercase tracking-tight italic">{p.product_name || p.name}</div>
+                          <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{p.brand}</div>
+                        </div>
+                        <TryOnButton product={p} navigate={navigate} className="p-1 shrink-0" />
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-[#1F1924] text-sm">{p.price || "N/A"}</span>
                         <span className="bg-gray-lightest text-gray-light px-3 py-1 rounded text-[10px] font-bold uppercase">{p.category}</span>
                         <span className="bg-primary-lighter text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter">
-                          {p.season_tags || "All Seasons"}
+                          {seasonChips(p).join(" · ")}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -214,11 +219,12 @@ export function ProductCatalogPage() {
                   <th className="px-4 py-6">Category</th>
                   <th className="px-4 py-6">Season Tags</th>
                   <th className="px-4 py-6">Ingredients</th>
+                  <th className="px-6 py-6 text-right">Try On</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
                 {loading ? (
-                  <tr><td colSpan="6" className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
+                  <tr><td colSpan="7" className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></td></tr>
                 ) : filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((p) => (
                   <tr key={p.product_id || p.sku} className="hover:bg-primary-lightest transition-colors border-b last:border-none border-primary-lightest group">
                     <td className="px-8 py-5">
@@ -239,7 +245,7 @@ export function ProductCatalogPage() {
                     </td>
                     <td className="px-4 py-5">
                       <span className="bg-primary-lighter text-primary text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter">
-                        {p.season_tags || "All Seasons"}
+                        {seasonChips(p).join(" · ")}
                       </span>
                     </td>
                     <td className="px-4 py-5 max-w-[200px]">
@@ -248,6 +254,9 @@ export function ProductCatalogPage() {
                           <span key={i} className="bg-gray-lightest text-black px-2 py-0.5 rounded text-[9px] border border-gray-lightest truncate max-w-[100px]">{ing.trim()}</span>
                         )) : <span className="italic text-gray-light text-[10px]">Unspecified</span>}
                       </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <TryOnButton product={p} navigate={navigate} className="p-2" />
                     </td>
                   </tr>
                 ))}
@@ -285,6 +294,23 @@ export function ProductCatalogPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+// Opens the AR try-on page with this product's shade selected. Disabled for products that can't be tried on.
+function TryOnButton({ product, navigate, className }) {
+  const canTryOn = Boolean(productToTryOn(product));
+  return (
+    <button
+      type="button"
+      onClick={() => navigate("/ar-tryon", { state: { product } })}
+      disabled={!canTryOn}
+      title={canTryOn ? "Try on" : tryOnUnavailableTooltip(product)}
+      aria-label={`Try on ${product.product_name || product.name || "product"}`}
+      className={`text-gray-400 transition-all enabled:hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed ${className}`}
+    >
+      <Eye size={18} />
+    </button>
   );
 }
 
