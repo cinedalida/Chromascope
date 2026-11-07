@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronDown, Info } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
@@ -17,7 +18,8 @@ const SOURCES = [
   { key: "browse", label: "Browse" },
 ];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
+const PREVIEW_COUNT = 6;
 const SEARCH_DELAY_MS = 150;
 
 const EMPTY_MESSAGES = {
@@ -72,48 +74,121 @@ function EmptyState({ message, actionLabel, onAction }) {
   );
 }
 
-/* ── One product with its swatch row ── */
-function ProductCard({ group, selected, onSelect }) {
-  const selectedId = selected?.source === group.source ? selected.id : null;
-  const isActive = group.shades.some((shade) => shade.id === selectedId);
-  const price = formatPrice(group.price, group.currency);
+function selectedIdFor(group, selected) {
+  return selected?.source === group.source ? selected.id : null;
+}
 
+function rowStyle(isActive) {
+  return {
+    backgroundColor: isActive ? "var(--color-primary-lightest)" : "#FAFAFA",
+    border: isActive ? "1.5px solid #C084FC" : "1.5px solid transparent",
+  };
+}
+
+/* ── Brand, name and meta line shared by both row types ── */
+function ProductInfo({ group }) {
+  const price = formatPrice(group.price, group.currency);
+  const count = group.shades.length;
   return (
-    <div
-      className="rounded-2xl p-3.5 transition-all duration-200"
-      style={{
-        backgroundColor: isActive ? "var(--color-primary-lightest)" : "#FAFAFA",
-        border: isActive ? "1.5px solid #C084FC" : "1.5px solid transparent",
-      }}
-    >
-      <div className="mb-0.5 flex items-center justify-between gap-2">
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">{group.brand}</span>
         {group.source === "recommended" && group.verdict && <VerdictBadge verdict={group.verdict} />}
       </div>
-      <p className="font-heading text-sm font-semibold leading-tight text-black">{group.product}</p>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-light">
+      <p className="truncate font-heading text-[13px] font-semibold leading-tight text-black">{group.product}</p>
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-gray-light">
         {price && <span>{price}</span>}
-        {group.finish && <span>{group.finish}</span>}
-        {group.source === "browse" && <span>{group.shades.length} {group.shades.length === 1 ? "shade" : "shades"}</span>}
+        {group.finish && <span className="truncate">{group.finish}</span>}
+        {count > 1 && <span>{count} shades</span>}
         {group.seasonMatch && (
-          <span className="rounded-md bg-primary-lighter px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter text-primary">
+          <span className="rounded-md bg-primary-lighter px-1.5 py-px text-[8px] font-black uppercase tracking-tighter text-primary">
             Season match
           </span>
         )}
       </div>
-      <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={onSelect} />
     </div>
   );
 }
 
-/* ── Paged card list. Remounted (keyed) when tab, source or query changes, which resets the page count. ── */
+/* ── A product with one shade: the whole row is the swatch ── */
+function SingleShadeRow({ group, selected, onSelect }) {
+  const shade = group.shades[0];
+  const isActive = shade.id === selectedIdFor(group, selected);
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(isActive ? null : shade)}
+      aria-pressed={isActive}
+      aria-label={`${group.brand} ${group.product} ${shade.shade || ""}`.trim()}
+      className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all duration-200 hover:brightness-[0.98]"
+      style={rowStyle(isActive)}
+    >
+      <span
+        className={`h-9 w-9 shrink-0 rounded-full shadow-sm ring-offset-2 ${isActive ? "ring-2 ring-primary" : "ring-1 ring-black/10"}`}
+        style={{ backgroundColor: shade.hex }}
+      />
+      <ProductInfo group={group} />
+    </button>
+  );
+}
+
+/* ── A product with many shades: collapsed shows a dot preview, expanded shows the full grid ── */
+function MultiShadeRow({ group, selected, onSelect, open, onToggle }) {
+  const selectedId = selectedIdFor(group, selected);
+  const isActive = group.shades.some((shade) => shade.id === selectedId);
+  const preview = group.shades.slice(0, PREVIEW_COUNT);
+  const extra = group.shades.length - preview.length;
+
+  return (
+    <div className="rounded-2xl p-2.5 transition-all duration-200" style={rowStyle(isActive)}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-left">
+        <ProductInfo group={group} />
+        <ChevronDown
+          size={16}
+          className={`mt-3 shrink-0 text-gray-light transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open ? (
+        <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={onSelect} />
+      ) : (
+        <button type="button" onClick={onToggle} aria-label={`Show ${group.shades.length} shades`} className="mt-2 flex items-center">
+          {preview.map((shade) => (
+            <span
+              key={shade.id}
+              className={`-mr-1 h-5 w-5 rounded-full ring-2 ${shade.id === selectedId ? "ring-primary" : "ring-white"}`}
+              style={{ backgroundColor: shade.hex }}
+            />
+          ))}
+          {extra > 0 && <span className="ml-2.5 text-[10px] font-semibold text-gray-light">+{extra}</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── Paged row list. Remounted (keyed) when tab, source or query changes, which resets the page count
+      and reopens the row that holds the selected shade. One row is open at a time. ── */
 function ProductList({ groups, selected, onSelect }) {
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const [openKey, setOpenKey] = useState(
+    () => groups.find((group) => group.shades.some((shade) => shade.id === selectedIdFor(group, selected)))?.key ?? null,
+  );
   return (
     <>
-      {groups.slice(0, visible).map((group) => (
-        <ProductCard key={group.key} group={group} selected={selected} onSelect={onSelect} />
-      ))}
+      {groups.slice(0, visible).map((group) =>
+        group.shades.length === 1 ? (
+          <SingleShadeRow key={group.key} group={group} selected={selected} onSelect={onSelect} />
+        ) : (
+          <MultiShadeRow
+            key={group.key}
+            group={group}
+            selected={selected}
+            onSelect={onSelect}
+            open={openKey === group.key}
+            onToggle={() => setOpenKey((current) => (current === group.key ? null : group.key))}
+          />
+        ),
+      )}
       {groups.length > visible && (
         <button
           type="button"
@@ -159,8 +234,8 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
   return (
     <div className="flex h-full flex-col bg-white font-body">
       {/* ── Header ── */}
-      <div className="px-5 pt-5 pb-4 border-b border-gray-lightest/60">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-5 pt-4 pb-3 border-b border-gray-lightest/60">
+        <div className={`flex items-center justify-between ${applied.length ? "mb-2.5" : ""}`}>
           <div>
             <h2 className="font-heading text-lg font-semibold text-black leading-tight">
               Applied Products
@@ -178,6 +253,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
         </div>
 
         {/* Applied chips, one per region, straight from selectedShades. */}
+        {applied.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {applied.map(([region, shade]) => (
             <span
@@ -211,21 +287,24 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
             </span>
           ))}
         </div>
+        )}
       </div>
 
-      {/* ── Category Tabs ── */}
-      <div className="px-4 py-3 border-b border-gray-lightest/60 bg-white space-y-2">
-        <div className="flex p-1.5 bg-gray-lightest/60 rounded-2xl gap-1">
-          {categories.map(({ label, region }) => {
-            const isActive = activeRegion === region;
+      {/* ── Source switch (main choice) above the region filters ── */}
+      <div className="px-4 py-2.5 border-b border-gray-lightest/60 bg-white space-y-1.5">
+        {/* Recommended first (R1), Browse second. Purple marks it as the main category. */}
+        <div className="flex p-1 bg-primary-lighter rounded-2xl gap-1">
+          {SOURCES.map(({ key, label }) => {
+            const isActive = source === key;
             return (
               <button
-                key={region}
-                onClick={() => setActiveRegion(region)}
-                className={`flex-1 rounded-xl py-2.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
+                key={key}
+                onClick={() => switchSource(key)}
+                aria-pressed={isActive}
+                className={`flex-1 rounded-xl py-2 text-[10px] font-bold tracking-[0.06em] transition-all duration-300 ${
                   isActive
-                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                    : "text-gray-light hover:text-gray hover:bg-black/5"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-primary/70 hover:text-primary hover:bg-white/50"
                 }`}
               >
                 {label}
@@ -234,16 +313,15 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
           })}
         </div>
 
-        {/* Source switch: Recommended first (R1), Browse second. */}
-        <div className="flex p-1 bg-gray-lightest/60 rounded-xl gap-1">
-          {SOURCES.map(({ key, label }) => {
-            const isActive = source === key;
+        {/* Region filters */}
+        <div className="flex p-0.5 bg-gray-lightest/60 rounded-xl gap-1">
+          {categories.map(({ label, region }) => {
+            const isActive = activeRegion === region;
             return (
               <button
-                key={key}
-                onClick={() => switchSource(key)}
-                aria-pressed={isActive}
-                className={`flex-1 rounded-lg py-2 text-[10px] font-bold tracking-[0.06em] transition-all duration-300 ${
+                key={region}
+                onClick={() => setActiveRegion(region)}
+                className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
                   isActive
                     ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
                     : "text-gray-light hover:text-gray hover:bg-black/5"
@@ -257,19 +335,22 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
       </div>
 
       {/* ── Product List ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {source === "browse" && (
-          <>
-            <Notice>Browse shades are not checked by the ingredient safety filter.</Notice>
+          <div className="pb-1">
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search brand, product, or shade"
               aria-label="Search Browse shades"
-              className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2.5 text-[12px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
+              className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2 text-[12px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
             />
-          </>
+            <p className="mt-1.5 flex items-center gap-1 px-1 text-[10px] text-gray-light">
+              <Info size={11} className="shrink-0" />
+              Browse shades are not checked by the ingredient safety filter.
+            </p>
+          </div>
         )}
 
         {source === "recommended" && !loading && status === "ok" && seasonFilter === "fallback" && (
