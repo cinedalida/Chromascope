@@ -439,6 +439,7 @@ New content to add:
 - Catalog size: Firestore has 110 products (20 each in Lip, Cheek, Eye, Face, Concealer, 10 in Multi-Use), but the manuscript says 120.
 - Season filtering: `color_matching.py` only sorts Lip, Cheek, and Eye products by season match and never filters. Recommended applies the pseudocode step 5 filter on the frontend, with a fallback to all products that passed the ingredient check when none match.
 - Firestore prices are approximate (`≈ ₱799`); Recommended shows the number only.
+- Phase 3 Recommended check, lips (2026-11-03, one signed-in test profile): status ok, seasonFilter matched, 5 items shown. Dropped: sub-category 2, placeholder 0, excluded 11. Cheeks and eyeshadow not checked yet.
 
 Results to check before submission:
 - Sec. 4.4.5 says "Across the 50 sessions, the average frame rate was 38 FPS and the average rendering latency was 72 ms." No measurement exists behind these numbers yet: the app had no performance display, and the Chapter 5 table marks the same row as pending the survey. Replace with real participant data, or mark as pending, before submission.
