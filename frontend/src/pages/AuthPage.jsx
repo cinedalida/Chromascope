@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { auth, db } from "../firebase"; 
 import { 
@@ -368,6 +368,17 @@ export function AuthPage() {
       <div className="relative flex-1 overflow-hidden bg-white">
         <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
+
+        {/* The installed app has no browser back button, so the sign-in page needs its own way out. */}
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          data-testid="auth-back"
+          className="absolute right-4 top-[calc(2rem+env(safe-area-inset-top))] z-20 inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary-lightest hover:text-primary-dark sm:right-6"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Back
+        </button>
 
         <div className="absolute inset-0 flex flex-col overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
