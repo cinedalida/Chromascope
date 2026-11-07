@@ -47,12 +47,12 @@ Update this table only as part of an approved change plan, after the user says a
 | 0 Baseline and branch | [x] |
 | 1 Build the Browse shade catalog | [x] |
 | 2 Recommended-source investigation (read only) | [x] |
-| 3 Frontend data layer (Recommended + Browse) | [ ] |
+| 3 Frontend data layer (Recommended + Browse) | [x] |
 | 4 Selected shade drives overlay | [x] |
-| 4b Blend comparison (only if needed) | [ ] |
-| 5 Applied Products panel | [ ] |
-| 6 In-app performance display | [ ] |
-| 7 Phone test and manuscript notes | [ ] |
+| 4b Blend comparison (only if needed) | skipped (blend check passed) |
+| 5 Applied Products panel | [x] |
+| 6 In-app performance display | [x] |
+| 7 Phone test and manuscript notes | deferred |
 
 ---
 
