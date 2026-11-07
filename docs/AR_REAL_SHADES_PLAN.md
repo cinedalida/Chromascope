@@ -133,7 +133,7 @@ Modified:
 - `frontend/src/components/ar-tryon/AppliedProductsPanel.jsx`
 - `frontend/src/components/ar-tryon/ProductSwatchPicker.jsx`
 
-Do not modify: `ARControlBar.jsx`, `CameraFeed.jsx`, `useARCamera.jsx`, `meshRegions.js`, `landmarkSmoothing.js`, `productService.js`, anything under `backend/app/`.
+Do not modify (exception, approved by the user: `ARControlBar.jsx` got a styling-only change for smaller buttons on phones): `ARControlBar.jsx`, `CameraFeed.jsx`, `useARCamera.jsx`, `meshRegions.js`, `landmarkSmoothing.js`, `productService.js`, anything under `backend/app/`.
 
 ### Facts verified in the code before this plan was written
 
@@ -347,7 +347,8 @@ Spec:
 8. Applied chips at the top come from `selectedShades`, one per region: a dot with the real hex, the shade or product name, and the brand. Chips for Browse items carry a small "Browse" label. The x button clears that region only. "Clear all" calls `onClear`. The count line reads "N active".
 9. Loading and error states for each fetch, and an empty state for no search results.
 10. In `ARTryOnPage.jsx` pass the new props, delete the Phase 4 debug strip, and remove the old Task 7 TODO comment. Call `clearRecommendedCache()` when the AR page mounts, so changed allergens or a new season never show stale results. Use `useLayoutEffect` for this: a parent's plain effect runs after its children's effects, so the panel would read the old cache first.
-11. Phase 5 decisions: the per-product on/off switch is removed, since a shade is applied by tapping its swatch and removed by tapping it again. The verdict badge copies the `StatusBadge` colors from the Ingredient Filter page instead of sharing the component, so that page is not edited. Swatches are 40 px to pass the tap-target audit. The "signed out" manual check no longer applies, because `/ar-tryon` now requires login. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
+11. Phase 5 decisions: the per-product on/off switch is removed, since a shade is applied by tapping its swatch and removed by tapping it again. The verdict badge copies the `StatusBadge` colors from the Ingredient Filter page instead of sharing the component, so that page is not edited. Swatches are 40 px to pass the tap-target audit. The "signed out" manual check no longer applies, because `/ar-tryon` now requires login.
+12. Later UI additions (user request): the Recommended / Browse switch sits above the region tabs and is styled purple as the main choice. A full-screen button (top-right of the camera frame, next to the performance toggle) expands the camera to the whole window and also uses the browser's full screen where supported. iPhone Safari has no element full screen, so there it fills the window only. Esc, the button, or leaving browser full screen exits. The shade panel is hidden while expanded. In `AROverlayCanvas`, skip drawing a region when `colors` has no entry for it, and stop falling back to `DEFAULT_COLORS` for rendering.
 
 Automated checks:
 - [ ] `npm run lint` and `npm run build` pass.
@@ -381,7 +382,7 @@ Spec (revised after merging `main`, which already has Jan's display: `usePerfSta
 3. `usePerfStats.js`: the 30-second window starts at the first frame with a face. When 30 seconds have passed, the result is computed once and stays fixed until the setting is turned off or the page is left. The live line keeps updating. Samples stay in refs; state updates every 500 ms.
 4. Frames with no face (decision): FPS counts every processed frame, so a lost face does not lower FPS. The latency average uses only frames with a face, because frames without one skip drawing. The display shows the share of frames with a face.
 5. `PerfStatsBadge.jsx`: "Waiting for camera", then "Waiting for a face", then the live line and "Measuring", then the fixed line `30 s avg: <fps> FPS · <ms> ms` (Jan's wording, which Jan's test reads) and "Face in N% of frames".
-6. Visibility (decision): keep Jan's setting, off by default. Survey instructions tell participants to turn on Profile, App settings, "Show performance stats (FPS)" before the try-on.
+6. Visibility (decision, revised): on by default, with a toggle button in the top-right of the camera frame as well as Jan's Profile setting; both use the same saved setting. A settings migration turns it on once for browsers that saved "off" before. Participants do not need to visit Profile first. Jan's test `setting is off by default and survives a reload` no longer matches and is left for Jan to update.
 7. Jan's Playwright test `badge shows live FPS/latency, then the 30 s average` uses Chromium's fake camera, which shows no face, so it cannot reach the fixed result any more. Left for Jan to update (decision).
 8. Remove nothing else. No frame data leaves the device (R7).
 
