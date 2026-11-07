@@ -49,7 +49,7 @@ Update this table only as part of an approved change plan, after the user says a
 | 2 Recommended-source investigation (read only) | [x] |
 | 3 Frontend data layer (Recommended + Browse) | [x] |
 | 4 Selected shade drives overlay | [x] |
-| 4b Blend comparison (only if needed) | skipped (blend check passed) |
+| 4b Blend comparison (only if needed) | [x] |
 | 5 Applied Products panel | [x] |
 | 6 In-app performance display | [x] |
 | 7 Phone test and manuscript notes | deferred |
@@ -438,7 +438,11 @@ New content to add:
 - Data source paragraph (if Browse ships): Trance, M. (2026). Make-Up Web Scraper: a shade-color and ingredient dataset from four make-up retailers. https://github.com/KMarttt/MakeUp_Scraper. Snapshots: Sephora PH and Rustan's PH 2026-09-23, Maybelline PH 2026-09-29. Say that only the Philippine retailers are used, give the Browse counts per region, and state that Browse shades are not checked by the safety filter.
 - How shade color was obtained (swatch image averages, approximation, not calibrated) and that retailer data rights remain with the retailers.
 - The performance display: what it shows, the 30-second window, and how latency is measured (detect plus render per frame, frames with no face excluded).
-- Blend mode and opacity chosen per region (Phase 4b), if that phase was needed.
+- Blend mode and opacity chosen per region (Phase 4b, chosen by eye against the darkest and lightest shades of each region, 2026-11-07). The camera frame is drawn into the overlay canvas so the blends mix with real skin pixels. Each region is two fills on top of the frame (feather is the edge blur as a fraction of canvas width):
+  - Lips: multiply 0.6, then color 0.35. Feather 0.012. No radial fade, so the inner lip cut-out keeps the mouth clear.
+  - Cheeks: soft-light 0.35, then color 0.4. Feather 0.012. Radial fade from the middle of each cheek to transparent at its edge.
+  - Eyeshadow: multiply 0.6, then color 0.45. Feather 0.015. Radial fade.
+  - This replaces the single `"color"` blend at opacity 0.75 that Eq. D.2 describes, so the Eq. D.2 rewording above should use these values.
 - The AR match percentage in the old panel was dummy data and was removed. Do not describe an AR match score in the thesis.
 - Catalog size: Firestore has 110 products (20 each in Lip, Cheek, Eye, Face, Concealer, 10 in Multi-Use), but the manuscript says 120.
 - Season filtering: `color_matching.py` only sorts Lip, Cheek, and Eye products by season match and never filters. Recommended applies the pseudocode step 5 filter on the frontend, with a fallback to all products that passed the ingredient check when none match.
