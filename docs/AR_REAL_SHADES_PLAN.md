@@ -295,7 +295,7 @@ Manual checks for the user (browser console on the AR page):
 
 - [ ] `const m = await import('/src/services/arShadeService.js'); (await m.getShades('lips')).length` returns the Phase 1 lips count. Repeat for cheeks and eyeshadow. A second call is instant and the Network tab shows each JSON fetched once.
 - [ ] Signed in: `const r = await import('/src/services/arRecommendedService.js'); await r.getRecommended('lips')` returns `status: "ok"` with items that have no `excluded` verdict and no `#FFFFFF` hex. Signed out: `status: "signed_out"`.
-- [ ] `dropped.subCategory.total` is exactly lips 2, cheeks 5, eyeshadow 14. If not, fix the allowlist strings.
+- [ ] `dropped.subCategory.total` is exactly lips 75, cheeks 115, eyeshadow 206 on `products_v2` (the backend default since `2e0b76a`; the old `products` collection gave lips 2, cheeks 5, eyeshadow 14). If not, fix the allowlist strings.
 - [ ] The AR page looks and behaves exactly as before.
 
 Suggested commit: `feat(frontend): add AR shade services, hook, and search helpers`
@@ -473,6 +473,13 @@ New content to add:
 - Season filtering: `color_matching.py` only sorts Lip, Cheek, and Eye products by season match and never filters. Recommended applies the pseudocode step 5 filter on the frontend, with a fallback to all products that passed the ingredient check when none match.
 - Firestore prices are approximate (`≈ ₱799`); Recommended shows the number only.
 - Phase 3 Recommended check, lips (2026-11-03, one signed-in test profile): status ok, seasonFilter matched, 5 items shown. Dropped: sub-category 2, placeholder 0, excluded 11. Cheeks and eyeshadow not checked yet.
+- Phase 3 Recommended check on `products_v2`, all regions (2026-11-08, one signed-in test profile, Deep Winter, no avoided ingredients). The allowlist now also matches the scraper names (`Lip stain & tint`, `Lip color`, `Eye shadow`) and keeps a product when any of its `;`-joined sub-categories is allowed. Lip balm, liner and plumper on their own stay out (often clear or outline-only).
+  - Lips: status ok, 242 items. Dropped: sub-category 75 (Lip balm 45, Lip liner 23, Lip plumper 6, Lip balm;Lip plumper 1), placeholder 3, excluded 0.
+  - Cheeks: status ok, 99 items. Dropped: sub-category 115 (highlighter, bronzer, contour, concealer), placeholder 1, excluded 0.
+  - Eyeshadow: status ok, 62 items (5 before the allowlist fix). Dropped: sub-category 206 (eyebrows, eyeliner, mascara), placeholder 3, excluded 0.
+  - Season: seasonFilter is "fallback" in every region. No `products_v2` product has `season_tags` or `season_tag_computed` (0 of 320 lip products), so no season match is possible and Recommended shows everything that passed the ingredient check. Needs a data or backend fix outside this plan before the season filtering text in the manuscript holds.
+  - Excluded is 0 because the test profile has no avoided ingredients (297 safe, 23 caution in lips). R2 still needs a run with a profile that has allergens set.
+  - Eyeshadow palettes are shown with one color for the whole palette (limitation).
 
 Results to check before submission:
 
