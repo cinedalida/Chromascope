@@ -1,22 +1,27 @@
 import math
 
 # Maps human-readable seasonal labels → product season tag codes
+# The season model says Warm/Cool where product tags say True, so both map to the same code.
 SEASON_CODE_MAP = {
     # Autumn
     "soft autumn":   "au-soft",
     "true autumn":   "au-true",
+    "warm autumn":   "au-true",
     "deep autumn":   "au-deep",
     # Spring
     "light spring":  "sp-light",
     "true spring":   "sp-true",
-    "warm spring":   "sp-warm",
+    "warm spring":   "sp-true",
+    "bright spring": "sp-bright",
     # Summer
     "light summer":  "su-light",
     "true summer":   "su-true",
+    "cool summer":   "su-true",
     "soft summer":   "su-soft",
     # Winter
     "deep winter":   "wi-deep",
     "true winter":   "wi-true",
+    "cool winter":   "wi-true",
     "bright winter": "wi-bright",
 }
 
