@@ -8,6 +8,7 @@ import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
 import { useSettingsStore } from "../store/settingsStore.js";
 import { clearRecommendedCache } from "../services/arRecommendedService.js";
+import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = { lips: null, cheeks: null, eyeshadow: null };
@@ -289,8 +290,14 @@ export function ARTryOnPage() {
         </section>
 
         {/* RIGHT PANEL */}
-        <aside className="h-[55dvh] min-h-0 overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
-          <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+        <aside className="flex h-[55dvh] min-h-0 flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+          {/* Offline: Recommended calls the backend and fails, Browse is served from the device cache. */}
+          <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
+            Offline: Recommended needs internet. Browse works if you used it online before.
+          </OfflineNote>
+          <div className="min-h-0 flex-1">
+            <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+          </div>
         </aside>
       </div>
 
