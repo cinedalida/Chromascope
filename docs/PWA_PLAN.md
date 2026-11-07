@@ -238,6 +238,7 @@ The allowlist (P2). Only these routes are cached:
 | `https://storage.googleapis.com/mediapipe-models/face_landmarker/*` | CacheFirst           | `mediapipe-model`    | Status 200 only.                                           |
 | same origin `/data/ar-shades-*.json`                                | StaleWhileRevalidate | `ar-shades`          | The files are not hashed.                                  |
 | same origin `/assets/splash-animation-*.jpg`                        | CacheFirst           | `splash-images`      | Hashed names, so safe. Max 6 entries. See open decision 2. |
+| same origin `/assets/*.{png,jpg}` (after the splash route)          | CacheFirst           | `page-images`        | Page photos bundled since `8f27d4c`. Kept out of the precache (P7, option A, 2026-11-08). Max 20 entries. |
 | `https://fonts.googleapis.com/*`                                    | StaleWhileRevalidate | `google-fonts-css`   |                                                            |
 | `https://fonts.gstatic.com/*`                                       | CacheFirst           | `google-fonts-files` | Status 200 only.                                           |
 
