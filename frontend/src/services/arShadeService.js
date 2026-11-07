@@ -1,15 +1,18 @@
 // Browse shades: static catalog built by backend/scripts/build_ar_shade_catalog.py.
 // These shades are not checked by the ingredient safety filter.
 
-export const REGION_KEYS = ["lips", "cheeks", "eyeshadow"];
+import { ALL_REGIONS, groupByKey } from "../utils/arGroups";
+
+export const REGION_KEYS = ALL_REGIONS;
 
 // One fetch per region per page load.
 const cache = new Map();
 
-function toShadeItem(entry) {
+function toShadeItem(entry, region) {
   return {
     id: entry.id,
     source: "browse",
+    region,
     brand: entry.brand,
     product: entry.product,
     shade: entry.shade,
@@ -29,7 +32,7 @@ async function fetchShades(region) {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if (!Array.isArray(data)) throw new Error("Shade catalog is not an array");
-  return data.map(toShadeItem);
+  return data.map((entry) => toShadeItem(entry, region));
 }
 
 export async function getShades(region) {
@@ -44,4 +47,12 @@ export async function getShades(region) {
     cache.set(region, request);
   }
   return cache.get(region);
+}
+
+// Browse shades for a whole panel group (e.g. every face region), one list.
+export async function getGroupShades(groupKey) {
+  const group = groupByKey(groupKey);
+  if (!group) throw new Error(`Unknown AR group: ${groupKey}`);
+  const lists = await Promise.all(group.regions.map((region) => getShades(region)));
+  return lists.flat();
 }

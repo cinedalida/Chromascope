@@ -7,87 +7,12 @@ import {
   Sparkles,
   ArrowRight,
   ScanFace,
-  Target,
   ShieldCheck,
   AlertTriangle
 } from "lucide-react";
 import { getColorName, getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
-
-const SEASON_DATABASE = {
-  "Bright Spring": {
-    colors: ["#FF6B6B", "#FFD166", "#06D6A0", "#FF9A3C", "#F72585", "#E05070"],
-    desc: "High clarity with warm, bright undertones. Your features pop with highly saturated, vibrant, and clear colors.",
-    tip: "Your high-chroma profile means you can handle pure, bright pigments. Warm, glossy finishes will enhance your natural clarity.",
-    sister: "Bright Winter", contrastSeason: "Deep Autumn"
-  },
-  "Warm Spring": { 
-    colors: ["#FF8C42", "#FFCA3A", "#E07A5F", "#F4A261", "#E63946"],
-    desc: "Fully warm and radiant. Your coloring has a golden, glowing quality that shines in true, warm, and clear tones.",
-    tip: "Stick to predominantly warm bases. Gold jewelry and peach-toned blushes will harmonize perfectly with your undertone.",
-    sister: "Warm Autumn", contrastSeason: "Cool Summer"
-  },
-  "Light Spring": {
-    colors: ["#FFB5A7", "#FFDDD2", "#B5EAD7", "#FEC89A", "#FFCBF2"],
-    desc: "Delicate, light, and warm. Your features are low in contrast and look best in pastel, warm-tinted shades.",
-    tip: "Avoid heavy, dark makeup. Light, luminous formulas and sheer washes of warm color will keep your features from being overpowered.",
-    sister: "Light Summer", contrastSeason: "Deep Autumn"
-  },
-  "Light Summer": {
-    colors: ["#CBAACB", "#ADEFD1", "#F2C4CE", "#B5C7D3", "#C9D5E0"],
-    desc: "Cool, delicate, and light. Your overall appearance is gentle and highly harmonious in cool pastels.",
-    tip: "Silver and white gold jewelry accentuate your lightness. Opt for cool, dusty pinks and avoid harsh black mascaras.",
-    sister: "Light Spring", contrastSeason: "Deep Winter"
-  },
-  "Cool Summer": { 
-    colors: ["#D4A5A5", "#A8DADC", "#B8B0C8", "#C77DFF", "#E0AFA0"],
-    desc: "Completely cool with a gentle softness. Blue and pink undertones dominate your coloring.",
-    tip: "Embrace blue-based pinks and cool taupes. Avoid anything overly golden or orange, which can clash with your cool L* reflectance.",
-    sister: "Cool Winter", contrastSeason: "Warm Spring"
-  },
-  "Soft Summer": {
-    colors: ["#B5838D", "#9B8EA0", "#A7C5BD", "#C4A882", "#D8A7B1", "#D88090", "#D87090", "#D06878"],
-    desc: "Muted, cool, and highly blended. Your features have a beautiful dusty quality that thrives in complex, greyed-out colors.",
-    tip: "Your superpower is wearing highly complex, greyed-out tones. Blended, matte finishes look incredibly natural on you.",
-    sister: "Soft Autumn", contrastSeason: "Bright Winter"
-  },
-  "Soft Autumn": {
-    colors: ["#C8956C", "#A0785A", "#D4A373", "#9B7240", "#BC8A5F"],
-    desc: "Muted, warm, and rich. Your coloring is blended and earthy, glowing in rich, desaturated warm tones.",
-    tip: "Toasted, earthy neutrals are your best friends. Bronze and copper metallic finishes look sophisticated rather than overpowering.",
-    sister: "Soft Summer", contrastSeason: "Bright Spring"
-  },
-  "Warm Autumn": { 
-    colors: ["#B5451B", "#E07B39", "#9C6B30", "#6B4226", "#C0392B"],
-    desc: "Fully warm, rich, and earthy. Golden and copper undertones are prominent in your absolutely warm coloring.",
-    tip: "Rich terracotta and mustard tones highlight your natural warmth. Avoid icy, blue-based colors that can dull your complexion.",
-    sister: "Warm Spring", contrastSeason: "Cool Winter"
-  },
-  "Deep Autumn": {
-    colors: ["#7B2D00", "#5C2018", "#8B4513", "#6B3A2A", "#9B2335", "#3A2818"],
-    desc: "Dark, warm, and intense. High depth and rich pigmentation allow you to wear the darkest, warmest colors beautifully.",
-    tip: "You can carry deep, heavy pigments effortlessly. Dark olive, espresso, and aubergine enhance your high-contrast features.",
-    sister: "Deep Winter", contrastSeason: "Light Spring"
-  },
-  "Deep Winter": {
-    colors: ["#1C1C3A", "#2D1B33", "#3D0C11", "#0A0A2E", "#4A0E4E", "#302010", "#403020"],
-    desc: "Dark, cool, and highly contrasting. You have strong depth and can pull off the deepest, coolest jewel tones.",
-    tip: "Embrace stark contrasts like pure black paired with icy accents. Silver and platinum align beautifully with your cool depth.",
-    sister: "Deep Autumn", contrastSeason: "Light Summer"
-  },
-  "Cool Winter": { 
-    colors: ["#0D0D0D", "#FFFFFF", "#E63946", "#3A86FF", "#8338EC"],
-    desc: "Completely cool and sharply contrasting. Icy, vivid colors without a drop of warmth suit you best.",
-    tip: "Pure white, true black, and royal blue are your anchors. Avoid any golden or brown tones which will blur your striking clarity.",
-    sister: "Cool Summer", contrastSeason: "Warm Autumn"
-  },
-  "Bright Winter": {
-    colors: ["#FF006E", "#3A86FF", "#8338EC", "#06D6A0", "#FB5607", "#C94060", "#E04868"],
-    desc: "Extremely striking and cool-leaning. Your features are incredibly clear, thriving in neon, high-voltage jewel tones.",
-    tip: "You can wear saturated, almost neon colors that would overwhelm other seasons. High-shine and glossy textures elevate your look.",
-    sister: "Bright Spring", contrastSeason: "Soft Summer"
-  }
-};
+import { SEASON_DATABASE } from "../constants/seasonDatabase";
 
 const PALETTE_LABELS = ["Core", "Accent", "Contrast", "Light", "Neutral", "Base", "Pop", "Deep"];
 
@@ -106,7 +31,7 @@ export function ColorAnalysisSubtypePage() {
     return <Navigate to="/color-analysis" replace />;
   }
 
-  const { season, confidence, lab_color, low_confidence } = result;
+  const { season, lab_color, low_confidence } = result;
   const profileData = SEASON_DATABASE[season] || SEASON_DATABASE["Cool Winter"];
 
   const skinHex = labToHex(lab_color[0], lab_color[1], lab_color[2]);
@@ -204,29 +129,10 @@ export function ColorAnalysisSubtypePage() {
 
           <div className={`col-span-1 lg:col-span-8 space-y-6 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
             
+            {low_confidence && (
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
-              <div className="flex justify-between items-end mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <Target size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#111827]">AI Confidence Score</p>
-                    <p className="text-[10px] text-gray uppercase tracking-wider">Model accuracy calculation</p>
-                  </div>
-                </div>
-                <p className="text-3xl font-black text-primary">
-                  {confidence.toFixed(1)}%
-                </p>
-              </div>
-              <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-0.5">
-                <div 
-                  className="h-full bg-gradient-to-r from-primary via-[#A855F7] to-[#C084FC] rounded-full transition-all duration-1500 ease-out shadow-inner"
-                  style={{ width: animateIn ? `${confidence}%` : '0%' }}
-                />
-              </div>
-              {low_confidence && (
-                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <div>
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                   <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-500" />
                   <div className="space-y-2">
                     <p className="text-sm text-amber-800 leading-relaxed">
@@ -241,8 +147,9 @@ export function ColorAnalysisSubtypePage() {
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
+            )}
 
             <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-sm border border-white">
               <div className="flex justify-between items-center mb-8">

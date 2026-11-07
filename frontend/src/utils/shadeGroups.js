@@ -13,6 +13,7 @@ export function groupByProduct(items) {
       groups.set(key, {
         key,
         source: item.source,
+        region: item.region,
         brand: item.brand,
         product: item.product,
         price: item.price,
@@ -21,6 +22,7 @@ export function groupByProduct(items) {
         url: item.url,
         verdict: item.verdict,
         seasonMatch: item.seasonMatch,
+        fitTier: item.fitTier,
         shades: [],
       });
     }
