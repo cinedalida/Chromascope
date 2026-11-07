@@ -5,7 +5,8 @@ const fmt = (v, digits = 0) => (v === null || v === undefined || Number.isNaN(v)
 /**
  * Small FPS / latency readout shown over the AR feed when the
  * "Show performance stats" setting is on. Participants read the 30-second
- * average from here for survey items TR1–TR3.
+ * average from here for survey items TR1–TR3. The average starts at the
+ * first tracked face and stays fixed once the 30 s are up.
  */
 export function PerfStatsBadge({ stats }) {
   return (
@@ -24,10 +25,19 @@ export function PerfStatsBadge({ stats }) {
           <div data-testid="perf-live">
             Live: {fmt(stats.liveFps)} FPS · {fmt(stats.liveLatencyMs)} ms
           </div>
-          {stats.windowFull ? (
-            <div data-testid="perf-avg" className="mt-0.5 font-bold text-[#00E676]">
-              {stats.windowSec} s avg: {fmt(stats.avgFps, 1)} FPS · {fmt(stats.avgLatencyMs)} ms
+          {!stats.started ? (
+            <div data-testid="perf-waiting-face" className="mt-0.5 text-white/70">
+              Waiting for a face…
             </div>
+          ) : stats.windowFull ? (
+            <>
+              <div data-testid="perf-avg" className="mt-0.5 font-bold text-[#00E676]">
+                {stats.windowSec} s avg: {fmt(stats.avgFps, 1)} FPS · {fmt(stats.avgLatencyMs)} ms
+              </div>
+              <div data-testid="perf-face-share" className="mt-0.5 text-white/70">
+                Face in {fmt(stats.faceShare * 100)}% of frames
+              </div>
+            </>
           ) : (
             <div data-testid="perf-measuring" className="mt-0.5 text-white/70">
               Measuring {stats.windowSec} s avg… {Math.floor(stats.elapsedSec)} / {stats.windowSec} s

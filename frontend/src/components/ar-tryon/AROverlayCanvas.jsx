@@ -149,8 +149,9 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *  - colors: { lips, cheeks, eyeshadow } hex strings, the selected shades. May be
  *    partial; a region with no color is not drawn.
  *  - opacity: blend opacity constant β from Eq. D.2 (manuscript recommends 0.7-0.8).
- *  - onFrame: optional callback(latencyMs) called once per processed frame with
- *    the time spent on detection + smoothing + drawing (usePerfStats).
+ *  - onFrame: optional callback(latencyMs, hasFace) called once per processed
+ *    frame with the time spent on detection + smoothing + drawing and whether
+ *    a face was found (usePerfStats).
  *
  * Exposes via ref: capture() — composites the mirrored video frame plus the
  * current makeup overlay into one PNG data URL for ARTryOnPage's save
@@ -302,7 +303,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (result.faceLandmarks?.length > 0) {
+        const hasFace = result.faceLandmarks?.length > 0;
+        if (hasFace) {
           if (status !== "tracking") setStatus("tracking");
 
           const rawPoints = result.faceLandmarks[0];
@@ -340,7 +342,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           }
         }
 
-        onFrameRef.current?.(performance.now() - frameStart);
+        onFrameRef.current?.(performance.now() - frameStart, hasFace);
       }
 
       rafRef.current = requestAnimationFrame(tick);

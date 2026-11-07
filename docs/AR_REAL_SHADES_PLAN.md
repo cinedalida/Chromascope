@@ -375,13 +375,15 @@ Why: the manuscript (R6) has participants read the 30-second average FPS and lat
 
 Read first: `AROverlayCanvas.jsx` (the detect and render loop), `ARTryOnPage.jsx`, and manuscript Sec. 4.4.2 as summarized in R6.
 
-Spec:
-1. `frontend/src/hooks/useARPerformance.js`: collects per-frame samples without causing re-renders. For each frame where detection ran, record latency as `performance.now()` at the end of the render step minus `performance.now()` just before `detectForVideo`. Track frame count for FPS. Use refs for samples. Update React state at most once per second.
-2. Instrument the loop in `AROverlayCanvas.jsx` through a callback prop such as `onFrameTimed(latencyMs)`. Do not change what is drawn.
-3. The 30-second window starts when the camera is ready and the first face is tracked. Show live FPS and latency from the start. When 30 seconds have passed, show a clearly labeled fixed result: "30 s average: <fps> FPS, <ms> ms". Keep it visible until the AR session restarts.
-4. `frontend/src/components/ar-tryon/ARPerformanceDisplay.jsx`: a small chip in a corner of the camera frame, readable on a phone, not covering the controls. Visible in production builds. Follow the existing styling tokens.
-5. Report in the change plan how frames with no detected face are handled (default: they are not counted toward the average, and the display notes the share of frames with a face).
-6. Remove nothing else. No frame data leaves the device (R7).
+Spec (revised after merging `main`, which already has Jan's display: `usePerfStats.js`, `PerfStatsBadge.jsx`, the Profile setting "Show performance stats (FPS)", and the `onFrame` callback in `AROverlayCanvas.jsx`):
+1. Build on Jan's files. No `useARPerformance.js` or `ARPerformanceDisplay.jsx`.
+2. `AROverlayCanvas.jsx`: `onFrame(latencyMs, hasFace)`. Latency stays `performance.now()` after drawing minus `performance.now()` just before `detectForVideo`. Do not change what is drawn.
+3. `usePerfStats.js`: the 30-second window starts at the first frame with a face. When 30 seconds have passed, the result is computed once and stays fixed until the setting is turned off or the page is left. The live line keeps updating. Samples stay in refs; state updates every 500 ms.
+4. Frames with no face (decision): FPS counts every processed frame, so a lost face does not lower FPS. The latency average uses only frames with a face, because frames without one skip drawing. The display shows the share of frames with a face.
+5. `PerfStatsBadge.jsx`: "Waiting for camera", then "Waiting for a face", then the live line and "Measuring", then the fixed line `30 s avg: <fps> FPS · <ms> ms` (Jan's wording, which Jan's test reads) and "Face in N% of frames".
+6. Visibility (decision): keep Jan's setting, off by default. Survey instructions tell participants to turn on Profile, App settings, "Show performance stats (FPS)" before the try-on.
+7. Jan's Playwright test `badge shows live FPS/latency, then the 30 s average` uses Chromium's fake camera, which shows no face, so it cannot reach the fixed result any more. Left for Jan to update (decision).
+8. Remove nothing else. No frame data leaves the device (R7).
 
 Automated checks:
 - [ ] `npm run lint` and `npm run build` pass.
@@ -392,7 +394,7 @@ Manual checks for the user:
 - [ ] Turning on lips, cheeks, and eyeshadow together (heaviest case) raises latency visibly, as expected.
 - [ ] The display does not reduce frame rate when hidden or shown.
 
-Suggested commit: `feat(frontend): add in-app AR performance display`
+Suggested commit: `feat(frontend): fix the AR performance average to a 30 s face-tracked window`
 
 ---
 
