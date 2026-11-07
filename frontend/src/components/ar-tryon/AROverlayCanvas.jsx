@@ -38,6 +38,77 @@ const DEFAULT_TOGGLES = {
 const NO_COLORS = {};
 
 /**
+ * How each region is drawn over the camera frame. Each layer is one fill with
+ * a canvas blend mode against the skin pixels underneath:
+ *  - "multiply" adds pigment depth, so a dark shade reads darker than a light one.
+ *  - "color" adds the shade's hue and saturation but keeps the skin's own
+ *    brightness, so creases, shadows and highlights stay visible.
+ *  - "soft-light" is a sheer tint, closer to blush or a gloss.
+ * `feather` is the edge blur as a fraction of canvas width. `radial` fades the
+ * fill from the middle of each ring out to transparent (blush placement).
+ * Values chosen by eye against the darkest and lightest shades of each
+ * region, 2026-11-07. Lips stay non-radial so "evenodd" keeps the mouth clear.
+ */
+const REGION_RENDER = {
+  lips: {
+    feather: 0.012,
+    radial: false,
+    layers: [
+      { blend: "multiply", opacity: 0.6 },
+      { blend: "color", opacity: 0.35 },
+    ],
+  },
+  cheeks: {
+    feather: 0.012,
+    radial: true,
+    layers: [
+      { blend: "soft-light", opacity: 0.35 },
+      { blend: "color", opacity: 0.4 },
+    ],
+  },
+  eyeshadow: {
+    feather: 0.015,
+    radial: true,
+    layers: [
+      { blend: "multiply", opacity: 0.6 },
+      { blend: "color", opacity: 0.45 },
+    ],
+  },
+};
+
+// Canvas resolution cap. Above 2x the extra pixels cost frame time with no visible gain.
+const MAX_PIXEL_RATIO = 2;
+
+/**
+ * The object-cover draw rect for the video inside a canvas of the given size,
+ * as [x, y, width, height]. Matches toCanvasSpace() below.
+ */
+function coverRect(videoW, videoH, canvasW, canvasH) {
+  if (videoW / videoH > canvasW / canvasH) {
+    const h = canvasH;
+    const w = videoW * (h / videoH);
+    return [(canvasW - w) / 2, 0, w, h];
+  }
+  const w = canvasW;
+  const h = videoH * (w / videoW);
+  return [0, (canvasH - h) / 2, w, h];
+}
+
+/**
+ * Draws the current video frame mirrored and object-cover cropped, so the
+ * canvas shows the same picture as CameraFeed and the makeup layers can blend
+ * with real skin pixels. Without this the canvas is transparent and every
+ * blend mode falls back to a flat color laid on top of the face.
+ */
+function drawMirroredFrame(ctx, video, canvasW, canvasH) {
+  const [x, y, w, h] = coverRect(video.videoWidth, video.videoHeight, canvasW, canvasH);
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, -(x + w), y, w, h);
+  ctx.restore();
+}
+
+/**
  * Maps a point in the video's own pixel space onto the canvas, replicating
  * two things that both have to line up for the overlay to sit on the face
  * correctly:
@@ -97,35 +168,58 @@ function tracePath(ctx, points) {
   ctx.closePath();
 }
 
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// Shade color at full strength in the middle of the ring, fading to transparent at its edge.
+function radialFill(ctx, points, [r, g, b]) {
+  const cx = points.reduce((sum, [x]) => sum + x, 0) / points.length;
+  const cy = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
+  const radius = Math.max(1, ...points.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
+  gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.7)`);
+  gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  return gradient;
+}
+
 /**
- * Fills one or more rings of landmark indices as a single smooth path, per
- * Eq. D.2 (Region Triangle Fill): C(τ) = β·C_shade + (1-β)·C_skin(τ).
- * `feather` (px) softens the fill's edge with a canvas blur so it blends
- * into skin instead of cutting off sharply.
+ * Fills one or more rings of landmark indices as smooth paths, one fill per
+ * layer of `settings` (see REGION_RENDER). Each layer blends the shade with the
+ * skin pixels already on the canvas at the layer's opacity, which is the
+ * C(τ) = β·C_shade + (1-β)·C_skin(τ) mix of Eq. D.2 done per blend mode.
+ * Without `radial`, all rings form one path so "evenodd" can cut out the inner lips.
  */
-function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, color, opacity, fillRule = "nonzero", feather = 0, blendMode = "color") {
-  ctx.beginPath();
-  rings.forEach((ring) => {
-    const points = ring.map((idx) => {
+function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, color, settings, fillRule = "nonzero") {
+  const pointSets = rings.map((ring) =>
+    ring.map((idx) => {
       const lm = landmarks[idx];
       return toCanvasSpace(lm.x * videoW, lm.y * videoH, videoW, videoH, canvasW, canvasH);
-    });
-    tracePath(ctx, points);
-  });
-  // Blend mode options (CSS Compositing spec, all supported by Canvas 2D):
-  //  - "color": keeps the base layer's own luminosity (skin shading,
-  //    texture, highlights) and only applies the fill's hue/saturation.
-  //    Tints instead of flattening what's underneath — the default now.
-  //  - "multiply": darkens based on the base pixel; at higher opacity it
-  //    can wash out fine texture, which is what this replaced.
-  //  - "soft-light" / "overlay": more subtle tint, closer to a sheer/gloss
-  //    product than a pigmented one, worth trying once real product data
-  //    (Task 7) distinguishes matte vs. sheer finishes.
-  ctx.globalCompositeOperation = blendMode;
+    }),
+  );
+  const pathOf = (sets) => {
+    const path = new Path2D();
+    sets.forEach((points) => tracePath(path, points));
+    return path;
+  };
+  const rgb = hexToRgb(color);
+  const shapes = settings.radial
+    ? pointSets.map((points) => ({ path: pathOf([points]), style: radialFill(ctx, points, rgb) }))
+    : [{ path: pathOf(pointSets), style: color }];
+
+  const feather = canvasW * settings.feather;
   ctx.filter = feather > 0 ? `blur(${feather}px)` : "none";
-  ctx.fillStyle = color;
-  ctx.globalAlpha = opacity;
-  ctx.fill(fillRule);
+  for (const layer of settings.layers) {
+    if (!(layer.opacity > 0)) continue;
+    ctx.globalCompositeOperation = layer.blend;
+    ctx.globalAlpha = layer.opacity;
+    for (const { path, style } of shapes) {
+      ctx.fillStyle = style;
+      ctx.fill(path, fillRule);
+    }
+  }
   ctx.filter = "none";
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
@@ -148,15 +242,16 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *    shortcut that flips these three together, not its own render region.
  *  - colors: { lips, cheeks, eyeshadow } hex strings, the selected shades. May be
  *    partial; a region with no color is not drawn.
- *  - opacity: blend opacity constant β from Eq. D.2 (manuscript recommends 0.7-0.8).
+ *  - render: per-region blend layers, opacity and feather. Defaults to
+ *    REGION_RENDER; the DEV tuning panel passes its own values here.
  *  - onFrame: optional callback(latencyMs, hasFace) called once per processed
  *    frame with the time spent on detection + smoothing + drawing and whether
  *    a face was found (usePerfStats).
  *
- * Exposes via ref: capture() — composites the mirrored video frame plus the
- * current makeup overlay into one PNG data URL for ARTryOnPage's save
- * button. Returns null when there's no live video to capture from (mock
- * mode, or before the camera is ready).
+ * Exposes via ref: capture() returns the canvas (camera frame plus makeup,
+ * exactly what is on screen) as a PNG data URL for ARTryOnPage's save button.
+ * Returns null when no live frame has been drawn yet (mock mode, or before
+ * the camera is ready).
  */
 export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   videoRef,
@@ -165,8 +260,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   alpha = 0.5,
   toggles = DEFAULT_TOGGLES,
   colors = NO_COLORS,
-  opacity = 0.75,
-  blendMode = "color",
+  render = REGION_RENDER,
   onFrame,
 }, ref) {
   const canvasRef = useRef(null);
@@ -181,50 +275,16 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
   const smoothedLandmarksRef = useRef(null);
+  const hasFrameRef = useRef(false);
   const [status, setStatus] = useState("loading"); // loading | ready | tracking | error
 
   useImperativeHandle(ref, () => ({
     capture() {
-      const video = videoRef?.current;
-      const overlay = canvasRef.current;
-      if (isMock || !video || !overlay || !video.videoWidth) return null;
-
-      const out = document.createElement("canvas");
-      out.width = overlay.width;
-      out.height = overlay.height;
-      const ctx = out.getContext("2d");
-
-      // Same object-cover mapping as toCanvasSpace() above, but for an image
-      // draw rect instead of a point, so the captured frame lines up with
-      // what's actually on screen (including CameraFeed's scaleX(-1) mirror).
-      const videoW = video.videoWidth;
-      const videoH = video.videoHeight;
-      const videoAspect = videoW / videoH;
-      const canvasAspect = out.width / out.height;
-      let drawW, drawH, drawX, drawY;
-      if (videoAspect > canvasAspect) {
-        drawH = out.height;
-        drawW = videoW * (drawH / videoH);
-        drawX = (out.width - drawW) / 2;
-        drawY = 0;
-      } else {
-        drawW = out.width;
-        drawH = videoH * (drawW / videoW);
-        drawX = 0;
-        drawY = (out.height - drawH) / 2;
-      }
-
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, -(drawX + drawW), drawY, drawW, drawH);
-      ctx.restore();
-
-      // Makeup fills, already rendered in mirrored canvas space.
-      ctx.drawImage(overlay, 0, 0, out.width, out.height);
-
-      return out.toDataURL("image/png");
+      const canvas = canvasRef.current;
+      if (isMock || !canvas || !hasFrameRef.current) return null;
+      return canvas.toDataURL("image/png");
     },
-  }), [videoRef, isMock]);
+  }), [isMock]);
 
   // Load the FaceLandmarker model once on mount.
   useEffect(() => {
@@ -271,11 +331,16 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
 
   // Detect → smooth → render, once the model is ready and a real video feed is playing.
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (isMock && canvas && hasFrameRef.current) {
+      // A last camera frame must not stay on top of the mock background.
+      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+      hasFrameRef.current = false;
+    }
     if (status !== "ready" && status !== "tracking") return;
     if (isMock || !isReady) return;
 
     const video = videoRef?.current;
-    const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
     function tick() {
@@ -290,18 +355,21 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         const frameStart = performance.now();
         const result = landmarker.detectForVideo(video, frameStart);
 
-        // Keep the canvas's pixel buffer matched to its displayed CSS size
-        // so drawing coordinates line up. Cheap to check every frame; only
-        // actually resizes (and clears) when the box size changed.
-        const displayW = canvas.clientWidth;
-        const displayH = canvas.clientHeight;
+        // Keep the canvas's pixel buffer matched to its displayed size times the
+        // device pixel ratio, so the camera frame drawn into it stays sharp on
+        // phones. Cheap to check every frame; only resizes when the box changed.
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+        const displayW = Math.round(canvas.clientWidth * pixelRatio);
+        const displayH = Math.round(canvas.clientHeight * pixelRatio);
         if (canvas.width !== displayW || canvas.height !== displayH) {
           canvas.width = displayW;
           canvas.height = displayH;
         }
 
+        // The frame covers the whole canvas, so it also replaces the previous frame's makeup.
         const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMirroredFrame(ctx, video, canvas.width, canvas.height);
+        hasFrameRef.current = true;
 
         const hasFace = result.faceLandmarks?.length > 0;
         if (hasFace) {
@@ -317,17 +385,13 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           const videoH = video.videoHeight;
           const args = [smoothed, videoW, videoH, canvas.width, canvas.height];
 
-          const lipFeather = canvas.width * 0.006;
-          const cheekFeather = canvas.width * 0.02;
-          const eyeshadowFeather = canvas.width * 0.015;
-
           if (toggles.lips && colors.lips) {
-            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, opacity, "evenodd", lipFeather, blendMode);
+            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, render.lips, "evenodd");
           }
           if (toggles.cheeks && colors.cheeks) {
             const leftRing = orderRingByAngle(CHEEK_LEFT, smoothed);
             const rightRing = orderRingByAngle(CHEEK_RIGHT, smoothed);
-            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, opacity, "nonzero", cheekFeather, blendMode);
+            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, render.cheeks);
           }
           if (toggles.eyeshadow && colors.eyeshadow) {
             // Region = upper lash line arc + the eyebrow ring that sits closer to the
@@ -338,7 +402,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
             const lidRight = upperArc(EYE_RIGHT, smoothed);
             const shadowLeft = orderRingByAngle([...lidLeft, ...browLeftLower], smoothed);
             const shadowRight = orderRingByAngle([...lidRight, ...browRightLower], smoothed);
-            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, opacity, "nonzero", eyeshadowFeather, blendMode);
+            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, render.eyeshadow);
           }
         }
 
@@ -353,7 +417,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, opacity, blendMode]);
+  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, render]);
 
   return (
     <canvas
@@ -362,3 +426,6 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     />
   );
 });
+
+// Seed values for the DEV tuning panel in ARTryOnPage.
+AROverlayCanvas.defaultRender = REGION_RENDER;

@@ -63,6 +63,8 @@ export function ProfilePage() {
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const showPerfStats = useSettingsStore((state) => state.showPerfStats);
   const setShowPerfStats = useSettingsStore((state) => state.setShowPerfStats);
+  const showBlendTuner = useSettingsStore((state) => state.showBlendTuner);
+  const setShowBlendTuner = useSettingsStore((state) => state.setShowBlendTuner);
 
   // UI State
   const [isEditing, setIsEditing] = useState(false);
@@ -411,6 +413,33 @@ export function ProfilePage() {
                   />
                 </button>
               </div>
+              {/* DEV only: never shown in the production build participants use. */}
+              {import.meta.env.DEV && (
+                <div className="mt-5 flex items-center justify-between gap-4 border-t border-gray-100 pt-5">
+                  <div>
+                    <p id="blend-tuner-label" className="font-medium text-[#111827]">AR blend tuning (dev)</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Shows live blend, opacity and feather controls on the AR Try-On screen.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showBlendTuner}
+                    aria-labelledby="blend-tuner-label"
+                    onClick={() => setShowBlendTuner(!showBlendTuner)}
+                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors after:absolute after:-inset-2 after:content-[''] ${
+                      showBlendTuner ? "bg-primary" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        showBlendTuner ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
             </section>
 
             {/* Delete account (RA 10173: right to erasure) */}

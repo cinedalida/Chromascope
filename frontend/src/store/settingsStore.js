@@ -9,6 +9,9 @@ export const useSettingsStore = create(
       // Show the FPS / latency badge on the AR try-on screen (survey items TR1–TR3).
       showPerfStats: true,
       setShowPerfStats: (value) => set({ showPerfStats: Boolean(value) }),
+      // DEV only: show the blend tuning panel on the AR try-on screen.
+      showBlendTuner: false,
+      setShowBlendTuner: (value) => set({ showBlendTuner: Boolean(value) }),
     }),
     {
       name: "chromascope-settings",

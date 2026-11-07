@@ -12,6 +12,15 @@ import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = { lips: null, cheeks: null, eyeshadow: null };
 
+// DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
+// Profile, App Settings, "AR blend tuning (dev)" is on.
+const BLEND_MODES = ["color", "multiply", "soft-light", "overlay", "hard-light"];
+const TUNING_REGIONS = [
+  { key: "lips", label: "Lips" },
+  { key: "cheeks", label: "Cheeks" },
+  { key: "eyeshadow", label: "Eyeshadow" },
+];
+
 // Browser full screen where supported. iPhone Safari has no element full screen (the
 // method is missing), so the CSS expanded view is used alone there.
 function enterBrowserFullscreen(el) {
@@ -85,6 +94,12 @@ export function ARTryOnPage() {
   const [selectedShades, setSelectedShades] = useState(NO_SHADES);
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
+
+  // DEV only: live blend and opacity values from the tuning panel. With the panel off
+  // (and always in production) the overlay uses its hardcoded REGION_RENDER values.
+  const showBlendTuner = useSettingsStore((s) => s.showBlendTuner);
+  const tunerEnabled = import.meta.env.DEV && showBlendTuner;
+  const [tuning, setTuning] = useState(() => structuredClone(AROverlayCanvas.defaultRender));
 
   // Only regions with a selected shade; AROverlayCanvas draws nothing for the rest.
   // Memoized so the render loop restarts only when a shade actually changes.
@@ -175,6 +190,7 @@ export function ARTryOnPage() {
               isMock={isMock}
               toggles={toggles}
               colors={colors}
+              render={tunerEnabled ? tuning : undefined}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
 
@@ -277,7 +293,126 @@ export function ARTryOnPage() {
           <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
         </aside>
       </div>
+
+      {tunerEnabled && (
+        <BlendTuner
+          value={tuning}
+          onChange={setTuning}
+          onReset={() => setTuning(structuredClone(AROverlayCanvas.defaultRender))}
+        />
+      )}
     </main>
+  );
+}
+
+/* DEV only (Phase 4b): live per-region blend, opacity and feather controls. */
+function BlendTuner({ value, onChange, onReset }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const setRegion = (region, patch) => onChange({ ...value, [region]: { ...value[region], ...patch } });
+  const setLayer = (region, index, patch) =>
+    setRegion(region, {
+      layers: value[region].layers.map((layer, i) => (i === index ? { ...layer, ...patch } : layer)),
+    });
+  const copyValues = () => {
+    navigator.clipboard
+      ?.writeText(JSON.stringify(value, null, 2))
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-4 left-4 z-70 rounded-full bg-black/80 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg"
+      >
+        Blend tuning (dev)
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-4 left-4 z-70 max-h-[80dvh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl bg-black/85 p-3 font-mono text-[10px] text-white shadow-xl backdrop-blur">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-bold uppercase tracking-wider">Blend tuning (dev)</span>
+        <button type="button" onClick={() => setOpen(false)} className="px-1 text-white/60 hover:text-white">
+          Close
+        </button>
+      </div>
+
+      {TUNING_REGIONS.map(({ key, label }) => {
+        const region = value[key];
+        return (
+          <fieldset key={key} className="mb-2 min-w-0 rounded-xl border border-white/15 p-2">
+            <legend className="px-1 font-bold">{label}</legend>
+            {region.layers.map((layer, i) => (
+              <div key={i} className="mb-1.5 flex items-center gap-1.5">
+                <span className="w-3 shrink-0 text-white/50">{i + 1}</span>
+                <select
+                  value={layer.blend}
+                  onChange={(e) => setLayer(key, i, { blend: e.target.value })}
+                  className="w-22 shrink-0 rounded bg-white/10 px-1 py-0.5"
+                >
+                  {BLEND_MODES.map((mode) => (
+                    <option key={mode} value={mode} className="text-black">
+                      {mode}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={layer.opacity}
+                  onChange={(e) => setLayer(key, i, { opacity: Number(e.target.value) })}
+                  className="w-0 min-w-0 flex-1"
+                  aria-label={`${label} layer ${i + 1} opacity`}
+                />
+                <span className="w-8 shrink-0 text-right">{layer.opacity.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5">
+              <span className="w-12 shrink-0 text-white/50">feather</span>
+              <input
+                type="range"
+                min="0"
+                max="0.04"
+                step="0.002"
+                value={region.feather}
+                onChange={(e) => setRegion(key, { feather: Number(e.target.value) })}
+                className="w-0 min-w-0 flex-1"
+                aria-label={`${label} feather`}
+              />
+              <span className="w-10 shrink-0 text-right">{region.feather.toFixed(3)}</span>
+            </div>
+            <label className="mt-1 flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={region.radial}
+                onChange={(e) => setRegion(key, { radial: e.target.checked })}
+              />
+              <span className="text-white/70">radial fade</span>
+            </label>
+          </fieldset>
+        );
+      })}
+
+      <div className="flex gap-2">
+        <button type="button" onClick={copyValues} className="flex-1 rounded-lg bg-white/15 py-1.5 font-bold hover:bg-white/25">
+          {copied ? "Copied" : "Copy values"}
+        </button>
+        <button type="button" onClick={onReset} className="flex-1 rounded-lg bg-white/15 py-1.5 font-bold hover:bg-white/25">
+          Reset
+        </button>
+      </div>
+    </div>
   );
 }
 
