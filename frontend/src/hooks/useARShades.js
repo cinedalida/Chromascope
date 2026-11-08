@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getGroupShades } from "../services/arShadeService";
 import { getRecommended } from "../services/arRecommendedService";
+import { rankBrowseItems } from "../utils/arFit";
+import { useUserStore } from "../store/userStore";
 
 const IDLE = { items: [], status: null, seasonFilter: null, ranked: false };
 
@@ -25,6 +27,7 @@ async function loadShades(group, source) {
  */
 export function useARShades(group, source) {
   const requestKey = `${source}:${group}`;
+  const profile = useUserStore((state) => state.user);
   const [result, setResult] = useState({ requestKey: null, ...IDLE });
 
   useEffect(() => {
@@ -42,6 +45,15 @@ export function useARShades(group, source) {
     };
   }, [requestKey, group, source]);
 
-  if (result.requestKey !== requestKey) return { ...IDLE, loading: true };
+  // Browse is a static catalog, so it is ranked here for the signed-in user (Recommended arrives ranked by the server).
+  // Done at render time so it re-ranks once the profile has loaded.
+  const loaded = result.requestKey === requestKey;
+  const browse = useMemo(
+    () => (loaded && source === "browse" && result.status === "ok" ? rankBrowseItems(result.items, profile) : null),
+    [loaded, source, result, profile],
+  );
+
+  if (!loaded) return { ...IDLE, loading: true };
+  if (browse) return { items: browse.items, status: result.status, seasonFilter: null, ranked: browse.ranked, loading: false };
   return { items: result.items, status: result.status, seasonFilter: result.seasonFilter, ranked: result.ranked, loading: false };
 }

@@ -397,6 +397,12 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
               <Info size={11} className="shrink-0" />
               Browse shades are not checked by the ingredient safety filter.
             </p>
+            {!loading && status === "ok" && ranked && (
+              <p className="mt-1 flex items-center gap-1 px-1 text-[10px] text-gray-light">
+                <Info size={11} className="shrink-0" />
+                Sorted by how well each shade suits your colors. Best match first.
+              </p>
+            )}
           </div>
         )}
 
