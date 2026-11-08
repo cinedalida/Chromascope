@@ -11,6 +11,7 @@ import { profileSignature } from "../utils/arRecommendedCache";
 import { useUserStore } from "../store/userStore";
 import { getRecommended } from "./arRecommendedService";
 import { getGroupShades } from "./arShadeService";
+import { whenServerAwake } from "./serverWake";
 
 const whenIdle = (task) =>
   typeof requestIdleCallback === "function" ? requestIdleCallback(task, { timeout: 3000 }) : setTimeout(task, 1500);
@@ -21,6 +22,8 @@ let run = 0; // a newer warm-up makes an older, still running one stop
 function warm() {
   const id = ++run;
   whenIdle(async () => {
+    // A sleeping free-hosted backend would fail every one of these; wait for it (up to a minute, never forever).
+    await whenServerAwake(60000);
     for (const group of AR_GROUPS) {
       if (id !== run) return;
       // Never throws: both services turn failures into empty results, and a failed one is not cached, so AR retries it.

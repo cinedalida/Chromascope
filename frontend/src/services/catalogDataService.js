@@ -3,6 +3,7 @@ import { API_BASE_URL } from "../config";
 import { createRecommendedCache, profileSignature } from "../utils/arRecommendedCache";
 import { createBatchRunner } from "../utils/filterBatch";
 import { getProductCatalog, runFilter } from "./productService";
+import { loadWhenServerAwake } from "./serverWake";
 
 // What the Catalog page loads, kept for the session so coming back to the page does not refetch. Memory only: the
 // product list is large, so it is not worth risking the localStorage quota.
@@ -20,7 +21,8 @@ const BATCH_TIMEOUT_MS = 60000;
 /** Every product, for the signed-in user (or signed-out). An empty list means the request failed and is not kept. */
 export function getCatalog() {
   const uid = auth.currentUser?.uid ?? "anonymous";
-  return catalogCache.get(uid, "catalog", "all", getProductCatalog, (items) => !items?.length);
+  const isFailure = (items) => !items?.length;
+  return catalogCache.get(uid, "catalog", "all", () => loadWhenServerAwake(getProductCatalog, isFailure), isFailure);
 }
 
 // The profile fields the safety filter reads. The same fallbacks as the request payload below.
@@ -64,13 +66,8 @@ const runBatch = createBatchRunner({
 function getSafetyBatch(user) {
   const payload = filterInputs(user);
   const signature = profileSignature({ ...payload, concerns: user.concerns });
-  return safetyCache.get(
-    user.uid,
-    "safety",
-    signature,
-    () => runBatch(FILTER_CATEGORIES, payload),
-    (responses) => !isComplete(FILTER_CATEGORIES.map((category) => responses[category])),
-  );
+  const isFailure = (responses) => !isComplete(FILTER_CATEGORIES.map((category) => responses[category]));
+  return safetyCache.get(user.uid, "safety", signature, () => loadWhenServerAwake(() => runBatch(FILTER_CATEGORIES, payload), isFailure), isFailure);
 }
 
 /** One category's /run-filter response (shares the one batch request with every other category). */
