@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
 import { AROverlayCanvas } from "../components/ar-tryon/AROverlayCanvas.jsx";
@@ -7,20 +8,20 @@ import { useARCamera } from "../hooks/useARCamera.jsx";
 import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
 import { useSettingsStore } from "../store/settingsStore.js";
-import { clearRecommendedCache } from "../services/arRecommendedService.js";
+import { clearRecommendedCache, productToTryOn } from "../services/arRecommendedService.js";
+import { renderFinishFromText } from "../utils/arProductMap.js";
+import { ALL_REGIONS, AR_GROUPS, REGION_LABEL, groupOfRegion } from "../utils/arGroups.js";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
-const NO_SHADES = { lips: null, cheeks: null, eyeshadow: null };
+const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
+// Every region hidden: what the overlay gets while Compare is held.
+const ALL_HIDDEN = Object.fromEntries(ALL_REGIONS.map((region) => [region, false]));
 
 // DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
 // Profile, App Settings, "AR blend tuning (dev)" is on.
 const BLEND_MODES = ["color", "multiply", "soft-light", "overlay", "hard-light"];
-const TUNING_REGIONS = [
-  { key: "lips", label: "Lips" },
-  { key: "cheeks", label: "Cheeks" },
-  { key: "eyeshadow", label: "Eyeshadow" },
-];
+const TUNING_REGIONS = ALL_REGIONS.map((key) => ({ key, label: REGION_LABEL[key] }));
 
 // Browser full screen where supported. iPhone Safari has no element full screen (the
 // method is missing), so the CSS expanded view is used alone there.
@@ -36,7 +37,33 @@ export function ARTryOnPage() {
   // Try-On Now" screen below — useARCamera only requests the stream once
   // `started` is true, so the page doesn't ambush the user with a camera
   // prompt the instant it loads.
-  const [started, setStarted] = useState(false);
+  //
+  // Exception: a "Try on" button on the Ingredient Filter or Product Catalog sends the product in
+  // location.state. Then the page starts the camera right away (the browser still asks for
+  // permission if it hasn't been granted yet; a refusal shows the usual camera error) and
+  // pre-selects that product's shade.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [incoming] = useState(() => (location.state?.product ? productToTryOn(location.state.product) : null));
+  const [started, setStarted] = useState(Boolean(incoming));
+  // Camera permission already granted: skip the "Start Try-On Now" gate. The Permissions API can't query "camera"
+  // in every browser (e.g. Safari), and then the gate simply stays, as it does for first-time users.
+  useEffect(() => {
+    let active = true;
+    navigator.permissions
+      ?.query({ name: "camera" })
+      .then((status) => {
+        if (active && status.state === "granted") setStarted(true);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  // Drop the product from history state so a refresh doesn't re-apply it.
+  useEffect(() => {
+    if (location.state?.product) navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate]);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
 
@@ -85,16 +112,24 @@ export function ARTryOnPage() {
   const perfEnabled = showPerfStats && started && isReady && !isMock;
   const { stats: perfStats, recordFrame } = usePerfStats({ enabled: perfEnabled });
 
-  const [toggles, setToggles] = useState({
-    lips: true,
-    cheeks: true,
-    eyeshadow: true,
-  });
+  // One toggle per group (lips, cheeks, eyes, face); the overlay gets it expanded to every region in the group.
+  const [toggles, setToggles] = useState(() => Object.fromEntries(AR_GROUPS.map((group) => [group.key, true])));
+  const regionToggles = useMemo(
+    () => Object.fromEntries(ALL_REGIONS.map((region) => [region, toggles[groupOfRegion(region)]])),
+    [toggles],
+  );
 
   // Selected shade item per region (unified shape from arShadeService / arRecommendedService).
-  const [selectedShades, setSelectedShades] = useState(NO_SHADES);
+  const [selectedShades, setSelectedShades] = useState(() =>
+    incoming ? { ...NO_SHADES, [incoming.region]: incoming.shade } : NO_SHADES,
+  );
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
+  const hasShades = Object.values(selectedShades).some(Boolean);
+
+  // Compare: while held, the overlay hides all makeup so the user sees their bare face. Nothing is saved.
+  const [comparing, setComparing] = useState(false);
+  const canCompare = hasShades && isReady && !isMock;
 
   // DEV only: live blend and opacity values from the tuning panel. With the panel off
   // (and always in production) the overlay uses its hardcoded REGION_RENDER values.
@@ -104,12 +139,16 @@ export function ARTryOnPage() {
 
   // Only regions with a selected shade; AROverlayCanvas draws nothing for the rest.
   // Memoized so the render loop restarts only when a shade actually changes.
-  const colors = useMemo(() => {
-    const next = {};
+  const { colors, finishes } = useMemo(() => {
+    const colors = {};
+    const finishes = {};
     for (const [region, shade] of Object.entries(selectedShades)) {
-      if (shade?.hex) next[region] = shade.hex;
+      if (!shade?.hex) continue;
+      colors[region] = shade.hex;
+      const finish = shade.renderFinish ?? renderFinishFromText(region, shade.finish);
+      if (finish) finishes[region] = finish;
     }
-    return next;
+    return { colors, finishes };
   }, [selectedShades]);
 
   // Shutter-flash + "Saved" toast shown briefly after a successful capture.
@@ -141,15 +180,13 @@ export function ARTryOnPage() {
     setTimeout(() => setToastMounted(false), 1450);
   };
 
-  // "Full Face" isn't its own render region (see AROverlayCanvas) — it's a
-  // shortcut that switches lips + cheeks + eyeshadow on/off together. If
-  // they're all already on, pressing it turns all three off; otherwise it
-  // turns all three on, regardless of their individual current states.
+  // "Full Face" isn't its own render region (see AROverlayCanvas); it's a shortcut that switches every group
+  // on or off together. If they're all already on, pressing it turns all off; otherwise it turns all on.
   const handleToggleRegion = (key) => {
     if (key === "fullFace") {
       setToggles((prev) => {
-        const allOn = prev.lips && prev.cheeks && prev.eyeshadow;
-        return { ...prev, lips: !allOn, cheeks: !allOn, eyeshadow: !allOn };
+        const allOn = AR_GROUPS.every((group) => prev[group.key]);
+        return Object.fromEntries(AR_GROUPS.map((group) => [group.key, !allOn]));
       });
       return;
     }
@@ -163,14 +200,23 @@ export function ARTryOnPage() {
       <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_400px] lg:overflow-hidden">
         {/* CENTER */}
         <section className="relative flex items-center justify-center bg-primary-lightest p-4 sm:p-6 lg:h-full lg:min-h-0">
-          {/* Mobile: width-driven, capped by screen height. Desktop: height-driven, so it always fits.
+          {/* Card: camera on top, white controls bar under it.
+              Mobile: width-driven, capped by screen height. Desktop: height-driven, so it always fits.
               Expanded: fills the whole window above the navbar and sidebar (both z-50). */}
           <div
             ref={frameRef}
             className={
               isExpanded
                 ? "fixed inset-0 z-60 overflow-hidden bg-slate-900"
-                : "relative aspect-[4/5] w-full max-w-[min(540px,48dvh)] overflow-hidden rounded-[32px] bg-slate-900 shadow-xl ring-1 ring-black/5 sm:rounded-[40px] lg:h-full lg:max-h-195 lg:w-auto lg:max-w-full"
+                : "flex w-full max-w-[min(540px,48dvh)] flex-col overflow-hidden rounded-[32px] bg-white shadow-xl ring-1 ring-black/5 sm:rounded-[40px] lg:h-full lg:max-h-235 lg:w-auto lg:max-w-full"
+            }
+          >
+          {/* CAMERA AREA: `isolate` keeps its layers (gate, flash, toast) below the controls bar. */}
+          <div
+            className={
+              isExpanded
+                ? "absolute inset-0 isolate"
+                : "relative isolate aspect-[4/5] w-full shrink-0 bg-slate-900 lg:h-[calc(100%-10rem)] lg:w-auto"
             }
           >
             {/* AR FEED */}
@@ -189,8 +235,9 @@ export function ARTryOnPage() {
               videoRef={cameraRef}
               isReady={isReady}
               isMock={isMock}
-              toggles={toggles}
+              toggles={comparing && canCompare ? ALL_HIDDEN : regionToggles}
               colors={colors}
+              finishes={finishes}
               render={tunerEnabled ? tuning : undefined}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
@@ -233,20 +280,6 @@ export function ARTryOnPage() {
               </div>
             )}
 
-            {/* CONTROLS — region toggles flank the capture button */}
-            {/* Expanded, the frame reaches the screen edge, so the controls clear the iPhone home bar. */}
-            <div
-              className={`absolute left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4 ${
-                isExpanded
-                  ? "bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(2rem+env(safe-area-inset-bottom))]"
-                  : "bottom-3 sm:bottom-8"
-              }`}
-            >
-              <ARControlBar regionKeys={["lips", "cheeks"]} toggles={toggles} onToggle={handleToggleRegion} />
-              <CaptureButton onClick={handleCapture} disabled={!isReady || isMock} />
-              <ARControlBar regionKeys={["eyeshadow", "fullFace"]} toggles={toggles} onToggle={handleToggleRegion} />
-            </div>
-
             {/* SAVE FEEDBACK — brief shutter flash + "Saved" toast after a capture */}
             {flashMounted && (
               <div
@@ -258,9 +291,7 @@ export function ARTryOnPage() {
             {toastMounted && (
               <div
                 className={`pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/80 px-5 py-2.5 text-white shadow-lg backdrop-blur-md transition-all duration-300 ${
-                  isExpanded
-                    ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(7rem+env(safe-area-inset-bottom))]"
-                    : "bottom-20 sm:bottom-28"
+                  isExpanded ? "bottom-[calc(12rem+env(safe-area-inset-bottom))] sm:bottom-[calc(13.5rem+env(safe-area-inset-bottom))]" : "bottom-4 sm:bottom-6"
                 } ${toastVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
               >
                 <Check size={16} strokeWidth={3} />
@@ -296,6 +327,41 @@ export function ARTryOnPage() {
               </div>
             )}
           </div>
+
+          {/* CONTROLS: makeup toggles, then Compare / capture / Reset.
+              Card view: white bar under the camera. Expanded: white controls over a soft dark fade at the
+              bottom of the feed, grouped in a centered column and clear of the iPhone home bar. */}
+          <div
+            className={
+              isExpanded
+                ? "pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-black/60 via-black/25 to-transparent px-4 pt-20 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+                : "flex shrink-0 flex-col justify-center bg-white px-3 pt-3 pb-3 sm:px-6 sm:pb-4 lg:h-40 lg:py-0"
+            }
+          >
+            <div className={`mx-auto flex w-full flex-col gap-2 sm:gap-3 ${isExpanded ? "pointer-events-auto max-w-115" : ""}`}>
+              <ARControlBar light={isExpanded} toggles={toggles} onToggle={handleToggleRegion} />
+              {/* Same 5 columns as the toggle row: Compare sits under Lips, capture under Eyes, Reset under Full Face. */}
+              <div className="grid grid-cols-5 items-center">
+                <CompareButton light={isExpanded} pressed={comparing && canCompare} disabled={!canCompare} onChange={setComparing} />
+                <div className="col-start-3 justify-self-center">
+                  <CaptureButton light={isExpanded} onClick={handleCapture} disabled={!isReady || isMock} />
+                </div>
+                <button
+                  type="button"
+                  onClick={clearShades}
+                  disabled={!hasShades}
+                  className={`col-start-5 justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+                    isExpanded
+                      ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] hover:text-white/80 disabled:text-white/40"
+                      : "text-secondary hover:text-secondary-dark disabled:text-gray-lighter"
+                  }`}
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+          </div>
         </section>
 
         {/* RIGHT PANEL */}
@@ -305,7 +371,7 @@ export function ARTryOnPage() {
             Offline: Recommended needs internet. Browse works if you used it online before.
           </OfflineNote>
           <div className="min-h-0 flex-1">
-            <AppliedProductsPanel selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+            <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
           </div>
         </aside>
       </div>
@@ -452,7 +518,14 @@ function FrameIconButton({ label, pressed, active = false, onClick, children }) 
   );
 }
 
-function CaptureButton({ onClick, disabled }) {
+// Outline shutter ring; the inner disc fills in on hover and press. `light`: white ring over the camera feed.
+function CaptureButton({ onClick, disabled, light = false }) {
+  const ring = light
+    ? `border-white bg-white/10 shadow-[0_2px_12px_rgba(0,0,0,0.3)] ${disabled ? "" : "hover:bg-white/20"}`
+    : `border-primary-light bg-white/60 ${disabled ? "" : "hover:border-primary"}`;
+  const disc = light
+    ? "group-hover:bg-white/35 group-active:bg-white/70"
+    : "group-hover:bg-primary-lighter group-active:bg-primary-light";
   return (
     <button
       type="button"
@@ -460,13 +533,50 @@ function CaptureButton({ onClick, disabled }) {
       disabled={disabled}
       aria-label="Save photo"
       title="Save photo"
-      className={`group relative flex h-14 w-14 shrink-0 items-center sm:h-18 sm:w-18 justify-center rounded-full bg-white shadow-[0_8px_32px_color-mix(in_srgb,var(--color-primary)_25%,transparent)] ring-4 ring-white/60 transition-all duration-300 focus:outline-none ${
-        disabled ? "cursor-not-allowed opacity-40" : "hover:scale-105 active:scale-95"
+      className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 sm:h-16 sm:w-16 ${ring} ${
+        disabled ? "cursor-not-allowed opacity-40" : "active:scale-95"
       }`}
     >
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-primary-dark" />
-      <div className="relative h-11 w-11 rounded-full border-[3px] sm:h-14 sm:w-14 border-white/40 transition-all duration-300 group-hover:border-white group-hover:scale-95 group-active:scale-90" />
-      <div className="absolute inset-0 rounded-full ring-4 ring-primary blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-40" />
+      <span className={`h-10 w-10 rounded-full transition-colors duration-200 sm:h-12 sm:w-12 ${disc}`} />
+    </button>
+  );
+}
+
+// Press and hold to see the face without makeup; release to bring it back.
+// Pointer capture keeps the release firing even if the finger slides off the button.
+function CompareButton({ pressed, disabled, onChange, light = false }) {
+  const start = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    onChange(true);
+  };
+  const stop = () => onChange(false);
+  const onKey = (down) => (e) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    e.preventDefault();
+    onChange(down);
+  };
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={pressed}
+      title="Hold to compare without makeup"
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onLostPointerCapture={stop}
+      onKeyDown={onKey(true)}
+      onKeyUp={onKey(false)}
+      onBlur={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      // Text only, styled like Reset; the color deepens while held.
+      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+        light
+          ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
+          : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`
+      }`}
+    >
+      Compare
     </button>
   );
 }

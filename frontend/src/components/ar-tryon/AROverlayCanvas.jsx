@@ -1,80 +1,19 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
-import {
-  LIPS_OUTER,
-  LIPS_INNER,
-  CHEEK_LEFT,
-  CHEEK_RIGHT,
-  orderRingByAngle,
-  EYE_LEFT,
-  EYE_RIGHT,
-  EYEBROW_LEFT_A,
-  EYEBROW_LEFT_B,
-  EYEBROW_RIGHT_A,
-  EYEBROW_RIGHT_B,
-  upperArc,
-  pickCloserRing,
-} from "../../utils/meshRegions.js";
+import { REGION_RENDER, drawLooks, sampleSkinL, toCanvasSpace } from "../../utils/arRenderer.js";
 
 /**
- * Default toggles, used only when no `toggles` prop is passed (ARTryOnPage
- * always passes real state from ARControlBar). There are no default colors:
- * a region is drawn only when ARTryOnPage passes a selected shade for it.
+ * Drawing lives in utils/arRenderer.js (REGION_RENDER holds the blend settings per region). This component
+ * owns the camera frame, face tracking and smoothing. Nothing has a default color: a region is drawn only
+ * when ARTryOnPage passes a selected shade for it.
  *
- * Eyeliner was tried (stroke-based, along the upper lash line with a
- * wing-tip flick) and removed after visual testing, it read as too faint/
- * indistinct against real lashes even after widening the stroke, boosting
- * opacity, and adding the wing. Eyeshadow (fill-based, same technique as
- * lips/cheeks) worked well and stayed. See
- * claude/AR_Implementation_Paper_Updates.md in the project for the full
- * before/after decision.
+ * Eyeliner was tried once (stroke along the upper lash line with a wing flick) and removed because it read as
+ * too faint. It is back as a thick opaque stroke scaled to the eye width; see REGION_RENDER.eyeliner.
  */
-const DEFAULT_TOGGLES = {
-  lips: true,
-  cheeks: true,
-  eyeshadow: true,
-};
 const NO_COLORS = {};
-
-/**
- * How each region is drawn over the camera frame. Each layer is one fill with
- * a canvas blend mode against the skin pixels underneath:
- *  - "multiply" adds pigment depth, so a dark shade reads darker than a light one.
- *  - "color" adds the shade's hue and saturation but keeps the skin's own
- *    brightness, so creases, shadows and highlights stay visible.
- *  - "soft-light" is a sheer tint, closer to blush or a gloss.
- * `feather` is the edge blur as a fraction of canvas width. `radial` fades the
- * fill from the middle of each ring out to transparent (blush placement).
- * Values chosen by eye against the darkest and lightest shades of each
- * region, 2026-11-07. Lips stay non-radial so "evenodd" keeps the mouth clear.
- */
-const REGION_RENDER = {
-  lips: {
-    feather: 0.012,
-    radial: false,
-    layers: [
-      { blend: "multiply", opacity: 0.6 },
-      { blend: "color", opacity: 0.35 },
-    ],
-  },
-  cheeks: {
-    feather: 0.012,
-    radial: true,
-    layers: [
-      { blend: "soft-light", opacity: 0.35 },
-      { blend: "color", opacity: 0.4 },
-    ],
-  },
-  eyeshadow: {
-    feather: 0.015,
-    radial: true,
-    layers: [
-      { blend: "multiply", opacity: 0.6 },
-      { blend: "color", opacity: 0.45 },
-    ],
-  },
-};
+const NO_FINISHES = {};
+const NO_TOGGLES = {};
 
 // Canvas resolution cap. Above 2x the extra pixels cost frame time with no visible gain.
 const MAX_PIXEL_RATIO = 2;
@@ -108,121 +47,15 @@ function drawMirroredFrame(ctx, video, canvasW, canvasH) {
   ctx.restore();
 }
 
-/**
- * Maps a point in the video's own pixel space onto the canvas, replicating
- * two things that both have to line up for the overlay to sit on the face
- * correctly:
- *  1. CSS `object-cover` scaling/cropping — CameraFeed's <video> fills its
- *     container with object-cover, which scales and crops the video rather
- *     than stretching it. MediaPipe's normalized (0-1) landmark output is
- *     relative to the video's native resolution, not the displayed box, so
- *     without this the overlay would drift whenever the video's aspect
- *     ratio doesn't match the container's.
- *  2. The horizontal mirror CameraFeed applies to the video for a normal
- *     selfie view (style={{ transform: "scaleX(-1)" }}). MediaPipe runs
- *     detection on the raw, unmirrored frame, so the overlay has to be
- *     flipped to match what's actually on screen.
- */
-function toCanvasSpace(px, py, videoWidth, videoHeight, canvasWidth, canvasHeight) {
-  const videoAspect = videoWidth / videoHeight;
-  const canvasAspect = canvasWidth / canvasHeight;
-
-  let scale;
-  let offsetX = 0;
-  let offsetY = 0;
-  if (videoAspect > canvasAspect) {
-    scale = canvasHeight / videoHeight;
-    offsetX = (videoWidth * scale - canvasWidth) / 2;
-  } else {
-    scale = canvasWidth / videoWidth;
-    offsetY = (videoHeight * scale - canvasHeight) / 2;
-  }
-
-  const x = px * scale - offsetX;
-  const y = py * scale - offsetY;
-  return [canvasWidth - x, y]; // mirrored to match CameraFeed's scaleX(-1)
-}
-
-/**
- * Traces a SMOOTH closed loop through a set of points, using a quadratic
- * curve through each edge's midpoint rather than straight lines to each
- * vertex. Straight lines between sparse landmark points (especially the
- * cheek approximation, which isn't an official ordered MediaPipe ring)
- * produce a jagged, star-shaped outline; this rounds every corner into a
- * soft, organic blob instead.
- */
-function tracePath(ctx, points) {
-  if (points.length < 3) {
-    points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-    return;
-  }
-  const midpoint = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const start = midpoint(points[points.length - 1], points[0]);
-  ctx.moveTo(start[0], start[1]);
-  for (let i = 0; i < points.length; i++) {
-    const curr = points[i];
-    const next = points[(i + 1) % points.length];
-    const mid = midpoint(curr, next);
-    ctx.quadraticCurveTo(curr[0], curr[1], mid[0], mid[1]);
-  }
-  ctx.closePath();
-}
-
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-// Shade color at full strength in the middle of the ring, fading to transparent at its edge.
-function radialFill(ctx, points, [r, g, b]) {
-  const cx = points.reduce((sum, [x]) => sum + x, 0) / points.length;
-  const cy = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
-  const radius = Math.max(1, ...points.map(([x, y]) => Math.hypot(x - cx, y - cy)));
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-  gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
-  gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.7)`);
-  gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
-  return gradient;
-}
-
-/**
- * Fills one or more rings of landmark indices as smooth paths, one fill per
- * layer of `settings` (see REGION_RENDER). Each layer blends the shade with the
- * skin pixels already on the canvas at the layer's opacity, which is the
- * C(τ) = β·C_shade + (1-β)·C_skin(τ) mix of Eq. D.2 done per blend mode.
- * Without `radial`, all rings form one path so "evenodd" can cut out the inner lips.
- */
-function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, color, settings, fillRule = "nonzero") {
-  const pointSets = rings.map((ring) =>
-    ring.map((idx) => {
-      const lm = landmarks[idx];
-      return toCanvasSpace(lm.x * videoW, lm.y * videoH, videoW, videoH, canvasW, canvasH);
-    }),
-  );
-  const pathOf = (sets) => {
-    const path = new Path2D();
-    sets.forEach((points) => tracePath(path, points));
-    return path;
-  };
-  const rgb = hexToRgb(color);
-  const shapes = settings.radial
-    ? pointSets.map((points) => ({ path: pathOf([points]), style: radialFill(ctx, points, rgb) }))
-    : [{ path: pathOf(pointSets), style: color }];
-
-  const feather = canvasW * settings.feather;
-  ctx.filter = feather > 0 ? `blur(${feather}px)` : "none";
-  for (const layer of settings.layers) {
-    if (!(layer.opacity > 0)) continue;
-    ctx.globalCompositeOperation = layer.blend;
-    ctx.globalAlpha = layer.opacity;
-    for (const { path, style } of shapes) {
-      ctx.fillStyle = style;
-      ctx.fill(path, fillRule);
-    }
-  }
-  ctx.filter = "none";
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
+// DEV aid for tuning landmark sets: the index number next to every landmark.
+function drawLandmarkNumbers(ctx, landmarks, videoW, videoH, canvasW, canvasH, only) {
+  ctx.font = only ? "bold 15px sans-serif" : "9px sans-serif";
+  ctx.fillStyle = "#00ff88";
+  landmarks.forEach((lm, i) => {
+    if (only && !only.includes(i)) return;
+    const [x, y] = toCanvasSpace(lm.x * videoW, lm.y * videoH, videoW, videoH, canvasW, canvasH);
+    ctx.fillText(String(i), x, y);
+  });
 }
 
 /**
@@ -237,13 +70,12 @@ function fillRegion(ctx, rings, landmarks, videoW, videoH, canvasW, canvasH, col
  *    of a real stream — there's no <video> to track, so detection/render
  *    is skipped.
  *  - alpha: EMA smoothing factor (manuscript recommends 0.4-0.6).
- *  - toggles: { lips, cheeks, eyeshadow } booleans — which regions render. There
- *    is no separate "fullFace" toggle here — ARControlBar's Full Face pill is a
- *    shortcut that flips these three together, not its own render region.
+ *  - toggles: { region: boolean }. A region is hidden only when its toggle is false.
  *  - colors: { lips, cheeks, eyeshadow } hex strings, the selected shades. May be
  *    partial; a region with no color is not drawn.
  *  - render: per-region blend layers, opacity and feather. Defaults to
  *    REGION_RENDER; the DEV tuning panel passes its own values here.
+ *  - landmarksRef: optional ref the DEV lab page passes to read the smoothed landmarks.
  *  - onFrame: optional callback(latencyMs, hasFace) called once per processed
  *    frame with the time spent on detection + smoothing + drawing and whether
  *    a face was found (usePerfStats).
@@ -258,9 +90,12 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   isReady,
   isMock,
   alpha = 0.5,
-  toggles = DEFAULT_TOGGLES,
+  toggles = NO_TOGGLES,
   colors = NO_COLORS,
+  finishes = NO_FINISHES,
   render = REGION_RENDER,
+  debugLandmarks = false,
+  landmarksRef,
   onFrame,
 }, ref) {
   const canvasRef = useRef(null);
@@ -275,6 +110,9 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
   const smoothedLandmarksRef = useRef(null);
+  // Skin lightness for skin-adaptive makeup strength; re-measured every few frames and smoothed so it never flickers.
+  const skinLRef = useRef(null);
+  const skinFramesRef = useRef(0);
   const hasFrameRef = useRef(false);
   const [status, setStatus] = useState("loading"); // loading | ready | tracking | error
 
@@ -380,30 +218,17 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           // EMA smoothing (Eq. D.1) before anything gets rendered from it.
           const smoothed = smoothLandmarks(rawPoints, smoothedLandmarksRef.current, alpha);
           smoothedLandmarksRef.current = smoothed;
+          // DEV lab only: lets test scripts read where the face is, in video-normalised coordinates.
+          if (landmarksRef) landmarksRef.current = { points: smoothed, videoW: video.videoWidth, videoH: video.videoHeight, canvasW: canvas.width, canvasH: canvas.height, skinL: skinLRef.current };
 
           const videoW = video.videoWidth;
           const videoH = video.videoHeight;
-          const args = [smoothed, videoW, videoH, canvas.width, canvas.height];
-
-          if (toggles.lips && colors.lips) {
-            fillRegion(ctx, [LIPS_OUTER, LIPS_INNER], ...args, colors.lips, render.lips, "evenodd");
+          if (skinLRef.current === null || skinFramesRef.current++ % 10 === 0) {
+            const measured = sampleSkinL(video, smoothed);
+            skinLRef.current = skinLRef.current === null ? measured : skinLRef.current * 0.8 + measured * 0.2;
           }
-          if (toggles.cheeks && colors.cheeks) {
-            const leftRing = orderRingByAngle(CHEEK_LEFT, smoothed);
-            const rightRing = orderRingByAngle(CHEEK_RIGHT, smoothed);
-            fillRegion(ctx, [leftRing, rightRing], ...args, colors.cheeks, render.cheeks);
-          }
-          if (toggles.eyeshadow && colors.eyeshadow) {
-            // Region = upper lash line arc + the eyebrow ring that sits closer to the
-            // eye, angle-sorted into a closed blob (same technique as cheeks).
-            const browLeftLower = pickCloserRing(EYEBROW_LEFT_A, EYEBROW_LEFT_B, smoothed);
-            const browRightLower = pickCloserRing(EYEBROW_RIGHT_A, EYEBROW_RIGHT_B, smoothed);
-            const lidLeft = upperArc(EYE_LEFT, smoothed);
-            const lidRight = upperArc(EYE_RIGHT, smoothed);
-            const shadowLeft = orderRingByAngle([...lidLeft, ...browLeftLower], smoothed);
-            const shadowRight = orderRingByAngle([...lidRight, ...browRightLower], smoothed);
-            fillRegion(ctx, [shadowLeft, shadowRight], ...args, colors.eyeshadow, render.eyeshadow);
-          }
+          drawLooks(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, { colors, toggles, finishes, render, skinL: skinLRef.current, video });
+          if (debugLandmarks) drawLandmarkNumbers(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, Array.isArray(debugLandmarks) ? debugLandmarks : null);
         }
 
         onFrameRef.current?.(performance.now() - frameStart, hasFace);
@@ -417,7 +242,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, render]);
+  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, finishes, render, debugLandmarks, landmarksRef]);
 
   return (
     <canvas

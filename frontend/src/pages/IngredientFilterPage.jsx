@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { runFilter } from "../services/productService";
+import { productToTryOn } from "../services/arRecommendedService";
+import { tryOnUnavailableTooltip } from "../utils/arProductMap";
+import { seasonChips } from "../utils/seasonLabels";
 import { assetUrl } from "../config";
 import { useUserStore } from "../store/userStore";
 import {
@@ -124,13 +127,14 @@ export function IngredientFilterPage() {
   );
 
   const rows = currentItems.map((item) => {
-    const seasons = Array.isArray(item.season_tags)
-      ? item.season_tags
-      : item.season_tags?.split(",").map((s) => s.trim()) || ["Universal"];
+    const seasons = seasonChips(item);
+    // The backend's fit (0..1) for the user's season or skin tone; older responses only carry a skin color distance.
     const matchPercent =
-      item.delta_e !== undefined
-        ? Math.max(0, 100 - item.delta_e * 5).toFixed(0)
-        : null;
+      item.fit_score !== undefined
+        ? Math.round(item.fit_score * 100).toString()
+        : item.delta_e !== undefined
+          ? Math.max(0, 100 - item.delta_e * 5).toFixed(0)
+          : null;
     return { item, seasons, matchPercent };
   });
 
@@ -335,8 +339,9 @@ export function IngredientFilterPage() {
                                 state: { product: item },
                               })
                             }
-                            className="text-gray-400 p-1 shrink-0"
-                            title="Try on"
+                            disabled={!productToTryOn(item)}
+                            className="text-gray-400 p-1 shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={productToTryOn(item) ? "Try on" : tryOnUnavailableTooltip(item)}
                           >
                             <Eye size={18} />
                           </button>
@@ -347,7 +352,7 @@ export function IngredientFilterPage() {
                           </span>
                           <StatusBadge type={item.verdict} />
                           <ShadeSummary item={item} />
-                          {category === "Face" && matchPercent && (
+                          {matchPercent && (
                             <span className="text-[10px] font-black text-primary">
                               {matchPercent}% Match
                             </span>
@@ -478,8 +483,9 @@ export function IngredientFilterPage() {
                                     state: { product: item },
                                   })
                                 }
-                                className="text-gray-400 group-hover:text-primary transition-all p-2"
-                                title="Try on"
+                                disabled={!productToTryOn(item)}
+                                className="text-gray-400 group-hover:text-primary transition-all p-2 disabled:opacity-30 disabled:cursor-not-allowed disabled:group-hover:text-gray-400"
+                                title={productToTryOn(item) ? "Try on" : tryOnUnavailableTooltip(item)}
                               >
                                 <Eye size={18} />
                               </button>

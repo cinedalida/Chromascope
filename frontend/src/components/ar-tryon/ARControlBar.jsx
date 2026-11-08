@@ -1,65 +1,56 @@
-import { Eye, ScanFace } from "lucide-react";
+import { Droplet, Eye, ScanFace } from "lucide-react";
+import { AR_GROUPS } from "../../utils/arGroups.js";
 import lipsIcon from "../../assets/icons/lips.png";
 import cheeksIcon from "../../assets/icons/blush.png";
 
 /**
- * ARControlBar — region toggle bar (PRD Task 6)
+ * ARControlBar: region toggle row (PRD Task 6)
  *
- * Lets the user turn each AR region on/off: Lips, Cheeks, Full Face.
- * Owns no state itself — `toggles` and `onToggle` are lifted up to
- * ARTryOnPage, which is also what feeds `toggles` into AROverlayCanvas, so
- * flipping a button here directly changes what actually renders on the
- * live camera feed.
+ * One evenly spaced row of labeled icons: Lips, Cheeks, Eyes, Face, plus Full Face.
+ * Each tap turns that makeup group on or off; a dot under the label marks the groups
+ * that are on. Owns no state itself: `toggles` and `onToggle` are lifted up to
+ * ARTryOnPage, which also feeds `toggles` into AROverlayCanvas, so a tap here
+ * directly changes what renders on the live camera feed.
  *
- * (Originally scaffolded as a Capture/Reset/Compare bar — that
- * functionality already lives inline in ARTryOnPage's own control row, so
- * this component was repurposed for the region toggles the AR pipeline
- * actually needs.)
+ * `light`: white icons and labels for use over the camera feed (full screen view).
  */
 const REGIONS = [
   { key: "lips", label: "Lips", iconSrc: lipsIcon },
   { key: "cheeks", label: "Cheeks", iconSrc: cheeksIcon },
-  { key: "eyeshadow", label: "Eyeshadow", Icon: Eye },
+  { key: "eyes", label: "Eyes", Icon: Eye },
+  { key: "face", label: "Face", Icon: Droplet },
   { key: "fullFace", label: "Full Face", Icon: ScanFace },
 ];
 
-export function ARControlBar({ toggles, onToggle, regionKeys }) {
+export function ARControlBar({ toggles, onToggle, regionKeys, light = false }) {
   const regions = regionKeys ? REGIONS.filter((r) => regionKeys.includes(r.key)) : REGIONS;
   return (
-    // Smaller on phones so the whole control row fits inside the camera frame.
-    <div className="flex shrink-0 items-center gap-1 rounded-full border border-white/30 bg-white/30 px-1.5 py-1.5 shadow-2xl ring-1 ring-white/40 backdrop-blur-xl sm:gap-1.5 sm:px-2 sm:py-2">
+    <div className="flex w-full items-start justify-between">
       {regions.map(({ key, label, Icon, iconSrc }) => {
-        // "Full Face" has no state of its own (see ARTryOnPage's
-        // handleToggleRegion) — it reads as active only when lips, cheeks,
-        // AND eyeshadow are all already on, since it's a shortcut for that
-        // combined state, not an independent toggle.
-        const active =
-          key === "fullFace"
-            ? toggles.lips && toggles.cheeks && toggles.eyeshadow
-            : toggles[key];
+        // "Full Face" has no state of its own (see ARTryOnPage's handleToggleRegion): it reads as active only
+        // when every group is already on, since it's a shortcut for that combined state.
+        const active = key === "fullFace" ? AR_GROUPS.every((group) => toggles[group.key]) : toggles[key];
+        const tone = light
+          ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] ${active ? "text-white" : "text-white/55 hover:text-white/80"}`
+          : active
+            ? "text-black"
+            : "text-gray-light hover:text-gray";
         return (
           <button
             key={key}
             type="button"
             onClick={() => onToggle(key)}
             aria-pressed={active}
-            aria-label={label}
-            title={label}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 sm:h-10 sm:w-10 ${
-              active
-                ? "bg-primary text-white shadow-md"
-                : "bg-white/50 text-black/70 hover:bg-white/70"
-            }`}
+            title={active ? `Hide ${label}` : `Show ${label}`}
+            className={`group flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl py-1 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${tone}`}
           >
             {Icon ? (
-              <Icon strokeWidth={2.25} className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              <Icon strokeWidth={1.5} className="h-6 w-6 sm:h-7 sm:w-7" />
             ) : (
-              // PNG icons (lips/blush) recolored via mask so they still
-              // pick up currentColor and switch white/dark with `active`,
-              // matching the lucide icons above.
+              // PNG icons (lips/blush) recolored via mask so they pick up currentColor like the lucide icons.
               <span
                 aria-hidden="true"
-                className="h-4 w-4 bg-current sm:h-4.5 sm:w-4.5"
+                className="h-6 w-6 bg-current sm:h-7 sm:w-7"
                 style={{
                   WebkitMaskImage: `url(${iconSrc})`,
                   maskImage: `url(${iconSrc})`,
@@ -72,6 +63,11 @@ export function ARControlBar({ toggles, onToggle, regionKeys }) {
                 }}
               />
             )}
+            <span className="truncate text-[11px] font-medium sm:text-xs">{label}</span>
+            <span
+              aria-hidden="true"
+              className={`h-1 w-1 rounded-full transition-opacity duration-200 ${active ? `${light ? "bg-white" : "bg-primary-light"} opacity-100` : "opacity-0"}`}
+            />
           </button>
         );
       })}

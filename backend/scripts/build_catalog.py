@@ -5,7 +5,12 @@ Output: <data dir>/derived/app_catalog.json                 (stays in the PRIVAT
                                                              to the public app repo)
 One entry per product with its shades inside; each shade keeps its name, colour and formula.
 
-Usage (from backend/): venv\Scripts\python -m scripts.build_catalog "C:\...\chromascope-data"
+Every product is tagged with its color season (season_tags, season_tag_computed, season_scores, match_basis) by
+app/core/season_classifier.py. By default with the committed percentile norms (app/core/season_norms.json); pass
+--fit-norms to refit those norms on this catalog first (a deliberate release: scores shift, so also bump
+season_classifier.NORMS_VERSION and re-tag the database with scripts/classify_products_season.py).
+
+Usage (from backend/): venv\Scripts\python -m scripts.build_catalog "C:\...\chromascope-data" [--fit-norms]
 """
 import ast
 import json
@@ -14,6 +19,8 @@ import sys
 from collections import Counter
 
 import pandas as pd
+
+from app.core import season_classifier as sc
 
 CATEGORY = {"face": "Face", "eye": "Eye", "lip": "Lip", "cheek": "Cheek", "concealer": "Concealer"}
 CATALOG_VERSION = "scraped-2026-10"
@@ -38,7 +45,23 @@ def _price(text):
         return None
 
 
-def build(data_dir: str) -> dict:
+def tag_seasons(products: list, refit_norms: bool = False) -> None:
+    """Fill the season fields of every classifiable product in place (see app/core/season_classifier.py)."""
+    if refit_norms:
+        norms = sc.fit_norms(products)
+        with open(sc.NORMS_PATH, "w", encoding="utf-8") as fh:
+            json.dump(norms, fh, indent=1)
+        sc._NORMS_CACHE.clear()
+        print("refitted", sc.NORMS_PATH)
+    else:
+        norms = sc.get_norms()
+    for p in products:
+        result = sc.classify_product(p, norms)
+        if result:
+            p.update({k: v for k, v in result.items() if not k.startswith("_")})
+
+
+def build(data_dir: str, refit_norms: bool = False) -> dict:
     d = os.path.join(data_dir, "derived")
     P = pd.read_csv(os.path.join(d, "products.csv"), dtype=str, keep_default_na=False)
     S = pd.read_csv(os.path.join(d, "shades.csv"), dtype=str, keep_default_na=False)
@@ -79,14 +102,16 @@ def build(data_dir: str) -> dict:
             "source": f"scraped ({p.store})",
             "catalog_version": CATALOG_VERSION,
         })
+    tag_seasons(products, refit_norms)
     return {"catalog_version": CATALOG_VERSION, "products": products}
 
 
 def main():
-    if len(sys.argv) != 2:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(args) != 1:
         sys.exit(__doc__)
-    data_dir = sys.argv[1]
-    cat = build(data_dir)
+    data_dir = args[0]
+    cat = build(data_dir, refit_norms="--fit-norms" in sys.argv)
     out = os.path.join(data_dir, "derived", "app_catalog.json")
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(cat, fh, ensure_ascii=False)

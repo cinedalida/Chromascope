@@ -131,3 +131,24 @@ export function pickCloserRing(ringA, ringB, landmarks) {
   const avgY = (ring) => ring.reduce((sum, i) => sum + landmarks[i].y, 0) / ring.length;
   return avgY(ringA) > avgY(ringB) ? ringA : ringB;
 }
+
+/**
+ * Ordered lid lines, outer corner to inner corner, for stroke-based looks (liner, mascara).
+ * Same official eye rings as EYE_LEFT / EYE_RIGHT above, split by hand into upper and lower lid.
+ * "Left"/"right" follow the EYE_LEFT / EYE_RIGHT naming (EYE_RIGHT holds 33 and 133).
+ */
+export const EYE_RIGHT_UPPER = [33, 246, 161, 160, 159, 158, 157, 173, 133];
+export const EYE_RIGHT_LOWER = [33, 7, 163, 144, 145, 153, 154, 155, 133];
+export const EYE_LEFT_UPPER = [263, 466, 388, 387, 386, 385, 384, 398, 362];
+export const EYE_LEFT_LOWER = [263, 249, 390, 373, 374, 380, 381, 382, 362];
+
+// Centre line of the nose bridge, between the eyes down to the nose tip.
+export const NOSE_BRIDGE = [168, 6, 197, 195, 5];
+
+// PROVISIONAL (tuned against the debug landmark overlay on the AR lab page): the hollow under each cheekbone,
+// as a line from near the ear towards the mouth corner, and the top of each cheekbone as a small ring.
+// Same side naming as CHEEK_LEFT / CHEEK_RIGHT (the left set holds 234).
+export const CONTOUR_LEFT = [123, 207];
+export const CONTOUR_RIGHT = [352, 427];
+export const CHEEKBONE_LEFT = [116, 117, 118, 50];
+export const CHEEKBONE_RIGHT = [345, 346, 347, 280];

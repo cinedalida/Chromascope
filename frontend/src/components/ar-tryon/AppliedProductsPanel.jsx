@@ -1,25 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Info } from "lucide-react";
+import { Info, Search, X } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
-
-// Tab label -> AR region key.
-const categories = [
-  { label: "LIPS", region: "lips" },
-  { label: "EYESHADOW", region: "eyeshadow" },
-  { label: "BLUSH", region: "cheeks" },
-];
-const REGION_LABEL = Object.fromEntries(categories.map((c) => [c.region, c.label]));
+import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
 
 const SOURCES = [
   { key: "recommended", label: "Recommended" },
   { key: "browse", label: "Browse" },
 ];
 
+// Basic shows one everyday product type per tab; Advanced shows every type with a type filter.
+const MODES = [
+  { key: "basic", label: "Basic" },
+  { key: "advanced", label: "Advanced" },
+];
+const BASIC_TYPE = { lips: "lips", cheeks: "cheeks", eyes: "eyeshadow", face: "foundation" };
+const BASIC_REGIONS = new Set(Object.values(BASIC_TYPE));
+const MODE_STORAGE_KEY = "chromascope.arPanelMode";
+
 const PAGE_SIZE = 12;
-const PREVIEW_COUNT = 6;
 const SEARCH_DELAY_MS = 150;
 
 const EMPTY_MESSAGES = {
@@ -27,6 +28,25 @@ const EMPTY_MESSAGES = {
   empty: "No matched products for this category yet.",
   error: "Could not load your matches.",
 };
+
+// Hides a sideways-scrolling row's scrollbar while keeping it scrollable.
+const NO_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function readStoredMode() {
+  try {
+    return localStorage.getItem(MODE_STORAGE_KEY) === "advanced" ? "advanced" : "basic";
+  } catch {
+    return "basic";
+  }
+}
+
+function storeMode(mode) {
+  try {
+    localStorage.setItem(MODE_STORAGE_KEY, mode);
+  } catch {
+    // Storage blocked (private mode): the choice just isn't remembered.
+  }
+}
 
 function formatPrice(price, currency) {
   if (price === null || price === undefined) return null;
@@ -41,31 +61,54 @@ function VerdictBadge({ verdict }) {
   const isSafe = verdict === "safe";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-2 py-0.5 ${
-        isSafe ? "bg-[#ECFDF5] border-[#D1FAE5] text-[#059669]" : "bg-[#FFFBEB] border-[#FEF3C7] text-[#D97706]"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px ${
+        isSafe ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#FFFBEB] text-[#D97706]"
       }`}
     >
       <span className={`h-1 w-1 rounded-full ${isSafe ? "bg-[#10B981]" : "bg-[#F59E0B]"}`} />
-      <span className="text-[9px] font-black uppercase tracking-widest">{isSafe ? "Safe" : "Caution"}</span>
+      <span className="text-[9px] font-bold uppercase tracking-wider">{isSafe ? "Safe" : "Caution"}</span>
     </span>
   );
 }
 
+function MatchBadge({ group }) {
+  if (group.fitTier) {
+    const great = group.fitTier === "great";
+    return (
+      <span
+        className={`shrink-0 rounded-md px-1.5 py-px text-[9px] font-bold uppercase tracking-wider ${
+          great ? "bg-[#ECFDF5] text-[#059669]" : "bg-primary-lighter text-primary"
+        }`}
+      >
+        {great ? "Great match" : "Good match"}
+      </span>
+    );
+  }
+  if (group.seasonMatch) {
+    return (
+      <span className="shrink-0 rounded-md bg-primary-lighter px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-primary">
+        Season match
+      </span>
+    );
+  }
+  return null;
+}
+
 function Notice({ children }) {
   return (
-    <p className="rounded-xl bg-primary-lightest px-3 py-2 text-[11px] leading-snug text-primary-darker">{children}</p>
+    <p className="rounded-xl bg-primary-lightest px-3 py-1.5 text-[11px] leading-snug text-primary-darker">{children}</p>
   );
 }
 
 function EmptyState({ message, actionLabel, onAction }) {
   return (
-    <div className="py-10 text-center">
-      <p className="text-[11px] text-gray-light">{message}</p>
+    <div className="px-4 py-10 text-center">
+      <p className="text-xs text-gray-light">{message}</p>
       {onAction && (
         <button
           type="button"
           onClick={onAction}
-          className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70"
+          className="mt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70"
         >
           {actionLabel}
         </button>
@@ -74,138 +117,122 @@ function EmptyState({ message, actionLabel, onAction }) {
   );
 }
 
-function selectedIdFor(group, selected) {
+/* ── Small segmented switch (Basic / Advanced) ── */
+function ModeSwitch({ mode, onChange }) {
+  return (
+    <div className="flex shrink-0 rounded-full bg-gray-lightest p-0.5" role="group" aria-label="Product detail">
+      {MODES.map(({ key, label }) => {
+        const isActive = mode === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            aria-pressed={isActive}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              isActive ? "bg-white text-primary shadow-sm ring-1 ring-black/5" : "text-gray-light hover:text-gray"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Id of the selected shade in this product's region, if it came from the same source as the product.
+function selectedIdFor(group, selectedShades) {
+  const selected = selectedShades?.[group.region];
   return selected?.source === group.source ? selected.id : null;
 }
 
-function rowStyle(isActive) {
-  return {
-    backgroundColor: isActive ? "var(--color-primary-lightest)" : "#FAFAFA",
-    border: isActive ? "1.5px solid #C084FC" : "1.5px solid transparent",
-  };
-}
-
-/* ── Brand, name and meta line shared by both row types ── */
-function ProductInfo({ group }) {
+/* ── One product: brand and badges, name with price and shade count, then a one-tap swatch strip.
+      Same layout for single-shade and multi-shade products. `showType` adds the type tag (only on "All"). ── */
+function ProductRow({ group, selectedShades, onSelect, showType }) {
+  const selectedId = selectedIdFor(group, selectedShades);
+  const isActive = group.shades.some((shade) => shade.id === selectedId);
   const price = formatPrice(group.price, group.currency);
   const count = group.shades.length;
+  const meta = [price, count > 1 ? `${count} shades` : null].filter(Boolean).join(" · ");
+  const isRecommended = group.source === "recommended";
   return (
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-[9px] font-bold uppercase tracking-[0.14em] text-gray-light">{group.brand}</span>
-        {group.source === "recommended" && group.verdict && <VerdictBadge verdict={group.verdict} />}
+    <div className={`px-4 py-3 transition-colors duration-200 sm:px-5 ${isActive ? "bg-primary-lightest" : ""}`}>
+      <div className="flex items-center gap-1.5">
+        <span className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
+        {isRecommended && group.verdict && <VerdictBadge verdict={group.verdict} />}
+        {isRecommended && <MatchBadge group={group} />}
       </div>
-      <p className="truncate font-heading text-[13px] font-semibold leading-tight text-black">{group.product}</p>
-      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-gray-light">
-        {price && <span>{price}</span>}
-        {group.finish && <span className="truncate">{group.finish}</span>}
-        {count > 1 && <span>{count} shades</span>}
-        {group.seasonMatch && (
-          <span className="rounded-md bg-primary-lighter px-1.5 py-px text-[8px] font-black uppercase tracking-tighter text-primary">
-            Season match
-          </span>
-        )}
+      <div className="flex items-baseline gap-3">
+        <p className="min-w-0 flex-1 truncate font-heading text-sm font-semibold leading-snug text-black">{group.product}</p>
+        {meta && <span className="shrink-0 text-[11px] text-gray-light">{meta}</span>}
       </div>
-    </div>
-  );
-}
-
-/* ── A product with one shade: the whole row is the swatch ── */
-function SingleShadeRow({ group, selected, onSelect }) {
-  const shade = group.shades[0];
-  const isActive = shade.id === selectedIdFor(group, selected);
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(isActive ? null : shade)}
-      aria-pressed={isActive}
-      aria-label={`${group.brand} ${group.product} ${shade.shade || ""}`.trim()}
-      className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all duration-200 hover:brightness-[0.98]"
-      style={rowStyle(isActive)}
-    >
-      <span
-        className={`h-9 w-9 shrink-0 rounded-full shadow-sm ring-offset-2 ${isActive ? "ring-2 ring-primary" : "ring-1 ring-black/10"}`}
-        style={{ backgroundColor: shade.hex }}
-      />
-      <ProductInfo group={group} />
-    </button>
-  );
-}
-
-/* ── A product with many shades: collapsed shows a dot preview, expanded shows the full grid ── */
-function MultiShadeRow({ group, selected, onSelect, open, onToggle }) {
-  const selectedId = selectedIdFor(group, selected);
-  const isActive = group.shades.some((shade) => shade.id === selectedId);
-  const preview = group.shades.slice(0, PREVIEW_COUNT);
-  const extra = group.shades.length - preview.length;
-
-  return (
-    <div className="rounded-2xl p-2.5 transition-all duration-200" style={rowStyle(isActive)}>
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-left">
-        <ProductInfo group={group} />
-        <ChevronDown
-          size={16}
-          className={`mt-3 shrink-0 text-gray-light transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open ? (
-        <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={onSelect} />
-      ) : (
-        <button type="button" onClick={onToggle} aria-label={`Show ${group.shades.length} shades`} className="mt-2 flex items-center">
-          {preview.map((shade) => (
-            <span
-              key={shade.id}
-              className={`-mr-1 h-5 w-5 rounded-full ring-2 ${shade.id === selectedId ? "ring-primary" : "ring-white"}`}
-              style={{ backgroundColor: shade.hex }}
-            />
-          ))}
-          {extra > 0 && <span className="ml-2.5 text-[10px] font-semibold text-gray-light">+{extra}</span>}
-        </button>
+      {(showType || group.finish) && (
+        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-gray-light">
+          {showType && group.region && (
+            <span className="shrink-0 rounded-md bg-gray-lightest px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-black/60">
+              {REGION_LABEL[group.region] ?? group.region}
+            </span>
+          )}
+          {group.finish && <span className="truncate">{group.finish}</span>}
+        </div>
       )}
+      <ProductSwatchPicker shades={group.shades} selectedId={selectedId} onSelect={(shade) => onSelect(group.region, shade)} />
     </div>
   );
 }
 
-/* ── Paged row list. Remounted (keyed) when tab, source or query changes, which resets the page count
-      and reopens the row that holds the selected shade. One row is open at a time. ── */
-function ProductList({ groups, selected, onSelect }) {
+/* ── Paged row list. Remounted (keyed) when tab, type, source or query changes, which resets the page count.
+      The next page loads when "Show more" scrolls into view, or on tap. ── */
+function ProductList({ groups, selectedShades, onSelect, showType }) {
   const [visible, setVisible] = useState(PAGE_SIZE);
-  const [openKey, setOpenKey] = useState(
-    () => groups.find((group) => group.shades.some((shade) => shade.id === selectedIdFor(group, selected)))?.key ?? null,
-  );
+  const moreRef = useRef(null);
+  const hasMore = groups.length > visible;
+
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!hasMore || !el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setVisible((n) => n + PAGE_SIZE);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, visible]);
+
   return (
     <>
-      {groups.slice(0, visible).map((group) =>
-        group.shades.length === 1 ? (
-          <SingleShadeRow key={group.key} group={group} selected={selected} onSelect={onSelect} />
-        ) : (
-          <MultiShadeRow
-            key={group.key}
-            group={group}
-            selected={selected}
-            onSelect={onSelect}
-            open={openKey === group.key}
-            onToggle={() => setOpenKey((current) => (current === group.key ? null : group.key))}
-          />
-        ),
-      )}
-      {groups.length > visible && (
-        <button
-          type="button"
-          onClick={() => setVisible((n) => n + PAGE_SIZE)}
-          className="w-full rounded-2xl border border-gray-lighter py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:bg-primary-lightest"
-        >
-          Show more ({groups.length - visible} left)
-        </button>
+      <div className="divide-y divide-gray-lightest">
+        {groups.slice(0, visible).map((group) => (
+          <ProductRow key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} showType={showType} />
+        ))}
+      </div>
+      {hasMore && (
+        <div className="px-4 py-3 sm:px-5">
+          <button
+            ref={moreRef}
+            type="button"
+            onClick={() => setVisible((n) => n + PAGE_SIZE)}
+            className="w-full rounded-xl py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition hover:bg-primary-lightest"
+          >
+            Show more ({groups.length - visible} left)
+          </button>
+        </div>
       )}
     </>
   );
 }
 
 /* ── Main panel ───────────────────────────── */
-export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear }) {
-  const [activeRegion, setActiveRegion] = useState("lips");
+export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion }) {
+  const [activeGroup, setActiveGroup] = useState(() => groupOfRegion(initialRegion) ?? "lips");
+  // Arriving with an Advanced-only product (e.g. eyeliner) opens Advanced so that product is listed.
+  const [mode, setMode] = useState(() =>
+    initialRegion && !BASIC_REGIONS.has(initialRegion) ? "advanced" : readStoredMode(),
+  );
+  // Product type inside the tab in Advanced ("all" or a region key such as "eyeliner").
+  const [activeType, setActiveType] = useState(() => initialRegion ?? "all");
   const [source, setSource] = useState("recommended");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -214,156 +241,210 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
     return () => clearTimeout(id);
   }, [query]);
 
-  const { items, status, loading, seasonFilter } = useARShades(activeRegion, source);
+  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source);
   const groups = useMemo(() => groupByProduct(items), [items]);
-  const visibleGroups = useMemo(
-    () => (source === "browse" ? searchProducts(groups, debouncedQuery) : groups),
-    [groups, source, debouncedQuery],
-  );
+  const typeCounts = useMemo(() => {
+    const counts = {};
+    for (const group of groups) counts[group.region] = (counts[group.region] ?? 0) + 1;
+    return counts;
+  }, [groups]);
+  const isBasic = mode === "basic";
+  const typeOptions = groupByKey(activeGroup).regions.filter((region) => typeCounts[region]);
+  // Basic: always the tab's everyday type. Advanced: the chosen type, or everything when it has no products here.
+  const effectiveType = isBasic ? BASIC_TYPE[activeGroup] : typeCounts[activeType] ? activeType : "all";
+  const visibleGroups = useMemo(() => {
+    const ofType = effectiveType === "all" ? groups : groups.filter((group) => group.region === effectiveType);
+    return source === "browse" ? searchProducts(ofType, debouncedQuery) : ofType;
+  }, [groups, effectiveType, source, debouncedQuery]);
 
   const applied = Object.entries(selectedShades).filter(([, shade]) => shade);
-  const selected = selectedShades[activeRegion];
-  const selectForRegion = (shade) => onSelectShade(activeRegion, shade);
 
-  const switchSource = (next) => {
-    setSource(next);
+  const clearSearch = () => {
     setQuery("");
     setDebouncedQuery("");
   };
+  const switchSource = (next) => {
+    setSource(next);
+    setSearchOpen(false);
+    clearSearch();
+  };
+  const toggleSearch = () => {
+    if (searchOpen) clearSearch();
+    setSearchOpen(!searchOpen);
+  };
+  const switchMode = (next) => {
+    setMode(next);
+    storeMode(next);
+  };
+
+  const showNotices = source === "recommended" && !loading && status === "ok";
 
   return (
     <div className="flex h-full flex-col bg-white font-body">
-      {/* ── Header ── */}
-      <div className="px-5 pt-4 pb-3 border-b border-gray-lightest/60">
-        <div className={`flex items-center justify-between ${applied.length ? "mb-2.5" : ""}`}>
-          <div>
-            <h2 className="font-heading text-lg font-semibold text-black leading-tight">
-              Applied Products
-            </h2>
-            <p className="text-[11px] text-gray-light mt-0.5">
-              {applied.length} active · live AR overlay
-            </p>
-          </div>
-          <button
-            onClick={onClear}
-            className="relative text-[10px] font-bold uppercase tracking-[0.12em] text-primary transition hover:opacity-70 after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']"
-          >
-            Clear all
-          </button>
+      {/* ── Header: title and Basic/Advanced; applied chips and Clear only when something is applied ── */}
+      <div className="px-4 pt-3 sm:px-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-heading text-lg font-semibold leading-tight text-black">Shades</h2>
+          <ModeSwitch mode={mode} onChange={switchMode} />
         </div>
 
-        {/* Applied chips, one per region, straight from selectedShades. */}
         {applied.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {applied.map(([region, shade]) => (
-            <span
-              key={region}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-lightest py-1 pl-1.5 pr-2 text-[11px] font-semibold text-black"
-            >
-              <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
-              <span className="truncate">
-                {shade.shade || shade.product}
-                <span className="font-normal text-gray-light"> · {shade.brand}</span>
-              </span>
-              {shade.source === "browse" && (
-                <span className="rounded-md bg-white px-1.5 text-[8px] font-black uppercase tracking-wider text-gray-light">
-                  Browse
+          <div className="mt-2 flex items-center gap-2">
+            <div className={`flex min-w-0 flex-1 gap-1.5 overflow-x-auto ${NO_SCROLLBAR}`}>
+              {applied.map(([region, shade]) => (
+                <span
+                  key={region}
+                  className="inline-flex max-w-[220px] shrink-0 items-center gap-1.5 rounded-full bg-gray-lightest py-1 pl-1 pr-2 text-[11px] font-semibold text-black"
+                >
+                  <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+                  <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
+                  <span className="truncate font-medium">{shade.shade || shade.product}</span>
+                  <button
+                    type="button"
+                    onClick={() => onSelectShade(region, null)}
+                    aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
+                    className="relative shrink-0 leading-none opacity-50 hover:opacity-100 after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
+                  >
+                    <X size={10} strokeWidth={2.5} />
+                  </button>
                 </span>
-              )}
-              <button
-                onClick={() => onSelectShade(region, null)}
-                aria-label={`Remove ${REGION_LABEL[region].toLowerCase()} shade`}
-                className="relative opacity-60 hover:opacity-100 leading-none after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
-              >
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                  <path
-                    d="M1 1L4 4M4 4L7 7M4 4L7 1M4 4L1 7"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </span>
-          ))}
-        </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onClear}
+              className="relative shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-primary transition hover:opacity-70 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
+            >
+              Clear
+            </button>
+          </div>
         )}
       </div>
 
-      {/* ── Source switch (main choice) above the region filters ── */}
-      <div className="px-4 py-2.5 border-b border-gray-lightest/60 bg-white space-y-1.5">
-        {/* Recommended first (R1), Browse second. Purple marks it as the main category. */}
-        <div className="flex p-1 bg-primary-lighter rounded-2xl gap-1">
-          {SOURCES.map(({ key, label }) => {
-            const isActive = source === key;
-            return (
-              <button
-                key={key}
-                onClick={() => switchSource(key)}
-                aria-pressed={isActive}
-                className={`flex-1 rounded-xl py-2 text-[10px] font-bold tracking-[0.06em] transition-all duration-300 ${
-                  isActive
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-primary/70 hover:text-primary hover:bg-white/50"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+      {/* ── Region tabs: text with an underline on the active tab ── */}
+      <div className="mt-1 flex border-b border-gray-lightest px-2 sm:px-3">
+        {AR_GROUPS.map(({ label, key }) => {
+          const isActive = activeGroup === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setActiveGroup(key);
+                setActiveType("all");
+              }}
+              aria-pressed={isActive}
+              className={`relative flex-1 py-2.5 text-[13px] font-semibold capitalize transition-colors ${
+                isActive ? "text-primary" : "text-gray-light hover:text-gray"
+              }`}
+            >
+              {label.toLowerCase()}
+              <span
+                aria-hidden="true"
+                className={`absolute inset-x-1/4 -bottom-px h-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Source toggle (Recommended first, R1) and search; Advanced type chips ── */}
+      <div className="space-y-2 px-4 pt-2.5 pb-2 sm:px-5">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1" role="group" aria-label="Product source">
+            {SOURCES.map(({ key, label }) => {
+              const isActive = source === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => switchSource(key)}
+                  aria-pressed={isActive}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    isActive ? "bg-primary-lighter text-primary-dark" : "text-gray-light hover:text-gray"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {source === "browse" && (
+            <button
+              type="button"
+              onClick={toggleSearch}
+              aria-label={searchOpen ? "Close search" : "Search Browse shades"}
+              aria-expanded={searchOpen}
+              className={`ml-auto flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                searchOpen ? "bg-primary-lighter text-primary-dark" : "text-gray hover:bg-gray-lightest"
+              }`}
+            >
+              {searchOpen ? <X size={16} strokeWidth={2} /> : <Search size={16} strokeWidth={2} />}
+            </button>
+          )}
         </div>
 
-        {/* Region filters */}
-        <div className="flex p-0.5 bg-gray-lightest/60 rounded-xl gap-1">
-          {categories.map(({ label, region }) => {
-            const isActive = activeRegion === region;
-            return (
-              <button
-                key={region}
-                onClick={() => setActiveRegion(region)}
-                className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold tracking-[0.1em] transition-all duration-300 ${
-                  isActive
-                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                    : "text-gray-light hover:text-gray hover:bg-black/5"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        {source === "browse" && searchOpen && (
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search brand, product, or shade"
+            aria-label="Search Browse shades"
+            autoFocus
+            className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2 text-[13px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
+          />
+        )}
+        {source === "browse" && (
+          <p className="flex items-center gap-1 text-[11px] text-gray-light">
+            <Info size={12} className="shrink-0" />
+            Not checked by the ingredient safety filter.
+          </p>
+        )}
+
+        {/* Advanced only: product type inside the tab, with how many products each has, in one sideways row */}
+        {!isBasic && !loading && typeOptions.length > 1 && (
+          <div className={`-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:-mx-5 sm:px-5 ${NO_SCROLLBAR}`} role="group" aria-label="Product type">
+            {[["all", "All", groups.length], ...typeOptions.map((region) => [region, REGION_LABEL[region], typeCounts[region]])].map(
+              ([key, label, count]) => {
+                const isActive = effectiveType === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveType(key)}
+                    aria-pressed={isActive}
+                    className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+                      isActive ? "bg-primary-lighter text-primary-dark" : "bg-gray-lightest text-gray hover:text-black"
+                    }`}
+                  >
+                    {label} <span className={isActive ? "text-primary/70" : "text-gray-light"}>{count}</span>
+                  </button>
+                );
+              },
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Product List ── */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {source === "browse" && (
-          <div className="pb-1">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search brand, product, or shade"
-              aria-label="Search Browse shades"
-              className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2 text-[12px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
-            />
-            <p className="mt-1.5 flex items-center gap-1 px-1 text-[10px] text-gray-light">
-              <Info size={11} className="shrink-0" />
-              Browse shades are not checked by the ingredient safety filter.
-            </p>
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-lightest">
+        {showNotices && (
+          <div className="px-4 pt-2.5 pb-1 sm:px-5">
+            {ranked ? (
+              <Notice>Passed your ingredient check. Best match for your colors first.</Notice>
+            ) : seasonFilter === "no_season" ? (
+              <Notice>
+                <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to sort these by how well they suit you.
+              </Notice>
+            ) : (
+              <Notice>Passed your ingredient check. Safest first.</Notice>
+            )}
           </div>
         )}
 
-        {source === "recommended" && !loading && status === "ok" && seasonFilter === "fallback" && (
-          <Notice>Showing everything that passed your ingredient check.</Notice>
-        )}
-        {source === "recommended" && !loading && status === "ok" && seasonFilter === "no_season" && (
-          <Notice>
-            <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to see shades for your season.
-          </Notice>
-        )}
-
         {loading ? (
-          <p className="py-10 text-center text-[11px] text-gray-light">Loading shades…</p>
+          <p className="py-10 text-center text-xs text-gray-light">Loading shades…</p>
         ) : source === "recommended" && status !== "ok" ? (
           <EmptyState
             message={EMPTY_MESSAGES[status] ?? EMPTY_MESSAGES.error}
@@ -372,14 +453,23 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear })
           />
         ) : source === "browse" && status !== "ok" ? (
           <EmptyState message="Could not load Browse shades." />
-        ) : visibleGroups.length === 0 ? (
+        ) : visibleGroups.length === 0 && debouncedQuery ? (
           <EmptyState message={`No products match "${debouncedQuery}".`} />
+        ) : visibleGroups.length === 0 && isBasic ? (
+          <EmptyState
+            message={`No ${(REGION_LABEL[effectiveType] ?? "").toLowerCase()} products here yet.`}
+            actionLabel="Show Advanced"
+            onAction={() => switchMode("advanced")}
+          />
+        ) : visibleGroups.length === 0 ? (
+          <EmptyState message="No products here yet." />
         ) : (
           <ProductList
-            key={`${activeRegion}:${source}:${debouncedQuery}`}
+            key={`${activeGroup}:${effectiveType}:${source}:${debouncedQuery}`}
             groups={visibleGroups}
-            selected={selected}
-            onSelect={selectForRegion}
+            selectedShades={selectedShades}
+            onSelect={onSelectShade}
+            showType={effectiveType === "all"}
           />
         )}
       </div>

@@ -23,6 +23,8 @@ import { ProductCatalogPage } from "../pages/ProductCatalogPage.jsx";
 import { AdminDatabasePage } from "../pages/AdminDatabasePage.jsx";
 import { MainLayout } from "../layouts/MainLayout";
 import { RequireAuth } from "./RequireAuth.jsx";
+// DEV only: camera lab for tuning looks. import.meta.env.DEV is false in production builds.
+import { ARLabPage } from "../pages/ARLabPage.jsx";
 
 export default function AppRouter() {
   return (
@@ -34,6 +36,11 @@ export default function AppRouter() {
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        {import.meta.env.DEV && <Route path="/dev/ar-lab" element={<ARLabPage />} />}
+        {/* DEV only: the real AR page without the sign-in wrapper, for browser testing of the panel. */}
+        {import.meta.env.DEV && (
+          <Route path="/dev/ar-page" element={<MainLayout><ARTryOnPage /></MainLayout>} />
+        )}
         
         {/* Onboarding (Contains Skin Type, Concerns, Ingredients, & Ethics Flow) */}
         <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
