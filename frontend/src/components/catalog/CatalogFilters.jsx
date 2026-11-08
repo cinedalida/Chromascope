@@ -49,9 +49,9 @@ export function CatalogSearch({ value, onChange }) {
       type="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="Search by product name or brand"
+      placeholder="Search name or brand"
       aria-label="Search by product name or brand"
-      className="w-full rounded-full border border-primary-lighter bg-white px-5 py-2.5 text-sm text-black shadow-sm placeholder:text-gray-light focus:border-primary focus:outline-none"
+      className="w-full rounded-full border border-primary-lighter bg-white px-4 py-2.5 text-sm sm:px-5 text-black shadow-sm placeholder:text-gray-light focus:border-primary focus:outline-none"
     />
   );
 }

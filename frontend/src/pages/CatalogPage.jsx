@@ -30,7 +30,8 @@ const parseList = (value, allowed) => allowed.filter((option) => String(value ??
 /* Card grid: 2 columns on phones, 3 on tablets and small laptops, 4 on laptops, 5 on wide screens. */
 function ProductGrid({ items, onSelect }) {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+    // One column on very narrow phones (under 360px), where two cards would be about 138px wide.
+    <ul className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
       {items.map((item) => (
         <li key={item.product_id}>
           <ProductCard product={item} onSelect={(e) => onSelect(item, e.currentTarget)} />
@@ -519,29 +520,30 @@ export function CatalogPage() {
 
   return (
     <main className="page-shell bg-primary-lightest font-body text-black">
-      <div className="mx-auto max-w-400 space-y-5">
+      <div className="mx-auto max-w-400 space-y-4 sm:space-y-5">
         <header>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Catalog</h1>
         </header>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <CatalogViewToggle value={view} onChange={setView} />
           {/* 28rem cap: max-w-md is 768px here (variables.css redefines --container-md). */}
           <div className="flex items-center gap-2 sm:min-w-64 sm:flex-1 lg:max-w-112">
             <CatalogSearch value={query} onChange={(q) => setFilters({ q })} />
+            {/* Phones: a round icon button (named "Filters" for screen readers). From sm: the full pill. */}
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="flex shrink-0 items-center gap-2 rounded-full border border-primary-lighter bg-white px-4 py-2.5 text-sm font-semibold text-black shadow-sm lg:hidden"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-primary-lighter bg-white text-sm font-semibold text-black shadow-sm sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 lg:hidden"
             >
               <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-              Filters
+              <span className="sr-only sm:not-sr-only">Filters</span>
               {filterCount > 0 && (
-                <span className="rounded-full bg-primary px-1.5 text-xs text-white">{filterCount}</span>
+                <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1.5 text-xs text-white sm:static">{filterCount}</span>
               )}
             </button>
           </div>
-          <p aria-live="polite" className="text-sm text-gray sm:ml-auto">
+          <p aria-live="polite" className="pt-1 text-sm text-gray sm:ml-auto sm:pt-0">
             {countText}
           </p>
         </div>
