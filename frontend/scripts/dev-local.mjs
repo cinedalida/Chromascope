@@ -14,6 +14,7 @@ const env = {
   FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080",
   FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
   GCLOUD_PROJECT: "demo-chromascope",
+  PRODUCTS_COLLECTION: "products", // the sandbox catalog is loaded here (the backend default is products_v2)
 };
 // --full-catalog: also load the scraped catalog (chromascope-data/derived/app_catalog.json, built by
 // backend/scripts/build_catalog.py) into the sandbox. Set CHROMASCOPE_DATA_DIR if the data repo is elsewhere.

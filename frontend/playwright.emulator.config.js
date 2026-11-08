@@ -9,6 +9,7 @@ const emulatorEnv = {
   GCLOUD_PROJECT: "demo-chromascope",
   CRON_SECRET: "test-cron-secret", // enables the retention endpoint for tests only
   PRODUCTS_CACHE_SECONDS: "0", // tests add products while the backend runs; always read fresh
+  PRODUCTS_COLLECTION: "products", // the test products are seeded here (the backend default is products_v2)
 };
 
 export default defineConfig({
