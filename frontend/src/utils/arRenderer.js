@@ -144,13 +144,18 @@ export const REGION_RENDER = {
     density: 3, // lashes per gap between lid landmarks
     layers: [{ blend: "source-over", opacity: 0.6 }],
   },
-  // Base layers are mostly "color" (which leaves a white or grey background alone). A little "source-over" matches the
-  // skin's brightness to the shade without boosting saturation (more "soft-light" made skin look orange), and the
-  // clip in REGION_GUARD keeps that small tint off the wall or hair just outside the face.
+  // Base products are drawn as a correction of the user's own skin (see baseCorrection): the shade is compared with the skin
+  // sampled from the camera and the face is moved `coverage` of the way there, keeping texture and shadows. A shade that
+  // matches the skin therefore changes almost nothing, a lighter / darker / warmer one visibly moves it. `tint` adds a
+  // little opaque pigment (evens redness and blemishes). `layers` is the fallback until the skin has been measured; its
+  // clip in REGION_GUARD keeps the tint off the wall or hair just outside the face.
   foundation: {
     feather: 0.03,
     reach: 1.03, // face outline grown by this factor (more at the top), so the tint blends into the hairline
     reachTop: 0.06,
+    coverage: 0.62,
+    maxShift: 14, // largest colour change (CIELAB dE) a mismatched shade may cause: visibly off, but never a mask
+    tint: [{ blend: "source-over", opacity: 0.05 }],
     layers: [
       { blend: "color", opacity: 0.32 },
       { blend: "source-over", opacity: 0.08 },
@@ -158,7 +163,10 @@ export const REGION_RENDER = {
     ],
   },
   concealer: {
-    feather: 0.01,
+    feather: 0.014,
+    coverage: 0.6,
+    maxShift: 14,
+    tint: [{ blend: "source-over", opacity: 0.2 }], // actual cover: dark circles are darker than the cheek the shade matches
     layers: [
       { blend: "color", opacity: 0.4 },
       { blend: "source-over", opacity: 0.4 },
@@ -166,6 +174,9 @@ export const REGION_RENDER = {
   },
   powder: {
     feather: 0.022,
+    coverage: 0.3,
+    maxShift: 8,
+    tint: [{ blend: "source-over", opacity: 0.03 }],
     layers: [
       { blend: "soft-light", opacity: 0.16 },
       { blend: "color", opacity: 0.1 },
@@ -321,6 +332,46 @@ function hexToRgb(hex) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Base products as a correction of the skin
+
+// Per-channel gain that turns the skin color into the shade color (both as sRGB 0..1, so it is exact at the skin color and
+// a close approximation around it). Canvas can apply a gain g with two blends: "multiply" by min(1, g) darkens, and
+// "color-dodge" by 1 - 1/g lightens (it computes backdrop / (1 - source)). Both leave texture and shadows in place.
+//
+// How far the face moves is `coverage`, capped so the change never exceeds `maxShift` (CIELAB dE): a shade far from the
+// user's skin still looks wrong, but does not turn the face into a mask. Returns the layers and the skin color the face
+// has afterwards, so the next base product corrects from that instead of stacking on top of the original skin.
+export function baseCorrection(skin, shadeHex, { coverage, maxShift = Infinity, tint = [] }) {
+  const encode = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+  const toSrgb = ({ L, a, b }) => {
+    const fy = (L + 16) / 116;
+    const inv = (t) => (t ** 3 > 216 / 24389 ? t ** 3 : (116 * t - 16) / (24389 / 27));
+    const X = 0.95047 * inv(fy + a / 500);
+    const Y = inv(fy);
+    const Z = 1.08883 * inv(fy - b / 200);
+    return [3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z, -0.969266 * X + 1.8760108 * Y + 0.041556 * Z, 0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z].map((c) => encode(Math.min(1, Math.max(0, c))));
+  };
+  const decode = (v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  const shade = linearRgbToLab(...hexToRgb(shadeHex).map(decode));
+  const gap = Math.hypot(shade.L - skin.L, shade.a - skin.a, shade.b - skin.b);
+  const eff = gap > 0 ? Math.min(coverage, maxShift / gap) : coverage;
+  const from = toSrgb(skin);
+  const to = toSrgb(shade);
+  const gain = to.map((t, i) => Math.min(2, Math.max(0.5, t / Math.max(from[i], 0.02))));
+  const css = (values) => `rgb(${values.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)).join(",")})`;
+  const tinted = tint.reduce((left, layer) => left * (1 - layer.opacity), 1 - eff); // share of the old skin that is left
+  const k = 1 - tinted;
+  return {
+    layers: [
+      { blend: "multiply", opacity: eff, fill: css(gain.map((g) => Math.min(1, g))) },
+      { blend: "color-dodge", opacity: eff, fill: css(gain.map((g) => Math.max(0, 1 - 1 / g))) },
+      ...tint,
+    ],
+    skinAfter: { L: skin.L + (shade.L - skin.L) * k, a: skin.a + (shade.a - skin.a) * k, b: skin.b + (shade.b - skin.b) * k },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Path helpers
 
 // Smooth closed loop: a quadratic curve through each edge midpoint rounds the corners of sparse landmark rings.
@@ -373,7 +424,7 @@ function paintLayers(ctx, frame, settings, draw) {
     if (!(layer.opacity > 0)) continue;
     ctx.globalCompositeOperation = layer.blend;
     ctx.globalAlpha = layer.opacity;
-    draw();
+    draw(layer);
   }
   ctx.filter = "none";
   ctx.globalAlpha = 1;
@@ -392,9 +443,9 @@ function fillShapes(ctx, frame, pointSets, color, settings, rule = "nonzero") {
   const shapes = settings.radial
     ? pointSets.map((points) => ({ path: makePath([points]), style: radialStyle(ctx, points, rgb) }))
     : [{ path: makePath(pointSets), style: color }];
-  paintLayers(ctx, frame, settings, () => {
+  paintLayers(ctx, frame, settings, (layer) => {
     for (const { path, style } of shapes) {
-      ctx.fillStyle = style;
+      ctx.fillStyle = layer.fill ?? style; // a layer can carry its own color (see baseCorrection)
       ctx.fill(path, rule);
     }
   });
@@ -475,6 +526,16 @@ function faceOutline(frame, s) {
 
 // Positions in FACE_OVAL of the two bronzer arcs: from each temple down the side of the face to the jaw angle.
 const BRONZER_ARCS = [[5, 6, 7, 8, 9, 10, 11], [31, 30, 29, 28, 27, 26, 25]];
+
+// A base product's layers: the skin correction once the skin has been measured, else the plain tint. Products that tint
+// the whole face (`global`: foundation, powder) leave frame.baseSkin as the face now looks, so the next base product
+// only adds what is still missing; a local one (concealer) does not change it.
+function baseSettings(s, color, frame, global) {
+  if (!frame.baseSkin || !s.coverage) return s;
+  const { layers, skinAfter } = baseCorrection(frame.baseSkin, color, s);
+  if (global) frame.baseSkin = skinAfter;
+  return { ...s, layers };
+}
 
 const LOOKS = {
   lips(ctx, frame, color, s) {
@@ -608,7 +669,7 @@ const LOOKS = {
 
   // Skin tone over the whole face, leaving eyes, brows and mouth bare.
   foundation(ctx, frame, color, s) {
-    fillShapes(ctx, frame, [faceOutline(frame, s), ...holesForBase(frame)], color, s, "evenodd");
+    fillShapes(ctx, frame, [faceOutline(frame, s), ...holesForBase(frame)], color, baseSettings(s, color, frame, true), "evenodd");
   },
 
   // Patches under the eyes (and beside the nose) to cover shadows.
@@ -621,12 +682,12 @@ const LOOKS = {
       const lower = lid.slice(1, -1);
       patches.push([...lower, ...lower.map(([x, y]) => [x, y + drop]).reverse()]);
     }
-    fillShapes(ctx, frame, patches, color, s);
+    fillShapes(ctx, frame, patches, color, baseSettings(s, color, frame, false));
   },
 
   // Translucent finishing layer over the face: evens tone, no visible color.
   powder(ctx, frame, color, s) {
-    fillShapes(ctx, frame, [faceOutline(frame, s), ...holesForBase(frame)], color, s, "evenodd");
+    fillShapes(ctx, frame, [faceOutline(frame, s), ...holesForBase(frame)], color, baseSettings(s, color, frame, true), "evenodd");
   },
 };
 
@@ -825,6 +886,7 @@ function restoreNonSkin(ctx, frame, video, mask, videoW, videoH) {
  */
 export function drawLooks(ctx, landmarks, videoW, videoH, canvasW, canvasH, { colors, toggles, finishes, render = REGION_RENDER, skin, video }) {
   const frame = makeFrame(landmarks, videoW, videoH, canvasW, canvasH);
+  frame.baseSkin = skin ?? null; // the skin as the base products have left it (see baseSettings)
   const active = DRAW_ORDER.filter((region) => colors[region] && toggles?.[region] !== false);
   // The skin gate runs once, right after the last skin-group region (eyes and lips are not gated).
   const lastSkin = video ? [...active].reverse().find((region) => SKIN_GROUP.has(region)) : null;
