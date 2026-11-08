@@ -16,7 +16,8 @@ const TABS = [
   { key: "products", label: "Products" },
   { key: "looks", label: "Looks" },
 ];
-const GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5";
+// One column on very narrow phones (under 360px), where two cards would be about 130px wide.
+const GRID = "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5";
 
 function EmptyState({ title, text }) {
   return (

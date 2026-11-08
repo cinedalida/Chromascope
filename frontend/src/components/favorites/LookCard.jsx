@@ -108,8 +108,13 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
               className="h-6 w-6 shrink-0 rounded-full bg-gray-lightest ring-1 ring-black/10"
               style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
             />
-            <span className="w-20 shrink-0 text-xs font-semibold text-gray">{REGION_LABEL[entry.item.region] ?? entry.item.region}</span>
-            <span className="min-w-0 truncate text-black">{nameOf(entry)}</span>
+            {/* Phones: the region as a small label above the product name. From sm: side by side. */}
+            <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-light sm:w-20 sm:shrink-0 sm:text-xs sm:font-semibold sm:normal-case sm:tracking-normal sm:text-gray">
+                {REGION_LABEL[entry.item.region] ?? entry.item.region}
+              </span>
+              <span className="min-w-0 truncate text-black">{nameOf(entry)}</span>
+            </span>
           </li>
         ))}
       </ul>
