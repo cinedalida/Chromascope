@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { getProductCatalog, runFilter } from "../services/productService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
+import { CatalogFilters } from "../components/catalog/CatalogFilters.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 // The safety filter checks one category per request (api.py category_map), so the page asks once per category.
@@ -12,6 +13,8 @@ import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
 const PAGE_SIZE = 24;
 const VIEWS = ["safe", "all"];
+// Category chip value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
+const CATEGORY_DATA = { cheek: "Cheek", concealer: "Concealer", eye: "Eye", face: "Face", lip: "Lip", multiuse: "Multi-Use" };
 
 const byCategoryThenName = (a, b) =>
   String(a.category ?? "").localeCompare(String(b.category ?? "")) ||
@@ -84,6 +87,28 @@ export function CatalogPage() {
       params.set("view", next);
       return params;
     });
+  // Filters live in the URL too. They replace the current entry, so typing or tapping chips does not fill history.
+  const category = CATEGORY_DATA[searchParams.get("category")] ? searchParams.get("category") : "";
+  // Excluded is a valid verdict filter only in Full catalog; in Safe for me it is ignored.
+  const requestedVerdict = searchParams.get("verdict");
+  const verdict = ["safe", "caution"].includes(requestedVerdict) || (view === "all" && requestedVerdict === "excluded")
+    ? requestedVerdict
+    : "";
+  const query = searchParams.get("q") ?? "";
+  // Filtering the grid can lag one keystroke behind typing, so the input itself never waits for it.
+  const deferredQuery = useDeferredValue(query);
+  const filtersActive = Boolean(category || verdict || query.trim());
+  const setFilters = (patch) =>
+    setSearchParams(
+      (params) => {
+        for (const [key, value] of Object.entries(patch)) {
+          if (value) params.set(key, value);
+          else params.delete(key);
+        }
+        return params;
+      },
+      { replace: true },
+    );
 
   const [catalog, setCatalog] = useState(null); // null while loading
   const [filterResults, setFilterResults] = useState(null); // null while loading or not requested
@@ -150,16 +175,44 @@ export function CatalogPage() {
     setFilterAttempt((n) => n + 1);
   };
 
+  // Filtering happens on data already loaded: no new requests.
+  const { filteredSafe, filteredMain, filteredExcluded } = useMemo(() => {
+    const q = deferredQuery.trim().toLowerCase();
+    const has = (text) => String(text ?? "").toLowerCase().includes(q);
+    const matches = (item) =>
+      (!category || item.category === CATEGORY_DATA[category]) &&
+      (!verdict || verdictOf(item) === verdict) &&
+      (!q || has(item.product_name) || has(item.brand));
+    return {
+      filteredSafe: safeItems.filter(matches),
+      filteredMain: mainItems.filter(matches),
+      filteredExcluded: excludedItems.filter(matches),
+    };
+  }, [safeItems, mainItems, excludedItems, category, verdict, deferredQuery]);
+
   // Count line for the current view, shown once its data is ready.
   const safeCount = safeItems.filter((item) => verdictOf(item) === "safe").length;
   const countText =
     view === "safe"
       ? !userLoading && !filterLoading && !filterFailed && safeItems.length > 0
-        ? `${safeItems.length} products for your skin: ${safeCount} Safe, ${safeItems.length - safeCount} Caution`
+        ? filtersActive
+          ? `${filteredSafe.length} of ${safeItems.length} products for your skin`
+          : `${safeItems.length} products for your skin: ${safeCount} Safe, ${safeItems.length - safeCount} Caution`
         : null
       : !userLoading && !filterLoading && catalog?.length
-        ? `${catalog.length} products`
+        ? filtersActive
+          ? `${filteredMain.length + filteredExcluded.length} of ${catalog.length} products`
+          : `${catalog.length} products`
         : null;
+  const clearFilters = () => setFilters({ category: "", verdict: "", q: "" });
+  const noMatches = (
+    <MessageState
+      title="No products match these filters"
+      text="Try another category or search."
+      actionLabel="Clear filters"
+      onAction={clearFilters}
+    />
+  );
 
   const renderSafeView = () => {
     if (!userLoading && !hasProfile) {
@@ -197,7 +250,8 @@ export function CatalogPage() {
         />
       );
     }
-    return <ProductGrid key="safe" items={safeItems} />;
+    if (filteredSafe.length === 0) return noMatches;
+    return <ProductGrid key={`safe-${category}-${verdict}-${deferredQuery}`} items={filteredSafe} />;
   };
 
   const renderFullView = () => {
@@ -230,13 +284,14 @@ export function CatalogPage() {
             </button>
           </p>
         )}
-        <ProductGrid key="all" items={mainItems} />
-        {excludedItems.length > 0 && (
+        {filteredMain.length + filteredExcluded.length === 0 && noMatches}
+        {filteredMain.length > 0 && <ProductGrid key={`all-${category}-${verdict}-${deferredQuery}`} items={filteredMain} />}
+        {filteredExcluded.length > 0 && (
           <section aria-labelledby="excluded-heading" className="space-y-3 border-t border-primary-lighter pt-6">
             <h2 id="excluded-heading" className="font-heading text-xl font-semibold">
-              Excluded for your profile ({excludedItems.length})
+              Excluded for your profile ({filteredExcluded.length})
             </h2>
-            <ProductGrid key="excluded" items={excludedItems} />
+            <ProductGrid key={`excluded-${category}-${verdict}-${deferredQuery}`} items={filteredExcluded} />
           </section>
         )}
       </>
@@ -256,6 +311,16 @@ export function CatalogPage() {
             {countText}
           </p>
         </div>
+
+        <CatalogFilters
+          view={view}
+          category={category}
+          verdict={verdict}
+          query={query}
+          active={filtersActive}
+          onChange={setFilters}
+          onClear={clearFilters}
+        />
 
         {/* Offline both requests fail and the lists come back empty, which would read as "no products". */}
         <OfflineNote>The catalog needs internet. Connect and reload this page to see products.</OfflineNote>
