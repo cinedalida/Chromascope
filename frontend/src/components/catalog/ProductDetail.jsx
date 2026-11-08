@@ -25,7 +25,7 @@ const CATEGORY_LABEL = { "Multi-Use": "Multiuse" };
 
 /**
  * ProductDetail: the safety details of one product without leaving the catalog. A bottom sheet on phones and a
- * centered dialog on desktop. Closes with the close button, the Escape key, a tap on the backdrop, or the back button
+ * centered dialog from tablet width up (32rem: max-w-xl is 1280px here, variables.css redefines --container-xl). Closes with the close button, the Escape key, a tap on the backdrop, or the back button
  * (the page keeps the open product in the URL). Focus moves into the panel on open and stays inside while it is
  * open; the page returns it to the card on close. Only fields the data has are shown (C4).
  */
@@ -86,7 +86,7 @@ export function ProductDetail({ product, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-500 flex items-end bg-black/40 lg:items-center lg:justify-center lg:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-500 flex items-end bg-black/40 sm:items-center sm:justify-center sm:p-6" onClick={onClose}>
       <div
         ref={panelRef}
         role="dialog"
@@ -94,7 +94,7 @@ export function ProductDetail({ product, onClose }) {
         aria-labelledby="product-detail-title"
         onKeyDown={onKeyDown}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl lg:max-h-[85dvh] lg:w-full lg:max-w-xl lg:rounded-3xl"
+        className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl sm:max-h-[85dvh] sm:max-w-128 sm:rounded-3xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-gray-lightest px-5 py-4">
           <h2 id="product-detail-title" className="font-heading text-lg font-semibold leading-snug text-black">
@@ -115,7 +115,8 @@ export function ProductDetail({ product, onClose }) {
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+          {/* Fixed height so the image never outgrows the panel. */}
+          <div className="h-48 w-full shrink-0 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 sm:h-56">
             {showImage ? (
               <img src={src} alt={name} onError={() => setFailedSrc(src)} className="h-full w-full object-contain p-4" />
             ) : (
