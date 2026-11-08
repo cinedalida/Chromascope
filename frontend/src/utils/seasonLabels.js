@@ -40,7 +40,7 @@ export function seasonCodes(product) {
 
 /**
  * Chips for a product's seasons: at most 3 season names plus "+N", always at least one entry.
- * "ALL" or no tag reads "Matched to your skin tone" for products chosen by skin color, else "All seasons".
+ * "ALL" or no tag reads "All seasons", except for skin-matched and neutral products, which have no season (empty list).
  */
 export function seasonChips(product, limit = MAX_CHIPS) {
   const tags = splitTags(product?.season_tags);
@@ -52,5 +52,7 @@ export function seasonChips(product, limit = MAX_CHIPS) {
   }
   const isProse = tags.length > 0 && !tags.some((t) => /^all\b/i.test(t));
   if (isProse) return [tags.join(", ")];
-  return [product?.match_basis === "skin" ? "Matched to your skin tone" : "All seasons"];
+  // Base products (skin) and brows/liner/mascara (neutral) have no season, so there is nothing true to say.
+  if (product?.match_basis === "skin" || product?.match_basis === "neutral") return [];
+  return ["All seasons"];
 }

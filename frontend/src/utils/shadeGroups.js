@@ -22,6 +22,7 @@ export function groupByProduct(items) {
         url: item.url,
         verdict: item.verdict,
         seasonMatch: item.seasonMatch,
+        fit: item.fit ?? null,
         seasonTags: item.seasonTags,
         matchBasis: item.matchBasis,
         fitTier: item.fitTier,

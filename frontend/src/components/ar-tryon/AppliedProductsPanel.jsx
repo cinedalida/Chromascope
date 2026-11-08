@@ -78,15 +78,14 @@ function VerdictBadge({ verdict }) {
 }
 
 function MatchBadge({ group }) {
-  if (group.fitTier) {
-    const great = group.fitTier === "great";
+  // The backend's fit (0..1) for the shade picked for this user, as a percentage.
+  if (Number.isFinite(group.fit)) {
+    const percent = Math.round(group.fit * 100);
+    const tone =
+      percent >= 75 ? "bg-[#ECFDF5] text-[#059669]" : percent >= 55 ? "bg-primary-lighter text-primary" : "bg-gray-lightest text-black/60";
     return (
-      <span
-        className={`shrink-0 rounded-md px-1.5 py-px text-[9px] font-bold uppercase tracking-wider ${
-          great ? "bg-[#ECFDF5] text-[#059669]" : "bg-primary-lighter text-primary"
-        }`}
-      >
-        {great ? "Great match" : "Good match"}
+      <span className={`shrink-0 rounded-md px-1.5 py-px text-[9px] font-bold uppercase tracking-wider ${tone}`}>
+        {percent}% match
       </span>
     );
   }
@@ -201,7 +200,7 @@ function RecommendedCard({ group, selectedShades, onSelect, showType }) {
   const isSelected = shade.id === selectedIdFor(group, selectedShades);
   const price = formatPrice(group.price, group.currency);
   const fullName = shade.shade || shade.product;
-  const hasBadges = group.verdict || group.fitTier || group.seasonMatch;
+  const hasBadges = group.verdict || Number.isFinite(group.fit) || group.seasonMatch;
   return (
     <div className="relative h-full min-w-0">
       <button

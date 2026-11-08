@@ -109,6 +109,9 @@ export function ProductCard({ product, verdict = product.verdict, onSelect }) {
           </span>
           <span className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{name}</span>
           {product.brand && <span className="block truncate text-xs uppercase tracking-wide text-gray">{product.brand}</span>}
+          {Number.isFinite(product.fit_score) && (
+            <span className="block text-xs font-semibold text-primary">{Math.round(product.fit_score * 100)}% match</span>
+          )}
           <SeasonTags tags={product.season_tags} basis={product.match_basis} limit={2} />
           {reason && <span className="line-clamp-2 text-xs leading-snug text-gray">{reason}</span>}
           {/* Bottom row: shade dot on the left, price on the right. */}
