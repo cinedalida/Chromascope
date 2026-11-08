@@ -25,8 +25,11 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
   return (
     <div className="pt-2">
       <div className="flex items-center gap-1">
-        {paged && (
+        {/* Without arrows, same-size spacers keep every product's swatches in the same five columns. */}
+        {paged ? (
           <PageArrow direction="previous" disabled={current === 0} onClick={() => setPage(current - 1)} />
+        ) : (
+          <ArrowSpacer />
         )}
         <ul className="grid min-w-0 flex-1 grid-cols-5 gap-1">
           {visible.map((shade, i) => {
@@ -61,8 +64,10 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
             );
           })}
         </ul>
-        {paged && (
+        {paged ? (
           <PageArrow direction="next" disabled={current === pageCount - 1} onClick={() => setPage(current + 1)} />
+        ) : (
+          <ArrowSpacer />
         )}
       </div>
       {selectedShade && (
@@ -75,6 +80,11 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
       )}
     </div>
   );
+}
+
+// Same width as a PageArrow, so rows with and without arrows line up.
+function ArrowSpacer() {
+  return <span aria-hidden="true" className="h-8 w-6 shrink-0" />;
 }
 
 function PageArrow({ direction, disabled, onClick }) {
