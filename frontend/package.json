@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:pwa": "playwright test -c playwright.pwa.config.js",
-    "test:unit": "node --test src/utils/arFit.test.js src/utils/arProductMap.test.js",
+    "test:unit": "node --test src/utils/arFit.test.js src/utils/arProductMap.test.js src/utils/arRecommendedCache.test.js",
     "emulators": "firebase emulators:start --project demo-chromascope --config ../firebase.json",
     "dev:emulators": "vite --mode emulators",
     "dev:local": "node scripts/dev-local.mjs"

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
@@ -8,7 +8,7 @@ import { useARCamera } from "../hooks/useARCamera.jsx";
 import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
 import { useSettingsStore } from "../store/settingsStore.js";
-import { clearRecommendedCache, productToTryOn } from "../services/arRecommendedService.js";
+import { productToTryOn } from "../services/arRecommendedService.js";
 import { renderFinishFromText } from "../utils/arProductMap.js";
 import { ALL_REGIONS, AR_GROUPS, REGION_LABEL, groupOfRegion } from "../utils/arGroups.js";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
@@ -98,12 +98,6 @@ export function ARTryOnPage() {
   }, [isExpanded]);
   // Leaving the page while expanded also leaves browser full screen.
   useEffect(() => exitBrowserFullscreen, []);
-
-  // Fresh Recommended results on every visit, so changed allergens or a new season show at once.
-  // A layout effect runs before the panel's data effects; a plain effect would run after them.
-  useLayoutEffect(() => {
-    clearRecommendedCache();
-  }, []);
 
   // FPS / latency badge, on by default. Toggled from the AR screen or Profile → App settings.
   // Measures only a live camera feed.

@@ -2,12 +2,13 @@ import { auth } from "../firebase";
 import { runFilter } from "./productService";
 import { regionForProduct, renderFinishForSubCategory } from "../utils/arProductMap";
 import { groupByKey } from "../utils/arGroups";
+import { createRecommendedCache, profileSignature } from "../utils/arRecommendedCache";
+import { useUserStore } from "../store/userStore";
 
 // Recommended shades: products returned by the safety filter and matching engine.
 
-// The AR page clears this on mount. The expiry is only a backstop.
-const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map(); // "<uid>:<region>" -> { expires, request }
+// Keyed by user, group and a signature of the profile fields the server reads (see arRecommendedCache.js).
+const cache = createRecommendedCache();
 
 const normalize = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -135,6 +136,34 @@ async function loadRecommended(groupKey) {
   return { status: items.length > 0 ? "ok" : "empty", items, seasonFilter, ranked, dropped };
 }
 
+const PROFILE_WAIT_MS = 5000;
+
+// The signed-in user's profile from the store, once it holds this uid's profile; null after PROFILE_WAIT_MS.
+function waitForProfile(uid, timeoutMs = PROFILE_WAIT_MS) {
+  const current = () => (useUserStore.getState().user?.uid === uid ? useUserStore.getState().user : null);
+  const now = current();
+  if (now) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      resolve(null);
+    }, timeoutMs);
+    const unsubscribe = useUserStore.subscribe(() => {
+      const profile = current();
+      if (!profile) return;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(profile);
+    });
+  });
+}
+
+const loadSafely = (groupKey) =>
+  loadRecommended(groupKey).catch((error) => {
+    console.error(`Error loading recommended ${groupKey}:`, error);
+    return emptyResult("error");
+  });
+
 export async function getRecommended(groupKey) {
   if (!groupByKey(groupKey)) throw new Error(`Unknown AR group: ${groupKey}`);
 
@@ -143,23 +172,16 @@ export async function getRecommended(groupKey) {
   const user = auth.currentUser;
   if (!user) return emptyResult("signed_out");
 
-  const key = `${user.uid}:${groupKey}`;
-  const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.request;
+  // The profile loads a moment after sign-in (App.jsx), and the cache is keyed on it. Wait for it, so a page opened
+  // directly on AR still shares one cached request. If it never arrives, ask the server without caching rather than
+  // store a result under the wrong profile.
+  const profile = await waitForProfile(user.uid);
+  if (!profile) return loadSafely(groupKey);
 
-  const request = loadRecommended(groupKey)
-    .catch((error) => {
-      console.error(`Error loading recommended ${groupKey}:`, error);
-      return emptyResult("error");
-    })
-    .then((result) => {
-      if (result.status === "error" && cache.get(key)?.request === request) cache.delete(key);
-      return result;
-    });
-  cache.set(key, { expires: Date.now() + CACHE_TTL_MS, request });
-  return request;
+  return cache.get(user.uid, groupKey, profileSignature(profile), () => loadSafely(groupKey), (result) => result.status === "error");
 }
 
+// Sign-out. A profile change needs no call: its signature differs, so the next request misses by itself.
 export function clearRecommendedCache() {
   cache.clear();
 }
