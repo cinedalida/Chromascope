@@ -210,7 +210,7 @@ export function ARTryOnPage() {
     <main className="min-h-[calc(100dvh-64px)] bg-primary-lightest font-body lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
       {/* Layout */}
       {/* Desktop: locked to the viewport so the panel scrolls inside itself and the camera stays in view. */}
-      <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_400px] lg:overflow-hidden">
+      <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_440px] lg:overflow-hidden xl:grid-cols-[1fr_480px]">
         {/* CENTER */}
         <section className="relative flex items-center justify-center bg-primary-lightest p-4 sm:p-6 lg:h-full lg:min-h-0">
           {/* Card: camera on top, white controls bar under it.

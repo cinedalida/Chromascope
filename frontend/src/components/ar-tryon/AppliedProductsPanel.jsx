@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Info, Search, X } from "lucide-react";
+import { Bookmark, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
-import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
+import { groupByProduct, searchProducts, shortShadeName } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
 import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
-import { favoriteToTryOn, selectedShadesToItems, useFavorites } from "../../hooks/useFavorites.js";
-import { useUserStore } from "../../store/userStore.js";
+import { selectedShadesToItems, useFavorites } from "../../hooks/useFavorites.js";
 import { SaveLookDialog } from "../favorites/SaveLookDialog.jsx";
 
 // A look's items as comparable keys, so "changed since it was loaded" ignores field order.
@@ -100,9 +99,13 @@ function MatchBadge({ group }) {
   return null;
 }
 
-function Notice({ children }) {
+// One short note at the top of the list, same look on Recommended and Browse.
+function Notice({ icon: Icon, iconClass, children }) {
   return (
-    <p className="rounded-xl bg-primary-lightest px-3 py-1.5 text-[11px] leading-snug text-primary-darker">{children}</p>
+    <p className="flex items-center gap-2 rounded-xl bg-gray-lightest/70 px-3 py-2 text-[11px] leading-snug text-gray">
+      <Icon aria-hidden="true" size={14} strokeWidth={2.25} className={`shrink-0 ${iconClass}`} />
+      <span className="min-w-0">{children}</span>
+    </p>
   );
 }
 
@@ -228,102 +231,6 @@ function ProductList({ groups, selectedShades, onSelect, showType }) {
   );
 }
 
-/* ── Favorites tab (Part B, Phase F4): saved products and looks, applied with one tap ── */
-function FavoritesTab({ favorites, user, onApply }) {
-  const [resolved, setResolved] = useState(null); // favorite id -> favoriteToTryOn result
-  const [pending, setPending] = useState(null); // { favorite, result } waiting for the Excluded notice (F-R4)
-
-  useEffect(() => {
-    let active = true;
-    Promise.all(favorites.map(async (favorite) => [favorite.id, await favoriteToTryOn(favorite, user)])).then(
-      (entries) => active && setResolved(Object.fromEntries(entries)),
-    );
-    return () => {
-      active = false;
-    };
-  }, [favorites, user]);
-
-  if (favorites.length === 0) {
-    return <EmptyState message="No favorites yet. Tap a heart on a shade, or save a look." />;
-  }
-  if (!resolved) return <p className="py-10 text-center text-xs text-gray-light">Loading favorites…</p>;
-
-  const choose = (favorite) => {
-    const result = resolved[favorite.id];
-    if (!result || Object.keys(result.shades).length === 0) return;
-    if (result.excluded.length > 0) setPending({ favorite, result });
-    else onApply(favorite, result);
-  };
-
-  return (
-    <div className="space-y-2 px-4 py-3 sm:px-5">
-      {pending && (
-        <div role="alertdialog" aria-label="Excluded product" className="rounded-xl bg-[var(--color-danger-light)] p-3 text-xs text-black">
-          <p>
-            {pending.result.excluded.join(", ")} {pending.result.excluded.length === 1 ? "is" : "are"} Excluded for your
-            profile. Try it on anyway?
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                onApply(pending.favorite, pending.result);
-                setPending(null);
-              }}
-              className="rounded-full bg-black px-3 py-1 font-semibold text-white"
-            >
-              Try on anyway
-            </button>
-            <button type="button" onClick={() => setPending(null)} className="rounded-full px-3 py-1 font-semibold text-gray">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-      <ul className="space-y-1.5">
-        {favorites.map((favorite) => {
-          const result = resolved[favorite.id] ?? { shades: {}, missing: [], notAvailable: [], excluded: [] };
-          const shades = Object.values(result.shades);
-          const usable = shades.length > 0;
-          const title = favorite.type === "look" ? favorite.name : (shades[0]?.product ?? "Saved product");
-          let detail;
-          if (favorite.type === "look") detail = `${shades.length} shade${shades.length === 1 ? "" : "s"}`;
-          else if (usable) detail = shades[0].shade ?? "";
-          else detail = result.missing.length ? "No longer available" : "Not available in try-on";
-          return (
-            <li key={favorite.id}>
-              <button
-                type="button"
-                disabled={!usable}
-                onClick={() => choose(favorite)}
-                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-gray-lightest disabled:opacity-50"
-              >
-                <span className="flex shrink-0 -space-x-1.5">
-                  {(shades.length ? shades : [{}]).slice(0, 4).map((shade, i) => (
-                    <span
-                      key={i}
-                      aria-hidden="true"
-                      className="h-6 w-6 rounded-full ring-2 ring-white"
-                      style={{ backgroundColor: shade.hex || "var(--color-gray-lighter)" }}
-                    />
-                  ))}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-black">
-                    {favorite.type === "look" ? "Look: " : ""}
-                    {title}
-                  </span>
-                  <span className="block truncate text-[11px] text-gray">{detail}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 /* ── Main panel ───────────────────────────── */
 export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion, activeLook, onActiveLookChange }) {
   const [activeGroup, setActiveGroup] = useState(() => groupOfRegion(initialRegion) ?? "lips");
@@ -343,8 +250,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
     return () => clearTimeout(id);
   }, [query]);
 
-  // The Favorites tab lists saved items instead; Browse (static, cached) loads meanwhile so switching back is instant.
-  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source === "favorites" ? "browse" : source);
+  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source);
   const groups = useMemo(() => groupByProduct(items), [items]);
   const typeCounts = useMemo(() => {
     const counts = {};
@@ -366,17 +272,6 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
   // shades came from a saved look, its name shows here and can be renamed; once changed, saving offers
   // "Update" or "Save as new".
   const { signedIn, favorites, saveLook, updateLook, renameLook } = useFavorites();
-  const user = useUserStore((state) => state.user);
-  const sources = signedIn ? [...SOURCES, { key: "favorites", label: "Favorites" }] : SOURCES;
-  // A look puts on its whole combination (regions it does not have are cleared); a product sets its own region.
-  const applyFavorite = (favorite, result) => {
-    if (favorite.type === "look") {
-      for (const region of Object.keys(selectedShades)) onSelectShade(region, result.shades[region] ?? null);
-      onActiveLookChange?.({ id: favorite.id, name: favorite.name, items: favorite.items });
-    } else {
-      for (const [region, shade] of Object.entries(result.shades)) onSelectShade(region, shade);
-    }
-  };
   const [saveOpen, setSaveOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -427,67 +322,36 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
     storeMode(next);
   };
 
-  const showNotices = source === "recommended" && !loading && status === "ok";
+  const notesReady = !loading && status === "ok";
 
   return (
     <div className="flex h-full flex-col bg-white font-body">
-      {/* ── Header: title and Basic/Advanced; applied chips and Clear only when something is applied ── */}
-      <div className="px-4 pt-3 sm:px-5">
+      {/* ── Header: title and Basic/Advanced, then the "On your face" card when shades are applied ── */}
+      <div className="px-4 pt-4 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-heading text-lg font-semibold leading-tight text-black">Shades</h2>
           <ModeSwitch mode={mode} onChange={switchMode} />
         </div>
 
-        {applied.length > 0 && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className={`flex min-w-0 flex-1 gap-1.5 overflow-x-auto ${NO_SCROLLBAR}`}>
-              {applied.map(([region, shade]) => (
-                <span
-                  key={region}
-                  className="inline-flex max-w-[220px] shrink-0 items-center gap-1.5 rounded-full bg-gray-lightest py-1 pl-1 pr-2 text-[11px] font-semibold text-black"
-                >
-                  <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
-                  <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
-                  <span className="truncate font-medium">{shade.shade || shade.product}</span>
-                  <button
-                    type="button"
-                    onClick={() => onSelectShade(region, null)}
-                    aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
-                    className="relative shrink-0 leading-none opacity-50 hover:opacity-100 after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
-                  >
-                    <X size={10} strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={onClear}
-              className="relative shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-primary transition hover:opacity-70 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
-            >
-              Clear
-            </button>
-          </div>
-        )}
-
-        {(activeLook || (signedIn && applied.length > 0) || saved) && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            {activeLook &&
-              (renaming ? (
-                <form onSubmit={submitRename} className="flex min-w-0 flex-1 items-center gap-1.5">
+        {(applied.length > 0 || activeLook || saved) && (
+          <div className="mt-3 space-y-2.5 rounded-2xl border border-gray-lightest bg-gray-lightest/40 p-3">
+            {/* Card header: the loaded look's name (renamable) or "On your face", and Clear all */}
+            <div className="flex min-h-6 items-center gap-2 text-xs">
+              {activeLook && renaming ? (
+                <form onSubmit={submitRename} className="flex min-w-0 flex-1 items-center gap-2">
                   <input
                     value={lookName}
                     onChange={(e) => setLookName(e.target.value.slice(0, 40))}
                     maxLength={40}
                     aria-label="Look name"
                     autoFocus
-                    className="min-w-0 flex-1 rounded-full border border-primary-lighter px-2.5 py-1 text-xs focus:border-primary focus:outline-none"
+                    className="min-w-0 flex-1 rounded-full border border-primary-lighter bg-white px-3 py-1 text-xs focus:border-primary focus:outline-none"
                   />
-                  <button type="submit" className="font-semibold text-primary">
+                  <button type="submit" className="shrink-0 font-semibold text-primary">
                     Save
                   </button>
                 </form>
-              ) : (
+              ) : activeLook ? (
                 <span className="flex min-w-0 flex-1 items-center gap-1.5 text-gray">
                   Look: <span className="truncate font-semibold text-black">{activeLook.name}</span>
                   <button
@@ -496,23 +360,63 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
                       setLookName(activeLook.name);
                       setRenaming(true);
                     }}
-                    className="shrink-0 font-semibold text-primary"
+                    className="shrink-0 font-semibold text-primary hover:opacity-70"
                   >
                     Rename
                   </button>
                 </span>
-              ))}
+              ) : (
+                <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">
+                  On your face{applied.length > 0 ? ` · ${applied.length}` : ""}
+                </span>
+              )}
+              {applied.length > 0 && !renaming && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="relative shrink-0 text-[11px] font-semibold text-gray transition hover:text-black after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {applied.length > 0 && (
+              <div className={`-mx-3 flex gap-1.5 overflow-x-auto px-3 ${NO_SCROLLBAR}`}>
+                {applied.map(([region, shade]) => (
+                  <span
+                    key={region}
+                    title={shade.shade || shade.product}
+                    className="inline-flex max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-white py-1 pr-2.5 pl-1 text-[11px] text-black shadow-sm ring-1 ring-black/5"
+                  >
+                    <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+                    <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
+                    <span className="truncate font-medium">{shortShadeName(shade.shade || shade.product)}</span>
+                    <button
+                      type="button"
+                      onClick={() => onSelectShade(region, null)}
+                      aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
+                      className="relative ml-0.5 shrink-0 leading-none opacity-50 hover:opacity-100 after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
+                    >
+                      <X size={10} strokeWidth={2.5} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             {signedIn && applied.length > 0 && !renaming && (
               <button
                 type="button"
                 onClick={() => setSaveOpen(true)}
-                className="ml-auto shrink-0 rounded-full bg-primary px-3 py-1 font-semibold text-white transition hover:bg-primary-dark"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2"
               >
+                <Bookmark aria-hidden="true" size={14} strokeWidth={2.25} />
                 Save look
               </button>
             )}
             {saved && (
-              <p role="status" className="w-full text-primary-darker">
+              <p role="status" className="text-center text-xs text-primary-darker">
                 Saved to Favorites.{" "}
                 <Link to="/favorites?tab=looks" className="font-semibold underline">
                   See your looks
@@ -535,8 +439,8 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         />
       )}
 
-      {/* ── Region tabs: text with an underline on the active tab (not for Favorites, which lists every region) ── */}
-      <div className={`mt-1 flex border-b border-gray-lightest px-2 sm:px-3 ${source === "favorites" ? "hidden" : ""}`}>
+      {/* ── Region tabs: text with an underline on the active tab ── */}
+      <div className="mt-2 flex border-b border-gray-lightest px-2 sm:px-3">
         {AR_GROUPS.map(({ label, key }) => {
           const isActive = activeGroup === key;
           return (
@@ -566,7 +470,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
       <div className="space-y-2 px-4 pt-2.5 pb-2 sm:px-5">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1" role="group" aria-label="Product source">
-            {sources.map(({ key, label }) => {
+            {SOURCES.map(({ key, label }) => {
               const isActive = source === key;
               return (
                 <button
@@ -609,21 +513,8 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
             className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2 text-[13px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
           />
         )}
-        {source === "browse" && (
-          <p className="flex items-center gap-1 text-[11px] text-gray-light">
-            <Info size={12} className="shrink-0" />
-            Not checked by the ingredient safety filter.
-          </p>
-        )}
-        {source === "browse" && !loading && status === "ok" && ranked && (
-          <p className="flex items-center gap-1 text-[11px] text-gray-light">
-            <Info size={12} className="shrink-0" />
-            Sorted by how well each shade suits your colors. Best match first.
-          </p>
-        )}
-
         {/* Advanced only: product type inside the tab, with how many products each has, in one sideways row */}
-        {!isBasic && !loading && source !== "favorites" && typeOptions.length > 1 && (
+        {!isBasic && !loading && typeOptions.length > 1 && (
           <div className={`-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:-mx-5 sm:px-5 ${NO_SCROLLBAR}`} role="group" aria-label="Product type">
             {[["all", "All", groups.length], ...typeOptions.map((region) => [region, REGION_LABEL[region], typeCounts[region]])].map(
               ([key, label, count]) => {
@@ -649,23 +540,32 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
 
       {/* ── Product List ── */}
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-lightest">
-        {showNotices && (
-          <div className="px-4 pt-2.5 pb-1 sm:px-5">
-            {ranked ? (
-              <Notice>Passed your ingredient check. Best match for your colors first.</Notice>
+        {notesReady && (
+          <div className="px-4 pt-3 pb-1 sm:px-5">
+            {source === "browse" ? (
+              <Notice icon={Info} iconClass="text-gray-light">
+                Not ingredient-checked{ranked ? " · Best color match first" : ""}
+              </Notice>
+            ) : ranked ? (
+              <Notice icon={ShieldCheck} iconClass="text-[#059669]">
+                Ingredient-checked for you · Best color match first
+              </Notice>
             ) : seasonFilter === "no_season" ? (
-              <Notice>
-                <Link to="/color-analysis" className="font-bold underline">Run Color Analysis</Link> to sort these by how well they suit you.
+              <Notice icon={Palette} iconClass="text-primary">
+                <Link to="/color-analysis" className="font-semibold text-primary underline">
+                  Run Color Analysis
+                </Link>{" "}
+                to sort by what suits you
               </Notice>
             ) : (
-              <Notice>Passed your ingredient check. Safest first.</Notice>
+              <Notice icon={ShieldCheck} iconClass="text-[#059669]">
+                Ingredient-checked for you · Safest first
+              </Notice>
             )}
           </div>
         )}
 
-        {source === "favorites" ? (
-          <FavoritesTab favorites={favorites} user={user} onApply={applyFavorite} />
-        ) : loading ? (
+        {loading ? (
           <p className="py-10 text-center text-xs text-gray-light">Loading shades…</p>
         ) : source === "recommended" && status !== "ok" ? (
           <EmptyState

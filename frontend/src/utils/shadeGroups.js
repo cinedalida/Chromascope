@@ -31,6 +31,26 @@ export function groupByProduct(items) {
   return [...groups.values()];
 }
 
+// A trailing finish word after a dash or colon: "... - Satin", "... : Matte".
+const TRAILING_FINISH =
+  /\s*[-–:]\s*(satin|matte|shimmer|glitter|metallic|sheer|gloss|glossy|cream|creme|velvet|glow|frost|pearl|duochrome)\s*$/i;
+
+/**
+ * A short label for a shade, for tight spots (swatch captions, chips): drops text in brackets and a trailing finish
+ * word. "519 Le Rose Essentiel (Raspberry Pink) - Satin" becomes "519 Le Rose Essentiel". The full name is still
+ * used for tooltips and screen readers.
+ */
+export function shortShadeName(name) {
+  const full = String(name ?? "").trim();
+  const short = full
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(TRAILING_FINISH, "")
+    .replace(/\s*[-–:]\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return short || full;
+}
+
 export function searchProducts(groups, query) {
   const q = String(query ?? "").trim().toLowerCase();
   if (!q) return groups;
