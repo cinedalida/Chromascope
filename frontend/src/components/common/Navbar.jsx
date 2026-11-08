@@ -12,8 +12,10 @@ const navItems = [
   { label: "Try-On", icon: "tryon", path: "/ar-tryon" },
   // { label: "Palette Guide", icon: "palette", path: "/palette-product" }, // HIDDEN — re-enable when ready
   { label: "Color Analysis", icon: "color", path: "/color-analysis" },
-  { label: "Ingredient Filter", icon: "ingredient", path: "/ingredient-filter" },
-  { label: "Product Catalog", icon: "catalog", path: "/product-catalog" },
+  // One merged catalog, same as the sidebar (catalog plan Part A). Also names the page in the header title.
+  { label: "Catalog", icon: "catalog", path: "/catalog" },
+  // Favorites (catalog plan Part B), same place as in the sidebar.
+  { label: "Favorites", icon: "favorites", path: "/favorites" },
 ];
 
 const navIcons = {
@@ -51,6 +53,11 @@ const navIcons = {
   catalog: (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 11h16" /><path d="M4 7h16" /><path d="M9 15h6" />
+    </svg>
+  ),
+  favorites: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
     </svg>
   ),
 };
@@ -124,11 +131,11 @@ export function Navbar({ onMenuToggle }) {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 lg:left-(--sidebar-width,0px) z-50 bg-white/95 shadow-sm shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 transition-transform duration-300 ease-out ${
+        className={`fixed top-0 left-0 right-0 lg:left-(--sidebar-width,0px) z-50 bg-white/95 shadow-sm shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 transition-[left,transform] duration-300 ease-out ${
           visible ? "translate-y-0" : "-translate-y-full"
         }`}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="min-w-0 flex items-center gap-3">
             {/* Hamburger — opens sidebar on desktop, mobile drawer on mobile */}
             <button
@@ -148,7 +155,7 @@ export function Navbar({ onMenuToggle }) {
               <img
                 src={chroLogoViolet}
                 alt="Chromascope"
-                className="h-6 w-6 rounded-full lg:hidden"
+                className="h-7 w-7 shrink-0 object-contain lg:hidden"
               />
               <span className="font-heading font-semibold text-primary hidden sm:inline-block">
                 Chromascope

@@ -23,6 +23,16 @@ test("Delete account removes the login and the profile record, then signs out", 
   const owner = { headers: { Authorization: "Bearer owner" } };
   expect((await request.get(`${DOCS}/users/${uid}`, owner)).status()).toBe(200);
 
+  // A saved favorite (catalog plan Part B) must be deleted with the account too.
+  const favorites = `${DOCS}/users/${uid}/favorites`;
+  const saved = await request.post(favorites, { ...owner, data: { fields: {
+    type: { stringValue: "product" }, name: { nullValue: null },
+    items: { arrayValue: { values: [{ mapValue: { fields: { region: { stringValue: "lips" },
+      source: { stringValue: "browse" }, product_id: { nullValue: null }, shade_id: { stringValue: "c969cb7dc1d0" } } } }] } },
+    created_at: { stringValue: "2026-11-08T00:00:00Z" }, updated_at: { stringValue: "2026-11-08T00:00:00Z" },
+  } } });
+  expect(saved.status()).toBe(200);
+
   // Profile -> Delete my account -> Cancel keeps everything.
   await page.goto("/profile");
   await page.getByRole("button", { name: "Delete my account" }).click();
@@ -36,8 +46,9 @@ test("Delete account removes the login and the profile record, then signs out", 
   await page.getByRole("button", { name: "Delete permanently" }).click();
   await expect(page).toHaveURL(/localhost:\d+\/$/);
 
-  // Profile record gone, login gone, and the app is signed out.
+  // Profile record gone, favorites gone, login gone, and the app is signed out.
   expect((await request.get(`${DOCS}/users/${uid}`, owner)).status()).toBe(404);
+  expect((await (await request.get(favorites, owner)).json()).documents ?? []).toEqual([]);
   const login = await request.post(`${AUTH}/accounts:signInWithPassword?key=fake-api-key`, {
     data: { email, password, returnSecureToken: true },
   });

@@ -45,7 +45,16 @@ export function ARTryOnPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [incoming] = useState(() => (location.state?.product ? productToTryOn(location.state.product) : null));
-  const [started, setStarted] = useState(Boolean(incoming));
+  // A favorite opened from the Favorites page ("Try on"): its shades for every region, applied before the first frame,
+  // plus the names of items that could not be applied (catalog plan Part B, Phase F4).
+  const [fromFavorite] = useState(() => location.state?.favoriteTryOn ?? null);
+  const [favoriteNotice, setFavoriteNotice] = useState(() => {
+    const skipped = [...(fromFavorite?.missing ?? []), ...(fromFavorite?.notAvailable ?? [])];
+    return skipped.length ? `Not applied: ${skipped.join(", ")} (no longer available or not available in try-on).` : null;
+  });
+  // The saved look the shades came from (name + items), shown in the panel with rename and "Update this look".
+  const [activeLook, setActiveLook] = useState(() => fromFavorite?.look ?? null);
+  const [started, setStarted] = useState(Boolean(incoming || fromFavorite));
   // Camera permission already granted: skip the "Start Try-On Now" gate. The Permissions API can't query "camera"
   // in every browser (e.g. Safari), and then the gate simply stays, as it does for first-time users.
   useEffect(() => {
@@ -62,7 +71,7 @@ export function ARTryOnPage() {
   }, []);
   // Drop the product from history state so a refresh doesn't re-apply it.
   useEffect(() => {
-    if (location.state?.product) navigate(location.pathname, { replace: true, state: null });
+    if (location.state?.product || location.state?.favoriteTryOn) navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate]);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
@@ -121,7 +130,11 @@ export function ARTryOnPage() {
 
   // Selected shade item per region (unified shape from arShadeService / arRecommendedService).
   const [selectedShades, setSelectedShades] = useState(() =>
-    incoming ? { ...NO_SHADES, [incoming.region]: incoming.shade } : NO_SHADES,
+    fromFavorite
+      ? { ...NO_SHADES, ...fromFavorite.shades }
+      : incoming
+        ? { ...NO_SHADES, [incoming.region]: incoming.shade }
+        : NO_SHADES,
   );
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
@@ -197,7 +210,7 @@ export function ARTryOnPage() {
     <main className="min-h-[calc(100dvh-64px)] bg-primary-lightest font-body lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
       {/* Layout */}
       {/* Desktop: locked to the viewport so the panel scrolls inside itself and the camera stays in view. */}
-      <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_400px] lg:overflow-hidden">
+      <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_440px] lg:overflow-hidden xl:grid-cols-[1fr_480px]">
         {/* CENTER */}
         <section className="relative flex items-center justify-center bg-primary-lightest p-4 sm:p-6 lg:h-full lg:min-h-0">
           {/* Card: camera on top, white controls bar under it.
@@ -350,7 +363,7 @@ export function ARTryOnPage() {
                   type="button"
                   onClick={clearShades}
                   disabled={!hasShades}
-                  className={`col-start-5 justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+                  className={`col-start-5 justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
                     isExpanded
                       ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] hover:text-white/80 disabled:text-white/40"
                       : "text-secondary hover:text-secondary-dark disabled:text-gray-lighter"
@@ -365,13 +378,28 @@ export function ARTryOnPage() {
         </section>
 
         {/* RIGHT PANEL */}
-        <aside className="flex h-[55dvh] min-h-0 flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+        <aside className="flex h-[60dvh] min-h-0 sm:h-[55dvh] flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
           {/* Offline: Recommended calls the backend and fails, Browse is served from the device cache. */}
           <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
             Offline: Recommended needs internet. Browse works if you used it online before.
           </OfflineNote>
+          {favoriteNotice && (
+            <p role="status" className="mx-4 mt-3 flex shrink-0 items-start justify-between gap-2 rounded-xl bg-primary-lightest px-3 py-2 text-xs text-primary-darker">
+              {favoriteNotice}
+              <button type="button" onClick={() => setFavoriteNotice(null)} aria-label="Dismiss" className="shrink-0 font-semibold">
+                OK
+              </button>
+            </p>
+          )}
           <div className="min-h-0 flex-1">
-            <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+            <AppliedProductsPanel
+              initialRegion={incoming?.region ?? Object.keys(fromFavorite?.shades ?? {})[0]}
+              selectedShades={selectedShades}
+              onSelectShade={selectShade}
+              onClear={clearShades}
+              activeLook={activeLook}
+              onActiveLookChange={setActiveLook}
+            />
           </div>
         </aside>
       </div>
@@ -533,11 +561,11 @@ function CaptureButton({ onClick, disabled, light = false }) {
       disabled={disabled}
       aria-label="Save photo"
       title="Save photo"
-      className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 sm:h-16 sm:w-16 ${ring} ${
+      className={`group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[3px] transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 sm:h-16 sm:w-16 ${ring} ${
         disabled ? "cursor-not-allowed opacity-40" : "active:scale-95"
       }`}
     >
-      <span className={`h-10 w-10 rounded-full transition-colors duration-200 sm:h-12 sm:w-12 ${disc}`} />
+      <span className={`h-9 w-9 rounded-full transition-colors duration-200 sm:h-12 sm:w-12 ${disc}`} />
     </button>
   );
 }
@@ -570,7 +598,7 @@ function CompareButton({ pressed, disabled, onChange, light = false }) {
       onBlur={stop}
       onContextMenu={(e) => e.preventDefault()}
       // Text only, styled like Reset; the color deepens while held.
-      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
         light
           ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
           : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`

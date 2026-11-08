@@ -298,11 +298,15 @@ async def save_analysis_result(data: AnalysisResultSave, user_id: str = Depends(
 async def delete_account(user_id: str = Depends(get_current_user)):
     """Permanently delete the signed-in user's profile record and login (RA 10173 right to erasure).
 
-    Photos are never stored, so there is nothing else to remove. Runs with admin rights so it works without the
-    "please log in again" step Firebase requires for deletes from the browser.
+    Photos are never stored. Saved favorites (users/{uid}/favorites) are removed first: Firestore does not delete a
+    document's subcollections with it. Runs with admin rights so it works without the "please log in again" step
+    Firebase requires for deletes from the browser.
     """
     try:
-        db.collection("users").document(user_id).delete()
+        user_ref = db.collection("users").document(user_id)
+        for favorite in user_ref.collection("favorites").stream():
+            favorite.reference.delete()
+        user_ref.delete()
         try:
             fb_auth.delete_user(user_id)
         except fb_auth.UserNotFoundError:

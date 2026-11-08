@@ -52,6 +52,7 @@ function toShadeItem(product) {
     brand: product.brand ?? "",
     product: product.product_name ?? "",
     shade: best?.name ?? null,
+    shadeId: best?.shade_id ?? null, // kept so a saved favorite or look remembers the exact shade (plan Part B, F-R1)
     hex: String(best?.hex ?? product.hex_color).trim().toUpperCase(),
     lab: Array.isArray(best?.lab) ? best.lab.map(Number) : toLab(product),
     price,

@@ -2,8 +2,8 @@
 // Run: node tests/tap-targets.audit.js  (dev server must be running on :5173)
 import { chromium, devices } from "@playwright/test";
 
-const ROUTES = ["/", "/auth", "/onboarding", "/home", "/ar-tryon", "/color-analysis", "/ingredient-filter",
-  "/profile", "/product-catalog", "/user-manual"];
+const ROUTES = ["/", "/auth", "/onboarding", "/home", "/ar-tryon", "/color-analysis", "/catalog",
+  "/profile", "/user-manual"];
 const browser = await chromium.launch();
 const page = await browser.newPage({ ...devices["iPhone 14"] });
 for (const r of ROUTES) {
