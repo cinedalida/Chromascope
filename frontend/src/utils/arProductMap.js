@@ -87,6 +87,13 @@ export function renderFinishFromText(region, finishText) {
     if (/gloss|shiny|wet|high.?shine|plump/.test(text)) return "gloss";
     if (/sheer|balm|tint|stain|dewy/.test(text)) return "sheer";
   }
+  // Blush, eyeshadow and highlighter: sparkle beats glow beats the plain (matte) look. A palette lists several finishes;
+  // the most visible one wins.
+  if (region === "cheeks" || region === "eyeshadow" || region === "highlighter") {
+    if (/shimmer|glitter|metallic|pearl|foil|sparkl/.test(text)) return "shimmer";
+    if (region === "highlighter") return undefined;
+    if (/satin|radiant|luminous|glow|high.?shine/.test(text)) return region === "cheeks" ? "radiant" : "satin";
+  }
   return undefined;
 }
 
