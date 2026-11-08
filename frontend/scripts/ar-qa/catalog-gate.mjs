@@ -58,6 +58,8 @@ await page.route(/\/(run-filter|products)(\?|$)/, async (route) => {
 });
 
 const spaGo = (to) => page.evaluate((p) => { window.history.pushState({}, "", p); window.dispatchEvent(new PopStateEvent("popstate")); }, to);
+// The verdict badge, not the "Excluded" option in the filter sidebar.
+const EXCLUDED = /Safety verdict:\s*Excluded/;
 const CARD = "button.rounded-2xl.border-primary-lighter";
 
 // Sign up once (UI), then give the account a finished profile.
@@ -86,16 +88,17 @@ await page.getByRole("button", { name: /^log ?in$|^sign in$/i }).first().click()
 await page.waitForURL((u) => !u.pathname.startsWith("/auth"));
 await sleep(8000); // let any background warm-up settle so it is not counted against the page
 
-// Opens the Safe-for-me catalog view in-app; returns requests made, time until the first card, and the page text.
+// Opens the Full catalog view in-app (every product with its verdict, whatever the "Safe for me" view hides); returns requests made, time until the first card, and the page text.
 async function visit(label) {
   counts = { products: 0, filter: 0 };
   const start = Date.now();
-  await spaGo("/catalog?view=safe");
+  await spaGo("/catalog?view=all");
   await page.waitForSelector(CARD, { timeout: 30000 });
   const ms = Date.now() - start;
   await sleep(2500); // let the slower requests finish, so late ones are counted too
   const text = await page.evaluate(() => document.body.innerText);
   const out = { label, ...counts, ms, text };
+  fs.writeFileSync(path.join(outDir, `page_${label.replace(/\W+/g, "_")}.txt`), text);
   console.log(`  [${label}] /products=${out.products} /run-filter=${out.filter} first card after ${ms} ms`);
   return out;
 }
@@ -103,14 +106,14 @@ async function visit(label) {
 const first = await visit("first visit");
 check("first visit: catalog loads from the server", first.products >= 1 && first.filter >= 1, `${first.products} /products, ${first.filter} /run-filter`);
 check("first visit: each request is made once (6 categories + the product list), even when the page effect runs twice", first.products === 1 && first.filter === 6, `${first.products} /products, ${first.filter} /run-filter`);
-check("first visit: scented product is shown (nothing blocked yet)", /Scented Berry/.test(first.text));
+check("first visit: scented product is listed and nothing is Excluded yet", /Scented Berry/.test(first.text) && !EXCLUDED.test(first.text));
 
 await spaGo("/profile");
 await sleep(1500);
 const back = await visit("back from Profile");
 check("coming back: no /products and no /run-filter", back.products === 0 && back.filter === 0, `${back.products} /products, ${back.filter} /run-filter`);
 check(`coming back: cards appear in under ${DELAY_MS / 2} ms`, back.ms < DELAY_MS / 2, `${back.ms} ms vs ${first.ms} ms on the first visit`);
-check("coming back: same products as before", /Scented Berry/.test(back.text));
+check("coming back: same products as before", /Scented Berry/.test(back.text) && !EXCLUDED.test(back.text));
 
 // A real profile edit through the Profile page: the safety filter's inputs change, so the catalog must ask again.
 await spaGo("/profile");
@@ -122,7 +125,7 @@ await sleep(2500);
 const edited = await visit("after blocking fragrance");
 check("profile edit: the safety results are fetched again, once per category", edited.filter === 6, `${edited.filter} /run-filter`);
 check("profile edit: the product list itself is not refetched", edited.products === 0, `${edited.products} /products`);
-check("profile edit: scented product is gone", !/Scented Berry/.test(edited.text));
+check("profile edit: the scented product is now Excluded", EXCLUDED.test(edited.text));
 await spaGo("/profile");
 await sleep(1000);
 const again = await visit("again");

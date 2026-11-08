@@ -92,6 +92,21 @@ class FilterRequest(BaseModel):
         return v
 
 
+class FilterBatchRequest(FilterRequest):
+    """Several categories in one call (/run-filter-batch): the same profile fields as FilterRequest, read once.
+    `category` is inherited but unused here."""
+
+    categories: Annotated[List[Annotated[str, StringConstraints(strip_whitespace=True, max_length=20)]],
+                          Field(min_length=1, max_length=6)]
+
+    @field_validator("categories")
+    @classmethod
+    def _categories(cls, v: List[str]) -> List[str]:
+        if any(c.lower() not in CATEGORIES for c in v):
+            raise ValueError("unknown product category")
+        return v
+
+
 class AnalysisResultSave(BaseModel):
     """A color-analysis result the user chose to keep, with the backend's signed receipt (see result_receipt.py)."""
     model_config = ConfigDict(extra="forbid")
