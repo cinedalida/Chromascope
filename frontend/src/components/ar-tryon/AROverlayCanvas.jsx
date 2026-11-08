@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { getFaceLandmarker } from "../../services/faceLandmarkerService";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
 import { REGION_RENDER, drawLooks, sampleSkin, toCanvasSpace } from "../../utils/arRenderer.js";
 
@@ -132,29 +132,14 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     },
   }), [isMock]);
 
-  // Load the FaceLandmarker model once on mount.
+  // Get the FaceLandmarker on mount. It is shared across visits (faceLandmarkerService.js), so it is not closed here.
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
-        );
-        const landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numFaces: 1,
-        });
-
-        if (cancelled) {
-          landmarker.close();
-          return;
-        }
+        const landmarker = await getFaceLandmarker();
+        if (cancelled) return;
         landmarkerRef.current = landmarker;
         setStatus("ready");
       } catch (err) {
@@ -168,10 +153,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (landmarkerRef.current) {
-        landmarkerRef.current.close();
-        landmarkerRef.current = null;
-      }
+      landmarkerRef.current = null;
     };
   }, []);
 
@@ -260,6 +242,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   return (
     <canvas
       ref={canvasRef}
+      data-ar-status={status}
       className="pointer-events-none absolute inset-0 h-full w-full"
     />
   );
