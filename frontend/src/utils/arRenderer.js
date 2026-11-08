@@ -90,7 +90,7 @@ export const REGION_RENDER = {
     feather: 0.03,
     width: 0.075,
     inset: 0.1,
-    skinScale: [{ blend: "*", deep: 1.7, light: 1 }],
+    skinScale: [{ blend: "*", deep: 1, light: 1.15 }],
     layers: [
       { blend: "soft-light", opacity: 0.4 },
       { blend: "color", opacity: 0.22 },
@@ -107,7 +107,7 @@ export const REGION_RENDER = {
     feather: 0.016,
     width: 0.013,
     bloom: 1.7, // cheekbone patch size relative to its landmark spread
-    skinScale: [{ blend: "*", deep: 1.25, light: 0.9 }],
+    skinScale: [{ blend: "*", deep: 1, light: 0.8 }],
     layers: [
       { blend: "screen", opacity: 0.48 },
       { blend: "soft-light", opacity: 0.4 },
