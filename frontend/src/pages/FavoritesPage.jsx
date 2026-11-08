@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Info, Loader2, X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { getProductCatalog, runFilter } from "../services/productService";
 import { getShades } from "../services/arShadeService";
 import { useUserStore } from "../store/userStore";
 import { TRY_ON_GROUPS, canTryOn, favoriteToTryOn, useFavorites } from "../hooks/useFavorites";
 import { groupOfRegion } from "../utils/arGroups";
-import { ProductCard } from "../components/catalog/ProductCard.jsx";
+import { FavoriteProductCard } from "../components/favorites/FavoriteProductCard.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { LookCard } from "../components/favorites/LookCard.jsx";
 
@@ -40,8 +40,9 @@ function TryOnButton({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="mt-2 w-full rounded-full bg-primary py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark"
+      className="flex w-full items-center justify-center gap-1.5 rounded-full bg-primary-lightest py-2 text-xs font-semibold text-primary-dark transition hover:bg-primary-lighter focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
+      <Sparkles aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.25} />
       Try on
     </button>
   );
@@ -52,7 +53,7 @@ function RemoveButton({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="mt-2 w-full rounded-full border border-primary-lighter bg-white py-1.5 text-xs font-semibold text-gray hover:text-black"
+      className="w-full rounded-full border border-primary-lighter bg-white py-1.5 text-xs font-semibold text-gray hover:text-black"
     >
       Remove
     </button>
@@ -190,33 +191,25 @@ export function FavoritesPage() {
           return (
             <li key={favorite.id}>
               {itemStatus === "ok" ? (
-                <>
-                  <ProductCard
-                    product={product}
-                    onSelect={
-                      isBrowse
-                        ? undefined
-                        : (e) => {
-                            openerRef.current = e.currentTarget;
-                            setDetail(product);
-                          }
-                    }
-                  />
+                <FavoriteProductCard
+                  product={product}
+                  isBrowse={isBrowse}
+                  onRemove={() => removeFavorite(favorite.id)}
+                  onSelect={
+                    isBrowse
+                      ? undefined
+                      : (e) => {
+                          openerRef.current = e.currentTarget;
+                          setDetail(product);
+                        }
+                  }
+                >
                   {tryOnAllowed(favorite.items[0], product, isBrowse) ? (
                     <TryOnButton onClick={() => tryOn(favorite)} />
                   ) : (
-                    <p className="mt-2 text-center text-[11px] text-gray">Not available in try-on</p>
+                    <p className="py-2 text-center text-[11px] text-gray">Not available in try-on</p>
                   )}
-                  {isBrowse && (
-                    <>
-                      <p className="mt-1.5 flex items-center gap-1 px-1 text-[11px] text-gray">
-                        <Info aria-hidden="true" className="h-3 w-3 shrink-0" />
-                        Not checked by the safety filter.
-                      </p>
-                      <RemoveButton onClick={() => removeFavorite(favorite.id)} />
-                    </>
-                  )}
-                </>
+                </FavoriteProductCard>
               ) : (
                 <div className="flex h-full min-h-40 flex-col justify-between rounded-2xl border border-dashed border-primary-lighter bg-white p-4">
                   <p className="text-sm text-gray">{itemStatus === "loading" ? "Loading..." : "No longer available"}</p>

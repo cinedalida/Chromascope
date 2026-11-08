@@ -24,8 +24,24 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
     setEditing(false);
   };
 
+  const hexOf = ({ status, product }) => (status === "ok" && product.hex_color ? product.hex_color : null);
+  const nameOf = ({ status, product }) =>
+    status === "ok" ? product.product_name : status === "loading" ? "Loading..." : "No longer available";
+
   return (
     <article className="flex h-full flex-col gap-3 rounded-2xl border border-primary-lighter bg-white p-4 shadow-sm">
+      {/* The look's colors first: one band segment per shade, in the order saved. */}
+      <div aria-hidden="true" className="flex h-14 overflow-hidden rounded-xl ring-1 ring-black/5">
+        {items.map((entry) => (
+          <span
+            key={`band-${entry.item.region}-${entry.item.product_id}-${entry.item.shade_id}`}
+            title={`${REGION_LABEL[entry.item.region] ?? entry.item.region}: ${nameOf(entry)}`}
+            className="flex-1 bg-gray-lightest"
+            style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
+          />
+        ))}
+      </div>
+
       {editing ? (
         <form onSubmit={save} className="flex flex-wrap items-center gap-2">
           <input
@@ -52,7 +68,12 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
         </form>
       ) : (
         <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 break-words font-heading text-base font-semibold leading-snug text-black">{look.name}</h3>
+          <div className="min-w-0">
+            <h3 className="break-words font-heading text-base font-semibold leading-snug text-black">{look.name}</h3>
+            <p className="text-[11px] text-gray">
+              {items.length} shade{items.length === 1 ? "" : "s"}
+            </p>
+          </div>
           <div className="flex shrink-0 gap-1">
             <button
               type="button"
@@ -80,17 +101,15 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
       )}
 
       <ul className="space-y-2" aria-label="Shades in this look">
-        {items.map(({ item, status, product }) => (
-          <li key={`${item.region}-${item.product_id}-${item.shade_id}`} className="flex items-center gap-2.5 text-sm">
+        {items.map((entry) => (
+          <li key={`${entry.item.region}-${entry.item.product_id}-${entry.item.shade_id}`} className="flex items-center gap-2.5 text-sm">
             <span
               aria-hidden="true"
-              className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/10"
-              style={status === "ok" && product.hex_color ? { backgroundColor: product.hex_color } : undefined}
+              className="h-6 w-6 shrink-0 rounded-full bg-gray-lightest ring-1 ring-black/10"
+              style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
             />
-            <span className="w-20 shrink-0 text-xs font-semibold text-gray">{REGION_LABEL[item.region] ?? item.region}</span>
-            <span className="min-w-0 truncate text-black">
-              {status === "ok" ? product.product_name : status === "loading" ? "Loading..." : "No longer available"}
-            </span>
+            <span className="w-20 shrink-0 text-xs font-semibold text-gray">{REGION_LABEL[entry.item.region] ?? entry.item.region}</span>
+            <span className="min-w-0 truncate text-black">{nameOf(entry)}</span>
           </li>
         ))}
       </ul>
