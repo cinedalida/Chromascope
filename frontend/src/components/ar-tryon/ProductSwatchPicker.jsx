@@ -7,8 +7,8 @@ import { shortShadeName } from "../../utils/shadeGroups.js";
 const PAGE_SIZE = 5;
 
 /**
- * ProductSwatchPicker: up to five round shade swatches with short names under them, and arrows to page through the
- * rest. Hovering or focusing a swatch enlarges it and shows the full shade name. One tap applies a shade; tapping
+ * ProductSwatchPicker: up to five round shade swatches, and arrows to page through the rest. Hovering or focusing a
+ * swatch enlarges it and shows the full shade name. One tap applies a shade; tapping
  * the selected swatch again passes null, which removes it. The selected shade's name and its heart show underneath.
  */
 export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
@@ -24,7 +24,7 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
 
   return (
     <div className="pt-2">
-      <div className="flex items-start gap-1">
+      <div className="flex items-center gap-1">
         {paged && (
           <PageArrow direction="previous" disabled={current === 0} onClick={() => setPage(current - 1)} />
         )}
@@ -41,7 +41,7 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
                   onClick={() => onSelect(isSelected ? null : shade)}
                   aria-label={full}
                   aria-pressed={isSelected}
-                  className="group relative flex w-full flex-col items-center gap-1.5 rounded-xl px-0.5 pt-1 pb-0.5 focus:outline-none"
+                  className="group relative flex w-full items-center justify-center rounded-xl py-1 focus:outline-none"
                 >
                   <span
                     aria-hidden="true"
@@ -56,14 +56,6 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
                     }`}
                     style={{ backgroundColor: shade.hex }}
                   />
-                  <span
-                    aria-hidden="true"
-                    className={`line-clamp-2 w-full text-center text-[10px] leading-tight break-words ${
-                      isSelected ? "font-semibold text-primary-dark" : "text-gray"
-                    }`}
-                  >
-                    {shortShadeName(full)}
-                  </span>
                 </button>
               </li>
             );
@@ -93,7 +85,7 @@ function PageArrow({ direction, disabled, onClick }) {
       onClick={onClick}
       disabled={disabled}
       aria-label={direction === "previous" ? "Previous shades" : "Next shades"}
-      className="mt-1 flex h-8 w-6 shrink-0 items-center justify-center rounded-full text-gray transition hover:bg-gray-lightest hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-25"
+      className="flex h-8 w-6 shrink-0 items-center justify-center rounded-full text-gray transition hover:bg-gray-lightest hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-25"
     >
       <Icon aria-hidden="true" size={16} strokeWidth={2.25} />
     </button>
