@@ -735,9 +735,18 @@ const REGION_GUARD = {
   cheeks: SKIN_GUARD,
   highlighter: SKIN_GUARD,
   eyeshadow: { eyes: 1.0 },
-  lips: { mouth: "inner" },
-  lipLiner: { mouth: "inner" },
+  lips: { mouth: "inner", lipEdge: 0.012 },
+  lipLiner: { mouth: "inner", lipEdge: 0.012 },
 };
+
+// Moves every point of an outline away from its centre by about `d` pixels (x and y scaled separately, so a wide, flat
+// shape such as the lips grows by the same amount on all sides).
+function growByDistance(points, d) {
+  const [cx, cy] = centroid(points);
+  const halfW = Math.max(1, (Math.max(...points.map((p) => p[0])) - Math.min(...points.map((p) => p[0]))) / 2);
+  const halfH = Math.max(1, (Math.max(...points.map((p) => p[1])) - Math.min(...points.map((p) => p[1]))) / 2);
+  return points.map(([x, y]) => [cx + (x - cx) * (1 + d / halfW), cy + (y - cy) * (1 + d / halfH)]);
+}
 
 function growAbout(points, factor, topExtra = 0) {
   const [cx, cy] = centroid(points);
@@ -751,6 +760,14 @@ function applyGuard(ctx, frame, guard) {
   if (guard.face) {
     const path = new Path2D();
     tracePath(path, growAbout(frame.pts(FACE_OVAL), guard.face, guard.faceTop ?? 0));
+    ctx.clip(path);
+  }
+  if (guard.lipEdge) {
+    // Lip color stops at the lip outline (plus a small margin, as a share of the mouth width), so the feathered edge cannot
+    // bleed onto the skin around the mouth.
+    const outer = frame.pts(LIPS_OUTER);
+    const path = new Path2D();
+    tracePath(path, growByDistance(outer, guard.lipEdge * dist(frame.px(61), frame.px(291))));
     ctx.clip(path);
   }
   const holes = [];
