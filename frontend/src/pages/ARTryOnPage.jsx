@@ -11,6 +11,7 @@ import { useSettingsStore } from "../store/settingsStore.js";
 import { clearRecommendedCache, productToTryOn } from "../services/arRecommendedService.js";
 import { renderFinishFromText } from "../utils/arProductMap.js";
 import { ALL_REGIONS, AR_GROUPS, REGION_LABEL, groupOfRegion } from "../utils/arGroups.js";
+import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
@@ -264,7 +265,14 @@ export function ARTryOnPage() {
             )}
 
             {/* CONTROLS — region toggles flank the capture button */}
-            <div className="absolute bottom-3 sm:bottom-8 left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4">
+            {/* Expanded, the frame reaches the screen edge, so the controls clear the iPhone home bar. */}
+            <div
+              className={`absolute left-1/2 flex max-w-[92%] -translate-x-1/2 items-center justify-center gap-1.5 sm:gap-4 ${
+                isExpanded
+                  ? "bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(2rem+env(safe-area-inset-bottom))]"
+                  : "bottom-3 sm:bottom-8"
+              }`}
+            >
               <ARControlBar regionKeys={["lips", "cheeks", "eyes"]} toggles={toggles} onToggle={handleToggleRegion} />
               <CaptureButton onClick={handleCapture} disabled={!isReady || isMock} />
               <ARControlBar regionKeys={["face", "fullFace"]} toggles={toggles} onToggle={handleToggleRegion} />
@@ -280,9 +288,11 @@ export function ARTryOnPage() {
             )}
             {toastMounted && (
               <div
-                className={`pointer-events-none absolute bottom-20 sm:bottom-28 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/80 px-5 py-2.5 text-white shadow-lg backdrop-blur-md transition-all duration-300 ${
-                  toastVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-                }`}
+                className={`pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/80 px-5 py-2.5 text-white shadow-lg backdrop-blur-md transition-all duration-300 ${
+                  isExpanded
+                    ? "bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(7rem+env(safe-area-inset-bottom))]"
+                    : "bottom-20 sm:bottom-28"
+                } ${toastVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
               >
                 <Check size={16} strokeWidth={3} />
                 <span className="text-[11px] font-bold uppercase tracking-wider">Saved</span>
@@ -320,8 +330,14 @@ export function ARTryOnPage() {
         </section>
 
         {/* RIGHT PANEL */}
-        <aside className="h-[55dvh] min-h-0 overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
-          <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+        <aside className="flex h-[55dvh] min-h-0 flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+          {/* Offline: Recommended calls the backend and fails, Browse is served from the device cache. */}
+          <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
+            Offline: Recommended needs internet. Browse works if you used it online before.
+          </OfflineNote>
+          <div className="min-h-0 flex-1">
+            <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+          </div>
         </aside>
       </div>
 

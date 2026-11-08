@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { getCatalogSummary, getProductCatalog } from "../services/productService";
 import placeholderImg from "../assets/images/placeholder.svg";
+import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 export function ProductCatalogPage() {
   const navigate = useNavigate();
@@ -114,6 +115,9 @@ export function ProductCatalogPage() {
             className="w-full pl-14 pr-6 py-4 rounded-full bg-white border border-gray-lighter focus:ring-2 focus:ring-primary-light text-black shadow-sm"
           />
         </div>
+
+        {/* Offline the catalog request fails and the list is empty, which would read as "no products". */}
+        <OfflineNote>The product catalog needs internet. Connect and reload this page to see the products.</OfflineNote>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard title="TOTAL INVENTORY" value={totalInventory} icon={<Package className="text-primary" />} bgColor="bg-primary-lighter" />
