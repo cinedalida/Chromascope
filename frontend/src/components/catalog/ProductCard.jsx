@@ -39,9 +39,9 @@ export function ProductCard({ product, verdict = product.verdict, onSelect }) {
     <button
       type="button"
       onClick={onSelect}
-      className="flex h-full w-full flex-col overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-black/5 transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-primary-lighter bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <span className="block aspect-square w-full overflow-hidden bg-white">
+      <span className="block aspect-[4/3] w-full overflow-hidden bg-linear-to-br from-primary-lightest via-white to-primary-lighter/40">
         {showImage ? (
           <img
             src={src}

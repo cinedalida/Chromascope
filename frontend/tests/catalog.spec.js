@@ -70,7 +70,7 @@ async function signUpWithProfile(page) {
 }
 
 const count = (v) => PRODUCTS.filter((p) => p.verdict === v).length;
-const cardNames = async (page) => (await page.locator("main li button span.font-heading").allInnerTexts()).sort();
+const cardNames = async (page) => (await page.locator("main ul.grid li button span.font-heading").allInnerTexts()).sort();
 
 test.use({ storageState: { cookies: [], origins: [] } });
 // The flows run once, on desktop; the phone layout test at the end runs on the phone projects.
@@ -89,7 +89,7 @@ test("loads Safe for me, and the toggle switches views and updates the URL", asy
   const safeCount = count("safe") + count("caution");
   await expect(page.getByText(`${safeCount} products for your skin`, { exact: false })).toBeVisible();
   await expect.poll(async () => (await cardNames(page)).length).toBe(safeCount);
-  await expect(page.locator("main li").filter({ hasText: "Excluded" })).toHaveCount(0);
+  await expect(page.locator("main ul.grid li").filter({ hasText: "Excluded" })).toHaveCount(0);
 
   const before = { ...calls };
   await toggle.getByRole("button", { name: "Full catalog" }).click();
@@ -104,9 +104,9 @@ test("loads Safe for me, and the toggle switches views and updates the URL", asy
 test("a category filter narrows the grid without new requests", async ({ page }) => {
   const calls = await mockApi(page);
   await page.goto("/catalog?view=all");
-  await expect(page.locator("main li").first()).toBeVisible();
+  await expect(page.locator("main ul.grid li").first()).toBeVisible();
   const before = { ...calls };
-  await page.getByRole("group", { name: "Category" }).getByRole("button", { name: "Lip" }).click();
+  await page.getByRole("complementary", { name: "Filters" }).getByRole("checkbox", { name: "Lip", exact: true }).check();
   await expect(page).toHaveURL(/category=lip/);
   const lips = PRODUCTS.filter((p) => p.category === "Lip").map((p) => p.product_name).sort();
   await expect.poll(() => cardNames(page)).toEqual(lips);
@@ -116,7 +116,7 @@ test("a category filter narrows the grid without new requests", async ({ page })
 test("a card opens the detail view, and Escape closes it", async ({ page }) => {
   await mockApi(page);
   await page.goto("/catalog?view=all");
-  const card = page.locator("main li button").first();
+  const card = page.locator("main ul.grid li button").first();
   const name = (await card.locator("span.font-heading").innerText()).trim();
   await card.click();
   const dialog = page.getByRole("dialog");
@@ -139,7 +139,7 @@ test("old routes redirect to the matching view", async ({ page }) => {
 test(PHONE_LAYOUT, async ({ page }, info) => {
   await mockApi(page);
   await page.goto("/catalog?view=all");
-  const grid = page.locator("main ul").first();
+  const grid = page.locator("main ul.grid").first();
   await expect(grid.locator("li").first()).toBeVisible();
   const columns = await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
   expect(columns).toBe(2);

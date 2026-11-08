@@ -1,21 +1,22 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react";
 import { getProductCatalog, runFilter } from "../services/productService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
-import { CatalogFilters } from "../components/catalog/CatalogFilters.jsx";
+import { CatalogFilters, CatalogSearch } from "../components/catalog/CatalogFilters.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 // The safety filter checks one category per request (api.py category_map), so the page asks once per category.
 // These are the same requests the old ingredient filter page made, one at a time.
 const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 20;
 const VIEWS = ["safe", "all"];
-// Category chip value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
+// Category filter value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
 const CATEGORY_DATA = { cheek: "Cheek", concealer: "Concealer", eye: "Eye", face: "Face", lip: "Lip", multiuse: "Multi-Use" };
+const ALL_VERDICTS = ["safe", "caution", "excluded"];
 
 const byCategoryThenName = (a, b) =>
   String(a.category ?? "").localeCompare(String(b.category ?? "")) ||
@@ -23,28 +24,122 @@ const byCategoryThenName = (a, b) =>
 
 const verdictOf = (item) => String(item?.verdict ?? "").toLowerCase();
 
-/* Card grid: 2 columns on phones, 3 on tablets, then as many as fit (min 200px). Shows PAGE_SIZE more per tap. */
+// "lip,cheek" -> ["lip", "cheek"], keeping only known values, in a stable order.
+const parseList = (value, allowed) => allowed.filter((option) => String(value ?? "").split(",").includes(option));
+
+/* Card grid: 2 columns on phones, 3 on tablets and small laptops, 4 on laptops, 5 on wide screens. */
 function ProductGrid({ items, onSelect }) {
-  const [visible, setVisible] = useState(PAGE_SIZE);
   return (
-    <>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
-        {items.slice(0, visible).map((item) => (
-          <li key={item.product_id}>
-            <ProductCard product={item} onSelect={(e) => onSelect(item, e.currentTarget)} />
-          </li>
-        ))}
-      </ul>
-      {items.length > visible && (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+      {items.map((item) => (
+        <li key={item.product_id}>
+          <ProductCard product={item} onSelect={(e) => onSelect(item, e.currentTarget)} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* Numbered pages: first, last, and the pages next to the current one, with "..." for the gaps. */
+function Pagination({ label, page, total, onChange }) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) return null;
+  const numbers = Array.from({ length: pages }, (_, i) => i + 1).filter(
+    (n) => n === 1 || n === pages || Math.abs(n - page) <= 1,
+  );
+  const first = (page - 1) * PAGE_SIZE + 1;
+  const last = Math.min(page * PAGE_SIZE, total);
+  const button = "flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold transition-colors";
+  return (
+    <nav aria-label={label} className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+      <p className="text-xs text-gray">
+        Showing {first}-{last} of {total}
+      </p>
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={() => setVisible((n) => n + PAGE_SIZE)}
-          className="mx-auto mt-6 block rounded-full border border-primary-lighter bg-white px-6 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary-lightest"
+          aria-label="Previous page"
+          disabled={page === 1}
+          onClick={() => onChange(page - 1)}
+          className={`${button} text-gray hover:bg-white disabled:opacity-30`}
         >
-          Show more ({items.length - visible} left)
+          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
         </button>
-      )}
-    </>
+        {numbers.map((n, i) => (
+          <span key={n} className="flex items-center gap-1">
+            {i > 0 && n - numbers[i - 1] > 1 && <span className="px-1 text-sm text-gray-light">...</span>}
+            <button
+              type="button"
+              aria-label={`Page ${n}`}
+              aria-current={n === page ? "page" : undefined}
+              onClick={() => onChange(n)}
+              className={`${button} ${n === page ? "bg-primary text-white" : "text-gray hover:bg-white"}`}
+            >
+              {n}
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          aria-label="Next page"
+          disabled={page === pages}
+          onClick={() => onChange(page + 1)}
+          className={`${button} text-gray hover:bg-white disabled:opacity-30`}
+        >
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/* Phones: the filter panel as a bottom sheet. Escape, the close button or the backdrop close it. */
+function FilterSheet({ resultCount, onClose, children }) {
+  const closeRef = useRef(null);
+  useEffect(() => {
+    closeRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+  return (
+    <div className="fixed inset-0 z-500 flex items-end bg-black/40 lg:hidden" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="filter-sheet-title"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.key === "Escape" && onClose()}
+        className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-primary-lightest shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-primary-lighter px-5 py-4">
+          <h2 id="filter-sheet-title" className="font-heading text-lg font-semibold">
+            Filters
+          </h2>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close filters"
+            className="rounded-full p-2 text-gray hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+        <div className="border-t border-primary-lighter p-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
+          >
+            Show {resultCount} products
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -82,23 +177,35 @@ export function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("view");
   const view = VIEWS.includes(requested) ? requested : hasProfile ? "safe" : "all";
-  // A new history entry per switch, keeping any other URL parameters.
+  // A new history entry per switch, keeping any other URL parameters except the page numbers.
   const setView = (next) =>
     setSearchParams((params) => {
       params.set("view", next);
+      params.delete("page");
+      params.delete("xpage");
       return params;
     });
-  // Filters live in the URL too. They replace the current entry, so typing or tapping chips does not fill history.
-  const category = CATEGORY_DATA[searchParams.get("category")] ? searchParams.get("category") : "";
-  // Excluded is a valid verdict filter only in Full catalog; in Safe for me it is ignored.
-  const requestedVerdict = searchParams.get("verdict");
-  const verdict = ["safe", "caution"].includes(requestedVerdict) || (view === "all" && requestedVerdict === "excluded")
-    ? requestedVerdict
-    : "";
+
+  // Filters live in the URL too ("lip,cheek"). They replace the current entry, so typing or ticking boxes does not
+  // fill history, and they send every list back to page 1. Excluded is a valid verdict only in Full catalog.
+  // BrowserRouter applies URL changes as a transition, so a ticked box would briefly snap back until the URL
+  // catches up. The ticked boxes are therefore kept in local state too, updated at once, and re-read from the URL
+  // whenever the URL changes (back button, shared link, Clear filters).
+  const urlCategories = searchParams.get("category") ?? "";
+  const urlVerdicts = searchParams.get("verdict") ?? "";
+  const [ticked, setTicked] = useState({ category: urlCategories, verdict: urlVerdicts });
+  const [tickedFrom, setTickedFrom] = useState(`${urlCategories}|${urlVerdicts}`);
+  if (tickedFrom !== `${urlCategories}|${urlVerdicts}`) {
+    setTickedFrom(`${urlCategories}|${urlVerdicts}`);
+    setTicked({ category: urlCategories, verdict: urlVerdicts });
+  }
+  const categories = parseList(ticked.category, Object.keys(CATEGORY_DATA));
+  const verdicts = parseList(ticked.verdict, view === "all" ? ALL_VERDICTS : ["safe", "caution"]);
   const query = searchParams.get("q") ?? "";
   // Filtering the grid can lag one keystroke behind typing, so the input itself never waits for it.
   const deferredQuery = useDeferredValue(query);
-  const filtersActive = Boolean(category || verdict || query.trim());
+  const filterCount = categories.length + verdicts.length;
+  const filtersActive = Boolean(filterCount || query.trim());
   const setFilters = (patch) =>
     setSearchParams(
       (params) => {
@@ -106,10 +213,41 @@ export function CatalogPage() {
           if (value) params.set(key, value);
           else params.delete(key);
         }
+        params.delete("page");
+        params.delete("xpage");
         return params;
       },
       { replace: true },
     );
+  const toggleFilter = (key, value) => {
+    const current = key === "category" ? categories : verdicts;
+    const next = (current.includes(value) ? current.filter((v) => v !== value) : [...current, value]).join(",");
+    setTicked((t) => ({ ...t, [key]: next }));
+    setFilters({ [key]: next });
+  };
+  const clearFilters = () => {
+    setTicked({ category: "", verdict: "" });
+    setFilters({ category: "", verdict: "", q: "" });
+  };
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Page numbers: ?page= for the main list, ?xpage= for the Excluded section. A page change is a new history entry,
+  // so the back button returns to the previous page, and the list scrolls back to its top.
+  const resultsRef = useRef(null);
+  const pageFrom = (key, total) => {
+    const n = Number.parseInt(searchParams.get(key), 10);
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), pages) : 1;
+  };
+  const goToPage = (key, n) => {
+    setSearchParams((params) => {
+      if (n > 1) params.set(key, String(n));
+      else params.delete(key);
+      return params;
+    });
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const pageSlice = (items, page) => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Product detail: the open product is ?product=<id>. Opening pushes a history entry (marked in its state), so the
   // back button closes it; the close button steps back over that entry, or just drops the parameter on a shared link.
@@ -129,7 +267,14 @@ export function CatalogPage() {
   };
   const closeDetail = () => {
     if (location.state?.catalogDetail) navigate(-1);
-    else setFilters({ product: "" });
+    else
+      setSearchParams(
+        (params) => {
+          params.delete("product");
+          return params;
+        },
+        { replace: true },
+      );
   };
   // Back on the card that opened the detail, however it was closed.
   useEffect(() => {
@@ -214,20 +359,24 @@ export function CatalogPage() {
     );
   }, [productId, filterResults, catalog]);
 
-  // Filtering happens on data already loaded: no new requests.
+  // Filtering happens on data already loaded: no new requests. Within a group, any ticked option matches.
+  const categoriesKey = categories.join(",");
+  const verdictsKey = verdicts.join(",");
   const { filteredSafe, filteredMain, filteredExcluded } = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     const has = (text) => String(text ?? "").toLowerCase().includes(q);
+    const wantedCategories = categoriesKey ? categoriesKey.split(",").map((c) => CATEGORY_DATA[c]) : [];
+    const wantedVerdicts = verdictsKey ? verdictsKey.split(",") : [];
     const matches = (item) =>
-      (!category || item.category === CATEGORY_DATA[category]) &&
-      (!verdict || verdictOf(item) === verdict) &&
+      (!wantedCategories.length || wantedCategories.includes(item.category)) &&
+      (!wantedVerdicts.length || wantedVerdicts.includes(verdictOf(item))) &&
       (!q || has(item.product_name) || has(item.brand));
     return {
       filteredSafe: safeItems.filter(matches),
       filteredMain: mainItems.filter(matches),
       filteredExcluded: excludedItems.filter(matches),
     };
-  }, [safeItems, mainItems, excludedItems, category, verdict, deferredQuery]);
+  }, [safeItems, mainItems, excludedItems, categoriesKey, verdictsKey, deferredQuery]);
 
   // Count line for the current view, shown once its data is ready.
   const safeCount = safeItems.filter((item) => verdictOf(item) === "safe").length;
@@ -243,7 +392,7 @@ export function CatalogPage() {
           ? `${filteredMain.length + filteredExcluded.length} of ${catalog.length} products`
           : `${catalog.length} products`
         : null;
-  const clearFilters = () => setFilters({ category: "", verdict: "", q: "" });
+  const resultCount = view === "safe" ? filteredSafe.length : filteredMain.length + filteredExcluded.length;
   const noMatches = (
     <MessageState
       title="No products match these filters"
@@ -290,7 +439,13 @@ export function CatalogPage() {
       );
     }
     if (filteredSafe.length === 0) return noMatches;
-    return <ProductGrid key={`safe-${category}-${verdict}-${deferredQuery}`} items={filteredSafe} onSelect={openDetail} />;
+    const page = pageFrom("page", filteredSafe.length);
+    return (
+      <>
+        <ProductGrid items={pageSlice(filteredSafe, page)} onSelect={openDetail} />
+        <Pagination label="Product pages" page={page} total={filteredSafe.length} onChange={(n) => goToPage("page", n)} />
+      </>
+    );
   };
 
   const renderFullView = () => {
@@ -305,6 +460,8 @@ export function CatalogPage() {
         />
       );
     }
+    const page = pageFrom("page", filteredMain.length);
+    const xpage = pageFrom("xpage", filteredExcluded.length);
     return (
       <>
         {!hasProfile && (
@@ -324,47 +481,88 @@ export function CatalogPage() {
           </p>
         )}
         {filteredMain.length + filteredExcluded.length === 0 && noMatches}
-        {filteredMain.length > 0 && <ProductGrid key={`all-${category}-${verdict}-${deferredQuery}`} items={filteredMain} onSelect={openDetail} />}
+        {filteredMain.length > 0 && (
+          <div>
+            <ProductGrid items={pageSlice(filteredMain, page)} onSelect={openDetail} />
+            <Pagination label="Product pages" page={page} total={filteredMain.length} onChange={(n) => goToPage("page", n)} />
+          </div>
+        )}
         {filteredExcluded.length > 0 && (
           <section aria-labelledby="excluded-heading" className="space-y-3 border-t border-primary-lighter pt-6">
             <h2 id="excluded-heading" className="font-heading text-xl font-semibold">
               Excluded for your profile ({filteredExcluded.length})
             </h2>
-            <ProductGrid key={`excluded-${category}-${verdict}-${deferredQuery}`} items={filteredExcluded} onSelect={openDetail} />
+            <ProductGrid items={pageSlice(filteredExcluded, xpage)} onSelect={openDetail} />
+            <Pagination
+              label="Excluded product pages"
+              page={xpage}
+              total={filteredExcluded.length}
+              onChange={(n) => goToPage("xpage", n)}
+            />
           </section>
         )}
       </>
     );
   };
 
+  const filterPanel = (idPrefix) => (
+    <CatalogFilters
+      idPrefix={idPrefix}
+      view={view}
+      categories={categories}
+      verdicts={verdicts}
+      active={filtersActive}
+      onToggle={toggleFilter}
+      onClear={clearFilters}
+    />
+  );
+
   return (
     <main className="page-shell bg-primary-lightest font-body text-black">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-400 space-y-5">
         <header>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Catalog</h1>
         </header>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <CatalogViewToggle value={view} onChange={setView} />
-          <p aria-live="polite" className="text-sm text-gray">
+          {/* 28rem cap: max-w-md is 768px here (variables.css redefines --container-md). */}
+          <div className="flex items-center gap-2 sm:min-w-64 sm:flex-1 lg:max-w-112">
+            <CatalogSearch value={query} onChange={(q) => setFilters({ q })} />
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="flex shrink-0 items-center gap-2 rounded-full border border-primary-lighter bg-white px-4 py-2.5 text-sm font-semibold text-black shadow-sm lg:hidden"
+            >
+              <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+              Filters
+              {filterCount > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-xs text-white">{filterCount}</span>
+              )}
+            </button>
+          </div>
+          <p aria-live="polite" className="text-sm text-gray sm:ml-auto">
             {countText}
           </p>
         </div>
 
-        <CatalogFilters
-          view={view}
-          category={category}
-          verdict={verdict}
-          query={query}
-          active={filtersActive}
-          onChange={setFilters}
-          onClear={clearFilters}
-        />
-
         {/* Offline both requests fail and the lists come back empty, which would read as "no products". */}
         <OfflineNote>The catalog needs internet. Connect and reload this page to see products.</OfflineNote>
 
-        {view === "safe" ? renderSafeView() : renderFullView()}
+        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <aside aria-label="Filters" className="hidden lg:sticky lg:top-24 lg:block">
+            {filterPanel("sidebar")}
+          </aside>
+          <div ref={resultsRef} className="min-w-0 scroll-mt-24 space-y-6">
+            {view === "safe" ? renderSafeView() : renderFullView()}
+          </div>
+        </div>
+
+        {sheetOpen && (
+          <FilterSheet resultCount={resultCount} onClose={() => setSheetOpen(false)}>
+            {filterPanel("sheet")}
+          </FilterSheet>
+        )}
         {detailItem && <ProductDetail product={detailItem} onClose={closeDetail} />}
       </div>
     </main>
