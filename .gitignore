@@ -175,3 +175,8 @@ research/**/*.xlsx
 # Face images are never kept in git (decision D3). Local, consented test photos only.
 backend/app/core/skin_analysis/test/test_images/
 backend/app/core/skin_analysis/test/test_output/
+
+# Local notes and editor/assistant settings
+docs/SAFETY_FILTER_TODO_JAN.md
+.claude/
+.vscode/
