@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
-import { REGION_RENDER, drawLooks, sampleSkinL, toCanvasSpace } from "../../utils/arRenderer.js";
+import { REGION_RENDER, drawLooks, sampleSkin, toCanvasSpace } from "../../utils/arRenderer.js";
 
 /**
  * Drawing lives in utils/arRenderer.js (REGION_RENDER holds the blend settings per region). This component
@@ -110,8 +110,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
   const smoothedLandmarksRef = useRef(null);
-  // Skin lightness for skin-adaptive makeup strength; re-measured every few frames and smoothed so it never flickers.
-  const skinLRef = useRef(null);
+  // Skin color ({ L, a, b } in CIELAB) for skin-adaptive makeup; re-measured every few frames and smoothed so it never flickers.
+  const skinRef = useRef(null);
   const skinFramesRef = useRef(0);
   const hasFrameRef = useRef(false);
   const [status, setStatus] = useState("loading"); // loading | ready | tracking | error
@@ -219,15 +219,16 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           const smoothed = smoothLandmarks(rawPoints, smoothedLandmarksRef.current, alpha);
           smoothedLandmarksRef.current = smoothed;
           // DEV lab only: lets test scripts read where the face is, in video-normalised coordinates.
-          if (landmarksRef) landmarksRef.current = { points: smoothed, videoW: video.videoWidth, videoH: video.videoHeight, canvasW: canvas.width, canvasH: canvas.height, skinL: skinLRef.current };
+          if (landmarksRef) landmarksRef.current = { points: smoothed, videoW: video.videoWidth, videoH: video.videoHeight, canvasW: canvas.width, canvasH: canvas.height, skinL: skinRef.current?.L ?? null, skin: skinRef.current };
 
           const videoW = video.videoWidth;
           const videoH = video.videoHeight;
-          if (skinLRef.current === null || skinFramesRef.current++ % 10 === 0) {
-            const measured = sampleSkinL(video, smoothed);
-            skinLRef.current = skinLRef.current === null ? measured : skinLRef.current * 0.8 + measured * 0.2;
+          if (skinRef.current === null || skinFramesRef.current++ % 10 === 0) {
+            const m = sampleSkin(video, smoothed);
+            const k = skinRef.current;
+            skinRef.current = k === null ? m : { L: k.L * 0.8 + m.L * 0.2, a: k.a * 0.8 + m.a * 0.2, b: k.b * 0.8 + m.b * 0.2 };
           }
-          drawLooks(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, { colors, toggles, finishes, render, skinL: skinLRef.current, video });
+          drawLooks(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, { colors, toggles, finishes, render, skin: skinRef.current, video });
           if (debugLandmarks) drawLandmarkNumbers(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, Array.isArray(debugLandmarks) ? debugLandmarks : null);
         }
 

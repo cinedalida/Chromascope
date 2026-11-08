@@ -215,11 +215,12 @@ function adaptLayers(layers, rules, t) {
   });
 }
 
-// Skin lightness (L*) of the face in the camera frame: a few cheek pixels of a tiny copy of the frame, so the main
-// canvas is never read back. Call every few frames and smooth the result.
+// Skin color of the face in the camera frame, as CIELAB { L, a, b } (D65, the scale the backend and `user_lab` use): a few
+// cheek pixels of a tiny copy of the frame, averaged in linear light, so the main canvas is never read back. Call every
+// few frames and smooth the result. L* is the lightness; a* and b* give the undertone (red/green, yellow/blue).
 const sampler = { canvas: null, ctx: null };
 const CHEEK_SAMPLES = [205, 425, 50, 280];
-export function sampleSkinL(video, landmarks) {
+export function sampleSkin(video, landmarks) {
   const W = 96;
   const H = 120;
   if (!sampler.ctx) {
@@ -233,19 +234,31 @@ export function sampleSkinL(video, landmarks) {
     const c = v / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
-  let sum = 0;
+  let r = 0;
+  let g = 0;
+  let b = 0;
   let n = 0;
   for (const i of CHEEK_SAMPLES) {
     const x = Math.min(W - 3, Math.max(0, Math.round(landmarks[i].x * (W - 1)) - 1));
     const y = Math.min(H - 3, Math.max(0, Math.round(landmarks[i].y * (H - 1)) - 1));
     const d = sampler.ctx.getImageData(x, y, 3, 3).data;
     for (let k = 0; k < d.length; k += 4) {
-      const Y = 0.2126729 * lin(d[k]) + 0.7151522 * lin(d[k + 1]) + 0.072175 * lin(d[k + 2]);
-      sum += Y > 216 / 24389 ? 116 * Math.cbrt(Y) - 16 : (24389 / 27) * Y;
+      r += lin(d[k]);
+      g += lin(d[k + 1]);
+      b += lin(d[k + 2]);
       n += 1;
     }
   }
-  return sum / n;
+  return linearRgbToLab(r / n, g / n, b / n);
+}
+
+// Linear sRGB (0..1) to CIELAB, D65.
+export function linearRgbToLab(r, g, b) {
+  const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+  const fx = f((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047);
+  const fy = f(0.2126729 * r + 0.7151522 * g + 0.072175 * b);
+  const fz = f((0.0193339 * r + 0.119192 * g + 0.9503041 * b) / 1.08883);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -810,7 +823,7 @@ function restoreNonSkin(ctx, frame, video, mask, videoW, videoH) {
  * @param toggles  { region: boolean }, a region is drawn unless explicitly false
  * @param finishes { region: finishKey } optional
  */
-export function drawLooks(ctx, landmarks, videoW, videoH, canvasW, canvasH, { colors, toggles, finishes, render = REGION_RENDER, skinL, video }) {
+export function drawLooks(ctx, landmarks, videoW, videoH, canvasW, canvasH, { colors, toggles, finishes, render = REGION_RENDER, skin, video }) {
   const frame = makeFrame(landmarks, videoW, videoH, canvasW, canvasH);
   const active = DRAW_ORDER.filter((region) => colors[region] && toggles?.[region] !== false);
   // The skin gate runs once, right after the last skin-group region (eyes and lips are not gated).
@@ -826,7 +839,7 @@ export function drawLooks(ctx, landmarks, videoW, videoH, canvasW, canvasH, { co
     if (!color || toggles?.[region] === false) continue;
     ctx.save();
     if (REGION_GUARD[region]) applyGuard(ctx, frame, REGION_GUARD[region]);
-    LOOKS[region](ctx, frame, color, settingsFor(region, finishes?.[region], render, skinL));
+    LOOKS[region](ctx, frame, color, settingsFor(region, finishes?.[region], render, skin?.L));
     ctx.restore();
     if (region === lastSkin) restoreNonSkin(ctx, frame, video, skinMask, videoW, videoH);
   }
