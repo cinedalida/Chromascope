@@ -66,7 +66,12 @@ def delta_e_ciede2000(lab1: tuple, lab2: tuple) -> float:
     SL = 1 + 0.015 * (Lp_avg - 50)**2 / math.sqrt(20 + (Lp_avg - 50)**2)
     SC = 1 + 0.045 * Cp_avg
     SH = 1 + 0.015 * Cp_avg * T
-    return round(math.sqrt((dLp/SL)**2 + (dCp/SC)**2 + (dHp/SH)**2), 2)
+    # Rotation term: corrects the blue region (hue about 275 degrees). Without it the result is not CIEDE2000;
+    # for skin-like colors it is below 0.01, so it matters only for blue shades.
+    d_theta = 30 * math.exp(-(((hp_avg - 275) / 25) ** 2))
+    R_C = 2 * math.sqrt(Cp_avg**7 / (Cp_avg**7 + 25**7))
+    R_T = -math.sin(math.radians(2 * d_theta)) * R_C
+    return round(math.sqrt((dLp/SL)**2 + (dCp/SC)**2 + (dHp/SH)**2 + R_T * (dCp/SC) * (dHp/SH)), 2)
 
 def _resolve_season_code(seasonal_label: str) -> tuple:
     """
