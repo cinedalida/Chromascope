@@ -43,7 +43,7 @@ export function FavoriteProductCard({ product, isBrowse = false, onSelect, onRem
           <img src={placeholderImg} alt="" aria-hidden="true" className="h-full w-full object-cover opacity-50" />
         )}
       </span>
-      <span className="flex flex-1 flex-col gap-1.5 px-2.5 pt-2.5 pb-2 sm:px-3 sm:pt-3">
+      <span className="flex flex-1 flex-col gap-1.5 px-3 pt-3 pb-2.5 sm:px-3.5 sm:pt-3.5">
         {/* nowrap: the badge text stays on one line in narrow cards */}
         <span className="flex items-center gap-1.5 whitespace-nowrap" title={isBrowse ? "Not checked by the safety filter" : undefined}>
           <SafetyBadge verdict={product.verdict} />
@@ -75,7 +75,7 @@ export function FavoriteProductCard({ product, isBrowse = false, onSelect, onRem
         <div className="flex flex-1 flex-col">{body}</div>
       )}
 
-      {children && <div className="border-t border-gray-lightest px-2.5 py-2 sm:px-3 sm:py-2.5">{children}</div>}
+      {children && <div className="border-t border-gray-lightest px-3 py-2.5 sm:px-3.5 sm:py-3">{children}</div>}
 
       {isBrowse ? (
         <button
