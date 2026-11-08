@@ -17,9 +17,9 @@ import { ColorAnalysisProcessingPage } from "../pages/ColorAnalysisProcessingPag
 import { ColorAnalysisSubtypePage } from "../pages/ColorAnalysisSubtypePage.jsx";
 // HIDDEN — re-enable with the /palette-product route below
 // import { PaletteGuideProductPage } from "../pages/PaletteGuideProductPage.jsx";
-import { IngredientFilterPage } from "../pages/IngredientFilterPage.jsx";
 import { ProfilePage } from "../pages/ProfilePage.jsx";
-import { ProductCatalogPage } from "../pages/ProductCatalogPage.jsx";
+import { CatalogPage } from "../pages/CatalogPage.jsx";
+import { FavoritesPage } from "../pages/FavoritesPage.jsx";
 import { AdminDatabasePage } from "../pages/AdminDatabasePage.jsx";
 import { MainLayout } from "../layouts/MainLayout";
 import { RequireAuth } from "./RequireAuth.jsx";
@@ -112,16 +112,8 @@ export default function AppRouter() {
         />
         */}
 
-        <Route
-          path="/ingredient-filter"
-          element={
-            <RequireAuth>
-              <MainLayout>
-                <IngredientFilterPage />
-              </MainLayout>
-            </RequireAuth>
-          }
-        />
+        {/* Old ingredient filter route: now the Safe for me view of the merged catalog (keeps bookmarks working). */}
+        <Route path="/ingredient-filter" element={<Navigate to="/catalog?view=safe" replace />} />
         
         <Route
           path="/profile"
@@ -134,12 +126,28 @@ export default function AppRouter() {
           }
         />
         
+        {/* Old product catalog route: now the Full catalog view of the merged catalog. */}
+        <Route path="/product-catalog" element={<Navigate to="/catalog?view=all" replace />} />
+
+        {/* Merged catalog: product catalog and ingredient filter in one page (catalog plan Part A). */}
         <Route
-          path="/product-catalog"
+          path="/catalog"
           element={
             <RequireAuth>
               <MainLayout>
-                <ProductCatalogPage />
+                <CatalogPage />
+              </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        {/* Favorites: saved products and looks (catalog plan Part B). */}
+        <Route
+          path="/favorites"
+          element={
+            <RequireAuth>
+              <MainLayout>
+                <FavoritesPage />
               </MainLayout>
             </RequireAuth>
           }

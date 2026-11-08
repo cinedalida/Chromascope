@@ -76,7 +76,7 @@ const quickActions = [
       </svg>
     ),
     accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/ingredient-filter"
+    path: "/catalog?view=safe"
   },
   {
     title: "Open Try-On",
@@ -101,7 +101,7 @@ const quickActions = [
       </svg>
     ),
     accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/product-catalog"
+    path: "/catalog?view=all"
   },
 ];
 
@@ -481,22 +481,6 @@ export function HomePage() {
                 </svg>
               </button>
             </section>
-
-            {/* Clinical Tip */}
-            <section className="rounded-xl bg-primary-lightest p-5 shadow-sm border border-primary/10">
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary flex items-center gap-2">
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 16v-4" />
-                  <path d="M12 8h.01" />
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-                Clinical Tip
-              </p>
-              <p className="mt-2 text-sm leading-6 text-gray">
-                "Adjusting your seasonal profile and restricted ingredients guarantees our AI engine only recommends safe, harmonized products."
-              </p>
-            </section>
-
           </aside>
         </div>
       </div>

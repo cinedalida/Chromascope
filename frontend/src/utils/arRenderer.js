@@ -55,7 +55,7 @@ export const REGION_RENDER = {
   // Lipstick needs real pigment: "color" alone keeps the lip's own brightness, so a dark shade could not darken a
   // paler lip (it came out lilac). "source-over" moves the lip towards the shade, "multiply" adds depth, "color" sets hue.
   lips: {
-    feather: 0.01,
+    feather: 0.016,
     radial: false,
     layers: [
       { blend: "source-over", opacity: 0.22 },
@@ -127,7 +127,7 @@ export const REGION_RENDER = {
     feather: 0.003,
     slim: 0.7, // fraction of the landmark brow thickness that is coloured
     layers: [
-      { blend: "multiply", opacity: 0.4 },
+      { blend: "multiply", opacity: 0.25 },
       { blend: "color", opacity: 0.3 },
     ],
   },
@@ -431,15 +431,60 @@ function radialStyle(ctx, points, [r, g, b]) {
   return gradient;
 }
 
-// Runs `draw` once per blend layer of the settings, with the feather blur applied.
-function paintLayers(ctx, frame, settings, draw) {
+// Whether this browser applies `ctx.filter` (Safari may not). Where it does not, `ctx.filter` is missing or ignored and
+// the makeup would get hard edges, so the shadow fallback below is used instead. Checked once, on a separate canvas.
+let canvasFilterSupport;
+function supportsCanvasFilter() {
+  if (canvasFilterSupport === undefined) {
+    try {
+      const probe = document.createElement("canvas").getContext("2d");
+      if (!probe || typeof probe.filter !== "string") canvasFilterSupport = false;
+      else {
+        probe.filter = "blur(1px)";
+        canvasFilterSupport = probe.filter === "blur(1px)";
+      }
+    } catch {
+      canvasFilterSupport = false;
+    }
+  }
+  return canvasFilterSupport;
+}
+
+// Draws `draw()` blurred by `radius` px. With ctx.filter: a blur filter. Without (Safari): the shape is drawn two canvas
+// widths to the left, off screen, and only its blurred shadow lands in place. A shadow offset ignores the transform,
+// and shadowBlur 2r matches blur(r). Blend mode, alpha and gradient fades apply to the shadow too.
+function withFeather(ctx, radius, color, draw) {
+  if (!(radius > 0)) {
+    draw();
+    return;
+  }
+  if (supportsCanvasFilter()) {
+    ctx.filter = `blur(${radius}px)`;
+    draw();
+    ctx.filter = "none";
+    return;
+  }
+  const offset = ctx.canvas.width * 2;
+  ctx.save();
+  ctx.translate(-offset, 0);
+  ctx.shadowOffsetX = offset;
+  ctx.shadowOffsetY = 0;
+  ctx.shadowBlur = radius * 2;
+  ctx.shadowColor = color;
+  draw();
+  ctx.restore();
+}
+
+// Runs `draw` once per blend layer of the settings, with the feather blur applied. `color` is the shade being drawn
+// (a layer's own `fill` wins); the Safari fallback needs it for the shadow.
+function paintLayers(ctx, frame, settings, draw, color) {
   const feather = frame.cw * (settings.feather ?? 0);
-  ctx.filter = feather > 0 ? `blur(${feather}px)` : "none";
+  ctx.filter = "none";
   for (const layer of settings.layers) {
     if (!(layer.opacity > 0)) continue;
     ctx.globalCompositeOperation = layer.blend;
     ctx.globalAlpha = layer.opacity;
-    draw(layer);
+    withFeather(ctx, feather, layer.fill ?? color ?? "#000", () => draw(layer));
   }
   ctx.filter = "none";
   ctx.globalAlpha = 1;
@@ -463,7 +508,7 @@ function fillShapes(ctx, frame, pointSets, color, settings, rule = "nonzero") {
       ctx.fillStyle = layer.fill ?? style; // a layer can carry its own color (see baseCorrection)
       ctx.fill(path, rule);
     }
-  });
+  }, color);
 }
 
 function strokeLines(ctx, frame, lines, color, settings, lineWidth) {
@@ -473,7 +518,7 @@ function strokeLines(ctx, frame, lines, color, settings, lineWidth) {
   ctx.lineJoin = "round";
   ctx.lineWidth = lineWidth;
   ctx.strokeStyle = color;
-  paintLayers(ctx, frame, settings, () => ctx.stroke(path));
+  paintLayers(ctx, frame, settings, () => ctx.stroke(path), color);
 }
 
 // Ellipse fitted to a set of points (principal axes of their spread), `k` times the spread.
@@ -514,7 +559,7 @@ function fillBlooms(ctx, frame, ellipses, color, settings) {
       ctx.fill();
       ctx.restore();
     }
-  });
+  }, color);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -635,7 +680,7 @@ const LOOKS = {
         paintLayers(ctx, frame, s, () => {
           ctx.fillStyle = color;
           ctx.fill(wing);
-        });
+        }, color);
       }
     }
   },
@@ -677,7 +722,7 @@ const LOOKS = {
       ctx.lineCap = "round";
       ctx.lineWidth = Math.max(1, frame.cw * s.width);
       ctx.strokeStyle = color;
-      paintLayers(ctx, frame, s, () => ctx.stroke(path));
+      paintLayers(ctx, frame, s, () => ctx.stroke(path), color);
       strokeLines(ctx, frame, [lid], color, s, eyeW * 0.045);
     }
   },
@@ -881,9 +926,8 @@ function buildSkinMask(video, landmarks, videoW, videoH, cw, ch) {
   const path = new Path2D();
   tracePath(path, core);
   ctx.save();
-  ctx.filter = `blur(${Math.max(1, sw * 0.035)}px)`;
   ctx.fillStyle = "#000";
-  ctx.fill(path);
+  withFeather(ctx, Math.max(1, sw * 0.035), "#000", () => ctx.fill(path));
   ctx.restore();
   return gate.small;
 }
