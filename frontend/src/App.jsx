@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
 import { startARPrefetch } from "./services/arPrefetch";
+import { clearRecommendedCache } from "./services/arRecommendedService";
 import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
 import { OfflineBanner } from "./components/common/OfflineBanner.jsx";
 
@@ -45,6 +46,7 @@ export function App() {
         }
       } else {
         clearUser();
+        clearRecommendedCache(); // saved recommendations are per person; drop them on sign-out
       }
     });
 

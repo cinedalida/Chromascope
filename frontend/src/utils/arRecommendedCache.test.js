@@ -1,7 +1,7 @@
 // Run with: npm run test:unit
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRecommendedCache, profileSignature, CACHE_TTL_MS } from "./arRecommendedCache.js";
+import { createRecommendedCache, createStoragePersist, profileSignature, CACHE_TTL_MS } from "./arRecommendedCache.js";
 
 const base = {
   seasonal_label: "Soft Autumn",
@@ -125,5 +125,118 @@ test("clear empties the cache", async () => {
   const cache = createRecommendedCache();
   await cache.get("u1", "lips", "s", async () => 1);
   cache.clear();
+  assert.equal(cache.size(), 0);
+});
+
+// ---- persistence ----
+
+// A Storage-like object backed by a Map. `fail` makes chosen operations throw, like blocked site data or a full quota.
+function fakeStorage(fail = {}) {
+  const data = new Map();
+  return {
+    data,
+    get length() { return data.size; },
+    key: (i) => [...data.keys()][i] ?? null,
+    getItem(k) { if (fail.get) throw new Error("blocked"); return data.has(k) ? data.get(k) : null; },
+    setItem(k, v) { if (fail.set) throw new Error("quota"); data.set(k, String(v)); },
+    removeItem(k) { data.delete(k); },
+  };
+}
+const ok = (n) => ({ status: "ok", items: [{ id: n }] });
+
+test("a result saved before a reload is used after it, with no load", async () => {
+  const storage = fakeStorage();
+  const before = createRecommendedCache({ persist: createStoragePersist(() => storage) });
+  await before.get("u1", "lips", "s", async () => ok(1));
+  const afterReload = createRecommendedCache({ persist: createStoragePersist(() => storage) }); // new memory, same storage
+  let loads = 0;
+  const result = await afterReload.get("u1", "lips", "s", async () => { loads += 1; return ok(2); });
+  assert.deepEqual(result, ok(1));
+  assert.equal(loads, 0);
+});
+
+test("a stored result for another signature, group or user is not used", async () => {
+  const storage = fakeStorage();
+  await createRecommendedCache({ persist: createStoragePersist(() => storage) }).get("u1", "lips", "s1", async () => ok(1));
+  for (const [uid, group, sig] of [["u1", "lips", "s2"], ["u1", "face", "s1"], ["u2", "lips", "s1"]]) {
+    let loads = 0;
+    await createRecommendedCache({ persist: createStoragePersist(() => storage) }).get(uid, group, sig, async () => { loads += 1; return ok(9); });
+    assert.equal(loads, 1, `${uid} ${group} ${sig}`);
+  }
+});
+
+test("a stored result expires TTL after it was saved, not after it was read", async () => {
+  const storage = fakeStorage();
+  let t = 1000;
+  await createRecommendedCache({ now: () => t, persist: createStoragePersist(() => storage) }).get("u1", "lips", "s", async () => ok(1));
+  t += CACHE_TTL_MS - 10; // a reload shortly before expiry still hits...
+  let loads = 0;
+  const reloaded = createRecommendedCache({ now: () => t, persist: createStoragePersist(() => storage) });
+  await reloaded.get("u1", "lips", "s", async () => { loads += 1; return ok(2); });
+  assert.equal(loads, 0);
+  t += 20; // ...and the hydrated entry does not get a fresh full TTL
+  await reloaded.get("u1", "lips", "s", async () => { loads += 1; return ok(3); });
+  assert.equal(loads, 1);
+  // a reload after expiry misses too
+  t += CACHE_TTL_MS;
+  const late = createRecommendedCache({ now: () => t, persist: createStoragePersist(() => storage) });
+  await late.get("u1", "lips", "s", async () => { loads += 1; return ok(4); });
+  assert.equal(loads, 2);
+});
+
+test("failed results are not written to storage", async () => {
+  const storage = fakeStorage();
+  const cache = createRecommendedCache({ persist: createStoragePersist(() => storage) });
+  await cache.get("u1", "lips", "s", async () => ({ status: "error", items: [] }), (r) => r.status === "error");
+  assert.equal(storage.data.size, 0);
+  await assert.rejects(cache.get("u1", "cheeks", "s", async () => { throw new Error("x"); }));
+  assert.equal(storage.data.size, 0);
+});
+
+test("empty (but successful) results are stored", async () => {
+  const storage = fakeStorage();
+  const cache = createRecommendedCache({ persist: createStoragePersist(() => storage) });
+  await cache.get("u1", "lips", "s", async () => ({ status: "empty", items: [] }), (r) => r.status === "error");
+  assert.equal(storage.data.size, 1);
+});
+
+test("storage that throws on read or write does not break the cache", async () => {
+  for (const fail of [{ get: true }, { set: true }, { get: true, set: true }]) {
+    const cache = createRecommendedCache({ persist: createStoragePersist(() => fakeStorage(fail)) });
+    let loads = 0;
+    const load = async () => { loads += 1; return ok(1); };
+    assert.deepEqual(await cache.get("u1", "lips", "s", load), ok(1));
+    assert.deepEqual(await cache.get("u1", "lips", "s", load), ok(1)); // still cached in memory
+    assert.equal(loads, 1, JSON.stringify(fail));
+  }
+});
+
+test("storage that cannot even be reached does not break the cache", async () => {
+  const persist = createStoragePersist(() => { throw new Error("SecurityError"); });
+  const cache = createRecommendedCache({ persist });
+  assert.deepEqual(await cache.get("u1", "lips", "s", async () => ok(1)), ok(1));
+  cache.clear();
+});
+
+test("corrupt stored data is ignored", async () => {
+  const storage = fakeStorage();
+  const persist = createStoragePersist(() => storage);
+  for (const junk of ["not json", "null", "{}", '{"signature":"s"}', '{"signature":"s","savedAt":"x","result":{}}']) {
+    storage.data.set("chromascope:ar-rec:v1:u1:lips", junk);
+    let loads = 0;
+    await createRecommendedCache({ persist }).get("u1", "lips", "s", async () => { loads += 1; return ok(1); });
+    assert.equal(loads, 1, junk);
+  }
+});
+
+test("clear removes this feature's stored results and nothing else", async () => {
+  const storage = fakeStorage();
+  storage.data.set("other-key", "keep");
+  const cache = createRecommendedCache({ persist: createStoragePersist(() => storage) });
+  await cache.get("u1", "lips", "s", async () => ok(1));
+  await cache.get("u2", "face", "s", async () => ok(2));
+  assert.equal(storage.data.size, 3);
+  cache.clear();
+  assert.deepEqual([...storage.data.keys()], ["other-key"]);
   assert.equal(cache.size(), 0);
 });

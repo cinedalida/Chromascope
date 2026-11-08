@@ -2,13 +2,14 @@ import { auth } from "../firebase";
 import { runFilter } from "./productService";
 import { regionForProduct, renderFinishForSubCategory } from "../utils/arProductMap";
 import { groupByKey } from "../utils/arGroups";
-import { createRecommendedCache, profileSignature } from "../utils/arRecommendedCache";
+import { createRecommendedCache, createStoragePersist, profileSignature } from "../utils/arRecommendedCache";
 import { useUserStore } from "../store/userStore";
 
 // Recommended shades: products returned by the safety filter and matching engine.
 
-// Keyed by user, group and a signature of the profile fields the server reads (see arRecommendedCache.js).
-const cache = createRecommendedCache();
+// Keyed by user, group and a signature of the profile fields the server reads (see arRecommendedCache.js). Also kept in
+// localStorage so a reload does not refetch. If the shape of an item (toShadeItem below) changes, bump STORAGE_PREFIX there.
+const cache = createRecommendedCache({ persist: createStoragePersist() });
 
 const normalize = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -181,7 +182,8 @@ export async function getRecommended(groupKey) {
   return cache.get(user.uid, groupKey, profileSignature(profile), () => loadSafely(groupKey), (result) => result.status === "error");
 }
 
-// Sign-out. A profile change needs no call: its signature differs, so the next request misses by itself.
+// Sign-out: forget everything, memory and storage (the next person on this device starts clean). A profile change needs
+// no call: its signature differs, so the next request misses by itself.
 export function clearRecommendedCache() {
   cache.clear();
 }
