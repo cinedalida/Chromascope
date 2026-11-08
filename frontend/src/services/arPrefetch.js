@@ -12,10 +12,12 @@ import { useUserStore } from "../store/userStore";
 import { getRecommended } from "./arRecommendedService";
 import { getGroupShades } from "./arShadeService";
 import { whenServerAwake } from "./serverWake";
+import { prefetchPages, SIGNED_IN_PAGES } from "../routes/lazyPages";
 
 const whenIdle = (task) =>
   typeof requestIdleCallback === "function" ? requestIdleCallback(task, { timeout: 3000 }) : setTimeout(task, 1500);
 
+let pagesPrefetched = false; // the page code is fetched once per page load
 let lastKey = null; // "<uid>:<signature>" last warmed
 let run = 0; // a newer warm-up makes an older, still running one stop
 
@@ -40,6 +42,10 @@ function onProfile(state) {
     return;
   }
   if (!profile.profile_completed) return;
+  if (!pagesPrefetched) {
+    pagesPrefetched = true;
+    whenIdle(() => prefetchPages(SIGNED_IN_PAGES)); // the code for Try-On, Catalog, ...: opening them later is instant
+  }
   const key = `${profile.uid}:${profileSignature(profile)}`;
   if (key === lastKey) return;
   lastKey = key;
