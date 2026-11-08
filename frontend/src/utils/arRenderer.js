@@ -185,8 +185,21 @@ export const REGION_RENDER = {
   },
 };
 
-// Finish-specific changes merged over a region's settings. `specular` adds a soft shine highlight (lips).
+// Finish-specific changes merged over a region's settings. `specular` adds a soft shine highlight (lips). `layers`
+// replaces the region's blend layers; `addLayers` keeps them and adds more (a sheen on top), so a product with no finish
+// (or "matte") renders exactly as the region's default. Which finish a product gets: arProductMap.renderFinishFromText.
 export const FINISH_OVERRIDES = {
+  cheeks: {
+    radiant: { addLayers: [{ blend: "screen", opacity: 0.08 }] },
+    shimmer: { addLayers: [{ blend: "screen", opacity: 0.18 }] },
+  },
+  eyeshadow: {
+    satin: { addLayers: [{ blend: "screen", opacity: 0.1 }] },
+    shimmer: { addLayers: [{ blend: "screen", opacity: 0.24 }] },
+  },
+  highlighter: {
+    shimmer: { addLayers: [{ blend: "screen", opacity: 0.2 }] },
+  },
   lips: {
     sheer: {
       layers: [
@@ -209,7 +222,9 @@ export const FINISH_OVERRIDES = {
 export function settingsFor(region, finish, render = REGION_RENDER, skinL) {
   const base = render[region];
   const override = FINISH_OVERRIDES[region]?.[finish];
-  const merged = override ? { ...base, ...override } : base;
+  const merged = override
+    ? { ...base, ...override, layers: override.layers ?? [...base.layers, ...(override.addLayers ?? [])] }
+    : base;
   if (skinL == null || !merged.skinScale) return merged;
   return { ...merged, layers: adaptLayers(merged.layers, merged.skinScale, skinTone(skinL)) };
 }
