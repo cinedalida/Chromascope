@@ -1,3 +1,6 @@
+import { Heart } from "lucide-react";
+import { shadeToFavoriteItem, useFavorites } from "../../hooks/useFavorites.js";
+
 // Past this many shades the strip overflows the panel, so its right edge fades to hint there's more.
 const FADE_AFTER = 8;
 
@@ -36,10 +39,34 @@ export function ProductSwatchPicker({ shades, selectedId, onSelect }) {
         })}
       </div>
       {selectedShade && (
-        <p className="mt-0.5 truncate px-1 text-[11px] text-gray-light">
-          Selected: <span className="font-semibold text-black">{selectedShade.shade || selectedShade.product}</span>
-        </p>
+        <div className="mt-0.5 flex items-center gap-1.5 px-1">
+          <p className="min-w-0 truncate text-[11px] text-gray-light">
+            Selected: <span className="font-semibold text-black">{selectedShade.shade || selectedShade.product}</span>
+          </p>
+          <ShadeFavoriteButton shade={selectedShade} />
+        </div>
       )}
     </div>
+  );
+}
+
+// Heart for the selected shade (Part B, Phase F4): saves that one shade as a product favorite. Signed in only (B1).
+function ShadeFavoriteButton({ shade }) {
+  const { signedIn, isFavorite, toggleProduct } = useFavorites();
+  if (!signedIn || !shade?.region) return null;
+  const item = shadeToFavoriteItem(shade.region, shade);
+  const active = isFavorite(item.product_id, item.shade_id);
+  const name = shade.shade || shade.product;
+  return (
+    <button
+      type="button"
+      onClick={() => toggleProduct(item)}
+      aria-pressed={active}
+      aria-label={active ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+      title={active ? "Remove from favorites" : "Add to favorites"}
+      className="shrink-0 rounded-full p-1 transition hover:bg-gray-lightest focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <Heart aria-hidden="true" strokeWidth={2} className={`h-3.5 w-3.5 ${active ? "fill-current text-danger" : "text-gray"}`} />
+    </button>
   );
 }

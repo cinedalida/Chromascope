@@ -45,7 +45,16 @@ export function ARTryOnPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [incoming] = useState(() => (location.state?.product ? productToTryOn(location.state.product) : null));
-  const [started, setStarted] = useState(Boolean(incoming));
+  // A favorite opened from the Favorites page ("Try on"): its shades for every region, applied before the first frame,
+  // plus the names of items that could not be applied (catalog plan Part B, Phase F4).
+  const [fromFavorite] = useState(() => location.state?.favoriteTryOn ?? null);
+  const [favoriteNotice, setFavoriteNotice] = useState(() => {
+    const skipped = [...(fromFavorite?.missing ?? []), ...(fromFavorite?.notAvailable ?? [])];
+    return skipped.length ? `Not applied: ${skipped.join(", ")} (no longer available or not available in try-on).` : null;
+  });
+  // The saved look the shades came from (name + items), shown in the panel with rename and "Update this look".
+  const [activeLook, setActiveLook] = useState(() => fromFavorite?.look ?? null);
+  const [started, setStarted] = useState(Boolean(incoming || fromFavorite));
   // Camera permission already granted: skip the "Start Try-On Now" gate. The Permissions API can't query "camera"
   // in every browser (e.g. Safari), and then the gate simply stays, as it does for first-time users.
   useEffect(() => {
@@ -62,7 +71,7 @@ export function ARTryOnPage() {
   }, []);
   // Drop the product from history state so a refresh doesn't re-apply it.
   useEffect(() => {
-    if (location.state?.product) navigate(location.pathname, { replace: true, state: null });
+    if (location.state?.product || location.state?.favoriteTryOn) navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate]);
   const { cameraRef, isReady, error, isMock, enableMockCamera } = useARCamera(started);
   const overlayRef = useRef(null);
@@ -121,7 +130,11 @@ export function ARTryOnPage() {
 
   // Selected shade item per region (unified shape from arShadeService / arRecommendedService).
   const [selectedShades, setSelectedShades] = useState(() =>
-    incoming ? { ...NO_SHADES, [incoming.region]: incoming.shade } : NO_SHADES,
+    fromFavorite
+      ? { ...NO_SHADES, ...fromFavorite.shades }
+      : incoming
+        ? { ...NO_SHADES, [incoming.region]: incoming.shade }
+        : NO_SHADES,
   );
   const selectShade = (region, shade) => setSelectedShades((prev) => ({ ...prev, [region]: shade }));
   const clearShades = () => setSelectedShades(NO_SHADES);
@@ -370,8 +383,23 @@ export function ARTryOnPage() {
           <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
             Offline: Recommended needs internet. Browse works if you used it online before.
           </OfflineNote>
+          {favoriteNotice && (
+            <p role="status" className="mx-4 mt-3 flex shrink-0 items-start justify-between gap-2 rounded-xl bg-primary-lightest px-3 py-2 text-xs text-primary-darker">
+              {favoriteNotice}
+              <button type="button" onClick={() => setFavoriteNotice(null)} aria-label="Dismiss" className="shrink-0 font-semibold">
+                OK
+              </button>
+            </p>
+          )}
           <div className="min-h-0 flex-1">
-            <AppliedProductsPanel initialRegion={incoming?.region} selectedShades={selectedShades} onSelectShade={selectShade} onClear={clearShades} />
+            <AppliedProductsPanel
+              initialRegion={incoming?.region ?? Object.keys(fromFavorite?.shades ?? {})[0]}
+              selectedShades={selectedShades}
+              onSelectShade={selectShade}
+              onClear={clearShades}
+              activeLook={activeLook}
+              onActiveLookChange={setActiveLook}
+            />
           </div>
         </aside>
       </div>

@@ -5,6 +5,12 @@ import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
 import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
+import { favoriteToTryOn, selectedShadesToItems, useFavorites } from "../../hooks/useFavorites.js";
+import { useUserStore } from "../../store/userStore.js";
+import { SaveLookDialog } from "../favorites/SaveLookDialog.jsx";
+
+// A look's items as comparable keys, so "changed since it was loaded" ignores field order.
+const itemKeys = (items) => (items || []).map((i) => `${i.region}|${i.source}|${i.product_id}|${i.shade_id}`).sort().join(",");
 
 const SOURCES = [
   { key: "recommended", label: "Recommended" },
@@ -222,8 +228,104 @@ function ProductList({ groups, selectedShades, onSelect, showType }) {
   );
 }
 
+/* ── Favorites tab (Part B, Phase F4): saved products and looks, applied with one tap ── */
+function FavoritesTab({ favorites, user, onApply }) {
+  const [resolved, setResolved] = useState(null); // favorite id -> favoriteToTryOn result
+  const [pending, setPending] = useState(null); // { favorite, result } waiting for the Excluded notice (F-R4)
+
+  useEffect(() => {
+    let active = true;
+    Promise.all(favorites.map(async (favorite) => [favorite.id, await favoriteToTryOn(favorite, user)])).then(
+      (entries) => active && setResolved(Object.fromEntries(entries)),
+    );
+    return () => {
+      active = false;
+    };
+  }, [favorites, user]);
+
+  if (favorites.length === 0) {
+    return <EmptyState message="No favorites yet. Tap a heart on a shade, or save a look." />;
+  }
+  if (!resolved) return <p className="py-10 text-center text-xs text-gray-light">Loading favorites…</p>;
+
+  const choose = (favorite) => {
+    const result = resolved[favorite.id];
+    if (!result || Object.keys(result.shades).length === 0) return;
+    if (result.excluded.length > 0) setPending({ favorite, result });
+    else onApply(favorite, result);
+  };
+
+  return (
+    <div className="space-y-2 px-4 py-3 sm:px-5">
+      {pending && (
+        <div role="alertdialog" aria-label="Excluded product" className="rounded-xl bg-[var(--color-danger-light)] p-3 text-xs text-black">
+          <p>
+            {pending.result.excluded.join(", ")} {pending.result.excluded.length === 1 ? "is" : "are"} Excluded for your
+            profile. Try it on anyway?
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onApply(pending.favorite, pending.result);
+                setPending(null);
+              }}
+              className="rounded-full bg-black px-3 py-1 font-semibold text-white"
+            >
+              Try on anyway
+            </button>
+            <button type="button" onClick={() => setPending(null)} className="rounded-full px-3 py-1 font-semibold text-gray">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      <ul className="space-y-1.5">
+        {favorites.map((favorite) => {
+          const result = resolved[favorite.id] ?? { shades: {}, missing: [], notAvailable: [], excluded: [] };
+          const shades = Object.values(result.shades);
+          const usable = shades.length > 0;
+          const title = favorite.type === "look" ? favorite.name : (shades[0]?.product ?? "Saved product");
+          let detail;
+          if (favorite.type === "look") detail = `${shades.length} shade${shades.length === 1 ? "" : "s"}`;
+          else if (usable) detail = shades[0].shade ?? "";
+          else detail = result.missing.length ? "No longer available" : "Not available in try-on";
+          return (
+            <li key={favorite.id}>
+              <button
+                type="button"
+                disabled={!usable}
+                onClick={() => choose(favorite)}
+                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-gray-lightest disabled:opacity-50"
+              >
+                <span className="flex shrink-0 -space-x-1.5">
+                  {(shades.length ? shades : [{}]).slice(0, 4).map((shade, i) => (
+                    <span
+                      key={i}
+                      aria-hidden="true"
+                      className="h-6 w-6 rounded-full ring-2 ring-white"
+                      style={{ backgroundColor: shade.hex || "var(--color-gray-lighter)" }}
+                    />
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-black">
+                    {favorite.type === "look" ? "Look: " : ""}
+                    {title}
+                  </span>
+                  <span className="block truncate text-[11px] text-gray">{detail}</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /* ── Main panel ───────────────────────────── */
-export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion }) {
+export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion, activeLook, onActiveLookChange }) {
   const [activeGroup, setActiveGroup] = useState(() => groupOfRegion(initialRegion) ?? "lips");
   // Arriving with an Advanced-only product (e.g. eyeliner) opens Advanced so that product is listed.
   const [mode, setMode] = useState(() =>
@@ -241,7 +343,8 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
     return () => clearTimeout(id);
   }, [query]);
 
-  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source);
+  // The Favorites tab lists saved items instead; Browse (static, cached) loads meanwhile so switching back is instant.
+  const { items, status, loading, seasonFilter, ranked } = useARShades(activeGroup, source === "favorites" ? "browse" : source);
   const groups = useMemo(() => groupByProduct(items), [items]);
   const typeCounts = useMemo(() => {
     const counts = {};
@@ -258,6 +361,53 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
   }, [groups, effectiveType, source, debouncedQuery]);
 
   const applied = Object.entries(selectedShades).filter(([, shade]) => shade);
+
+  // Save look (Part B, Phase F4): only references to the shades on the face, never the capture image. When the
+  // shades came from a saved look, its name shows here and can be renamed; once changed, saving offers
+  // "Update" or "Save as new".
+  const { signedIn, favorites, saveLook, updateLook, renameLook } = useFavorites();
+  const user = useUserStore((state) => state.user);
+  const sources = signedIn ? [...SOURCES, { key: "favorites", label: "Favorites" }] : SOURCES;
+  // A look puts on its whole combination (regions it does not have are cleared); a product sets its own region.
+  const applyFavorite = (favorite, result) => {
+    if (favorite.type === "look") {
+      for (const region of Object.keys(selectedShades)) onSelectShade(region, result.shades[region] ?? null);
+      onActiveLookChange?.({ id: favorite.id, name: favorite.name, items: favorite.items });
+    } else {
+      for (const [region, shade] of Object.entries(result.shades)) onSelectShade(region, shade);
+    }
+  };
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [lookName, setLookName] = useState("");
+  const currentItems = selectedShadesToItems(selectedShades);
+  const lookChanged = Boolean(activeLook) && itemKeys(currentItems) !== itemKeys(activeLook.items);
+  const nextLookName = `Look ${favorites.filter((f) => f.type === "look").length + 1}`;
+  useEffect(() => {
+    if (!saved) return undefined;
+    const timer = setTimeout(() => setSaved(false), 6000);
+    return () => clearTimeout(timer);
+  }, [saved]);
+  const saveAsNew = async (name) => {
+    const look = await saveLook(name, currentItems);
+    onActiveLookChange?.({ id: look.id, name: look.name, items: look.items });
+    setSaveOpen(false);
+    setSaved(true);
+  };
+  const updateActive = async () => {
+    await updateLook(activeLook.id, currentItems);
+    onActiveLookChange?.({ ...activeLook, items: currentItems });
+    setSaveOpen(false);
+    setSaved(true);
+  };
+  const submitRename = (e) => {
+    e.preventDefault();
+    const name = lookName.trim().slice(0, 40) || activeLook.name;
+    renameLook(activeLook.id, name);
+    onActiveLookChange?.({ ...activeLook, name });
+    setRenaming(false);
+  };
 
   const clearSearch = () => {
     setQuery("");
@@ -319,10 +469,74 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
             </button>
           </div>
         )}
+
+        {(activeLook || (signedIn && applied.length > 0) || saved) && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            {activeLook &&
+              (renaming ? (
+                <form onSubmit={submitRename} className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <input
+                    value={lookName}
+                    onChange={(e) => setLookName(e.target.value.slice(0, 40))}
+                    maxLength={40}
+                    aria-label="Look name"
+                    autoFocus
+                    className="min-w-0 flex-1 rounded-full border border-primary-lighter px-2.5 py-1 text-xs focus:border-primary focus:outline-none"
+                  />
+                  <button type="submit" className="font-semibold text-primary">
+                    Save
+                  </button>
+                </form>
+              ) : (
+                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-gray">
+                  Look: <span className="truncate font-semibold text-black">{activeLook.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLookName(activeLook.name);
+                      setRenaming(true);
+                    }}
+                    className="shrink-0 font-semibold text-primary"
+                  >
+                    Rename
+                  </button>
+                </span>
+              ))}
+            {signedIn && applied.length > 0 && !renaming && (
+              <button
+                type="button"
+                onClick={() => setSaveOpen(true)}
+                className="ml-auto shrink-0 rounded-full bg-primary px-3 py-1 font-semibold text-white transition hover:bg-primary-dark"
+              >
+                Save look
+              </button>
+            )}
+            {saved && (
+              <p role="status" className="w-full text-primary-darker">
+                Saved to Favorites.{" "}
+                <Link to="/favorites?tab=looks" className="font-semibold underline">
+                  See your looks
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Region tabs: text with an underline on the active tab ── */}
-      <div className="mt-1 flex border-b border-gray-lightest px-2 sm:px-3">
+      {saveOpen && (
+        <SaveLookDialog
+          shades={applied}
+          defaultName={nextLookName}
+          activeLook={activeLook}
+          changed={lookChanged}
+          onSave={saveAsNew}
+          onUpdate={updateActive}
+          onCancel={() => setSaveOpen(false)}
+        />
+      )}
+
+      {/* ── Region tabs: text with an underline on the active tab (not for Favorites, which lists every region) ── */}
+      <div className={`mt-1 flex border-b border-gray-lightest px-2 sm:px-3 ${source === "favorites" ? "hidden" : ""}`}>
         {AR_GROUPS.map(({ label, key }) => {
           const isActive = activeGroup === key;
           return (
@@ -352,7 +566,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
       <div className="space-y-2 px-4 pt-2.5 pb-2 sm:px-5">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1" role="group" aria-label="Product source">
-            {SOURCES.map(({ key, label }) => {
+            {sources.map(({ key, label }) => {
               const isActive = source === key;
               return (
                 <button
@@ -403,7 +617,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         )}
 
         {/* Advanced only: product type inside the tab, with how many products each has, in one sideways row */}
-        {!isBasic && !loading && typeOptions.length > 1 && (
+        {!isBasic && !loading && source !== "favorites" && typeOptions.length > 1 && (
           <div className={`-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:-mx-5 sm:px-5 ${NO_SCROLLBAR}`} role="group" aria-label="Product type">
             {[["all", "All", groups.length], ...typeOptions.map((region) => [region, REGION_LABEL[region], typeCounts[region]])].map(
               ([key, label, count]) => {
@@ -443,7 +657,9 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
           </div>
         )}
 
-        {loading ? (
+        {source === "favorites" ? (
+          <FavoritesTab favorites={favorites} user={user} onApply={applyFavorite} />
+        ) : loading ? (
           <p className="py-10 text-center text-xs text-gray-light">Loading shades…</p>
         ) : source === "recommended" && status !== "ok" ? (
           <EmptyState

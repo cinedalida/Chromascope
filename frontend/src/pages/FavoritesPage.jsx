@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Info, Loader2, X } from "lucide-react";
 import { getProductCatalog, runFilter } from "../services/productService";
 import { getShades } from "../services/arShadeService";
 import { useUserStore } from "../store/userStore";
-import { useFavorites } from "../hooks/useFavorites";
+import { TRY_ON_GROUPS, canTryOn, favoriteToTryOn, useFavorites } from "../hooks/useFavorites";
+import { groupOfRegion } from "../utils/arGroups";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { LookCard } from "../components/favorites/LookCard.jsx";
@@ -31,6 +32,18 @@ function EmptyState({ title, text }) {
         </Link>
       </div>
     </div>
+  );
+}
+
+function TryOnButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-2 w-full rounded-full bg-primary py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark"
+    >
+      Try on
+    </button>
   );
 }
 
@@ -126,6 +139,30 @@ export function FavoritesPage() {
     return product ? { status: "ok", product } : { status: "missing" };
   };
 
+  // "Try on": the favorite's shades go to AR in navigation state (like the catalog's own Try on), applied before the
+  // first frame. Items that are gone or cannot be tried on are listed there instead of failing silently.
+  const navigate = useNavigate();
+  const [pendingTryOn, setPendingTryOn] = useState(null); // Excluded favorite waiting for the F-R4 notice
+  const tryOn = async (favorite, confirmed = false) => {
+    const result = await favoriteToTryOn(favorite, user, { byId, browse });
+    if (result.excluded.length > 0 && !confirmed) {
+      setPendingTryOn({ favorite, names: result.excluded });
+      return;
+    }
+    navigate("/ar-tryon", {
+      state: {
+        favoriteTryOn: {
+          shades: result.shades,
+          missing: result.missing,
+          notAvailable: result.notAvailable,
+          look: favorite.type === "look" ? { id: favorite.id, name: favorite.name, items: favorite.items } : null,
+        },
+      },
+    });
+  };
+  const tryOnAllowed = (item, product, isBrowse) =>
+    isBrowse ? TRY_ON_GROUPS.includes(groupOfRegion(item.region)) : canTryOn(product);
+
   const products = favorites.filter((f) => f.type === "product");
   const looks = favorites.filter((f) => f.type === "look");
   const setTab = (next) =>
@@ -165,6 +202,11 @@ export function FavoritesPage() {
                           }
                     }
                   />
+                  {tryOnAllowed(favorite.items[0], product, isBrowse) ? (
+                    <TryOnButton onClick={() => tryOn(favorite)} />
+                  ) : (
+                    <p className="mt-2 text-center text-[11px] text-gray">Not available in try-on</p>
+                  )}
                   {isBrowse && (
                     <>
                       <p className="mt-1.5 flex items-center gap-1 px-1 text-[11px] text-gray">
@@ -196,7 +238,9 @@ export function FavoritesPage() {
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {looks.map((look) => (
           <li key={look.id}>
-            <LookCard look={look} resolve={resolve} onRename={renameLook} onDelete={removeFavorite} />
+            <LookCard look={look} resolve={resolve} onRename={renameLook} onDelete={removeFavorite}>
+              <TryOnButton onClick={() => tryOn(look)} />
+            </LookCard>
           </li>
         ))}
       </ul>
@@ -237,6 +281,31 @@ export function FavoritesPage() {
               <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </p>
+        )}
+
+        {pendingTryOn && (
+          <div role="alertdialog" aria-label="Excluded product" className="rounded-2xl bg-[var(--color-danger-light)] px-4 py-3 text-sm text-black">
+            <p>
+              {pendingTryOn.names.join(", ")} {pendingTryOn.names.length === 1 ? "is" : "are"} Excluded for your profile.
+              Try it on anyway?
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const { favorite } = pendingTryOn;
+                  setPendingTryOn(null);
+                  tryOn(favorite, true);
+                }}
+                className="rounded-full bg-black px-4 py-1.5 text-xs font-semibold text-white"
+              >
+                Try on anyway
+              </button>
+              <button type="button" onClick={() => setPendingTryOn(null)} className="rounded-full px-4 py-1.5 text-xs font-semibold text-gray">
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
         {status === "loading" || status === "idle" ? (

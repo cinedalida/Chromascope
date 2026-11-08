@@ -12,7 +12,7 @@ import { ALL_REGIONS } from "../utils/arGroups";
 
 export const MAX_FAVORITES = 50; // F-R7 (security rules cannot count documents, so the cap lives here)
 export const MAX_LOOK_NAME = 40;
-export const MAX_LOOK_ITEMS = 3; // B4 default; firestore.rules allows the same (change both together)
+export const MAX_LOOK_ITEMS = 13; // one shade per AR region (B4 as approved); firestore.rules allows the same
 const SOURCES = ["recommended", "browse", "catalog"];
 
 export class FavoritesError extends Error {
@@ -87,6 +87,16 @@ export async function addProductFavorite(input, existing) {
 
 /** Saves a look: at most one shade per region (B4). */
 export async function saveLook(name, inputs, existing) {
+  const items = lookItems(inputs);
+  await ensureRoom(existing);
+  const now = new Date().toISOString();
+  const data = { type: "look", name: cleanLookName(name), items, created_at: now, updated_at: now };
+  const ref = await addDoc(favoritesRef(), data);
+  return { id: ref.id, ...data };
+}
+
+// The shared checks for a look's shades: at least one, each with a region, one per region, at most MAX_LOOK_ITEMS.
+function lookItems(inputs) {
   const items = (inputs || []).map(toFavoriteItem);
   if (items.length === 0) throw new FavoritesError("invalid", "Add at least one shade to save a look.");
   if (items.some((item) => !item.region)) throw new FavoritesError("invalid", "Every shade in a look needs a region.");
@@ -97,11 +107,14 @@ export async function saveLook(name, inputs, existing) {
   if (items.length > MAX_LOOK_ITEMS) {
     throw new FavoritesError("invalid", `A look can have up to ${MAX_LOOK_ITEMS} shades.`);
   }
-  await ensureRoom(existing);
-  const now = new Date().toISOString();
-  const data = { type: "look", name: cleanLookName(name), items, created_at: now, updated_at: now };
-  const ref = await addDoc(favoritesRef(), data);
-  return { id: ref.id, ...data };
+  return items;
+}
+
+/** Replaces a saved look's shades (AR "Update this look"). */
+export async function updateLookItems(id, inputs) {
+  const patch = { items: lookItems(inputs), updated_at: new Date().toISOString() };
+  await updateDoc(doc(favoritesRef(), id), patch);
+  return patch;
 }
 
 /** Renames a look. */
