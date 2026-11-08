@@ -119,7 +119,7 @@ export function ColorAnalysisSubtypePage() {
                 {profileData.tip}
               </p>
               <button 
-                onClick={() => navigate("/ingredient-filter")}
+                onClick={() => navigate("/catalog?view=safe")}
                 className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest bg-white text-primary hover:bg-gray-50 shadow-lg px-6 py-3.5 rounded-full transition-all group-hover:gap-3 w-fit relative z-10"
               >
                 Shop Curated Products <ArrowRight size={14} />

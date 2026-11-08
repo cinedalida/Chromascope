@@ -12,8 +12,8 @@ const navItems = [
   { label: "Try-On", icon: "tryon", path: "/ar-tryon" },
   // { label: "Palette Guide", icon: "palette", path: "/palette-product" }, // HIDDEN — re-enable when ready
   { label: "Color Analysis", icon: "color", path: "/color-analysis" },
-  { label: "Ingredient Filter", icon: "ingredient", path: "/ingredient-filter" },
-  { label: "Product Catalog", icon: "catalog", path: "/product-catalog" },
+  // One merged catalog, same as the sidebar (catalog plan Part A). Also names the page in the header title.
+  { label: "Catalog", icon: "catalog", path: "/catalog" },
 ];
 
 const navIcons = {

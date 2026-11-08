@@ -9,12 +9,9 @@ const sidebarItems = [
   { label: "Try-On", icon: "tryon", path: "/ar-tryon" },
   // { label: "Palette Guide", icon: "palette", path: "/palette-product" }, // HIDDEN — re-enable when ready
   { label: "Color Analysis", icon: "color", path: "/color-analysis" },
-  {
-    label: "Ingredient Filter",
-    icon: "ingredient",
-    path: "/ingredient-filter",
-  },
-  { label: "Product Catalog", icon: "catalog", path: "/product-catalog" },
+  // One merged catalog (catalog plan Part A), in the old Ingredient Filter slot. The old Product Catalog slot is left
+  // empty for Favorites (Part B).
+  { label: "Catalog", icon: "catalog", path: "/catalog" },
 ];
 
 function SidebarIcon({ icon, active, hovered }) {

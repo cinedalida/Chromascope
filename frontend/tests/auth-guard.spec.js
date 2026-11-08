@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Phase A8 validation (PLAN_OPTIMIZATION.md): app pages require login; public pages stay open.
 
 const GUARDED = ["/home", "/profile", "/ar-tryon", "/color-analysis", "/color-analysis/processing",
-  "/color-analysis/subtype", "/ingredient-filter", "/product-catalog", "/onboarding", "/admin"];
+  "/color-analysis/subtype", "/catalog", "/ingredient-filter", "/product-catalog", "/onboarding", "/admin"];
 const PUBLIC = ["/", "/auth", "/terms", "/privacy", "/user-manual"];
 
 test.describe("logged out", () => {

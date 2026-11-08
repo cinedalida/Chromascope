@@ -80,8 +80,11 @@ test("safety filter returns the seeded test products through the backend", async
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: /^log in/i }).first().click();
   await page.waitForURL(/\/home/);
-  const filterCall = page.waitForResponse((r) => r.url().includes("/api/run-filter"));
-  await page.goto("/ingredient-filter");
+  // The merged catalog asks the filter once per category; the seeded products are Face products.
+  const filterCall = page.waitForResponse(
+    (r) => r.url().includes("/api/run-filter") && r.request().postDataJSON()?.category === "Face",
+  );
+  await page.goto("/catalog?view=safe");
   const res = await filterCall;
   expect(res.status()).toBe(200);
   const body = await res.json();

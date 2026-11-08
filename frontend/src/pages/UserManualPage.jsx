@@ -23,12 +23,12 @@ const sections = [
   {
     icon: FlaskConical,
     title: "4. Filter for safety",
-    body: "Use the Ingredient Filter to screen products against your restrictions and skin concerns. Flagged ingredients are called out so you can make an informed choice.",
+    body: "Open the Catalog and choose Safe for me to see products checked against your restrictions and skin concerns. Flagged ingredients are called out so you can make an informed choice.",
   },
   {
     icon: ShoppingBag,
     title: "5. Browse the catalog",
-    body: "Explore the Product Catalog, organized by season and safety status, to find products that already match your profile.",
+    body: "Switch the Catalog to Full catalog to browse every product, with its safety status where one exists. Filter by category, safety verdict, or name.",
   },
 ];
 

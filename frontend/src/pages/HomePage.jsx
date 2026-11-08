@@ -76,7 +76,7 @@ const quickActions = [
       </svg>
     ),
     accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/ingredient-filter"
+    path: "/catalog?view=safe"
   },
   {
     title: "Open Try-On",
@@ -101,7 +101,7 @@ const quickActions = [
       </svg>
     ),
     accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/product-catalog"
+    path: "/catalog?view=all"
   },
 ];
 

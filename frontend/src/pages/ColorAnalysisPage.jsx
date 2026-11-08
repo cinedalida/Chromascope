@@ -383,7 +383,7 @@ export function ColorAnalysisPage() {
 
                   <div className="pt-8 mt-auto">
                     <button 
-                      onClick={() => navigate("/ingredient-filter")}
+                      onClick={() => navigate("/catalog?view=safe")}
                       className="w-full py-4 bg-white border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-full font-bold flex items-center justify-center gap-2 shadow-md transition-all duration-300 group"
                     >
                       Shop Curated Products <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
