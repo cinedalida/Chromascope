@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucide-react";
 import { auth } from "../firebase";
 import { apiUrl } from "../config";
+import { useUserStore } from "../store/userStore";
 
 // A request that never reached the server, or a device with no connection. fetch throws a TypeError
 // with "Failed to fetch" (Chrome), "NetworkError ..." (Firefox) or "Load failed" (Safari); other
@@ -58,6 +59,15 @@ export function ColorAnalysisProcessingPage() {
             signal,
           });
           if (!saveRes.ok) throw new Error(`Saving the result failed (${saveRes.status})`);
+          // The server now holds the new season and skin color. Mirror exactly what it wrote into the store, so Browse
+          // ranking and the Recommended cache (keyed on these fields) see it without a reload. Done even if the user
+          // navigated away meanwhile: the save already happened.
+          useUserStore.getState().updateProfile({
+            seasonal_label: data.season,
+            user_lab: data.lab_color,
+            season_confidence_level: data.confidence,
+            profile_completed: true,
+          });
         }
         if (signal.aborted) return;
 
