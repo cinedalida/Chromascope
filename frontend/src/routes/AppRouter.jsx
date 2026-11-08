@@ -20,6 +20,7 @@ import { ColorAnalysisSubtypePage } from "../pages/ColorAnalysisSubtypePage.jsx"
 import { IngredientFilterPage } from "../pages/IngredientFilterPage.jsx";
 import { ProfilePage } from "../pages/ProfilePage.jsx";
 import { ProductCatalogPage } from "../pages/ProductCatalogPage.jsx";
+import { CatalogPage } from "../pages/CatalogPage.jsx";
 import { AdminDatabasePage } from "../pages/AdminDatabasePage.jsx";
 import { MainLayout } from "../layouts/MainLayout";
 import { RequireAuth } from "./RequireAuth.jsx";
@@ -140,6 +141,18 @@ export default function AppRouter() {
             <RequireAuth>
               <MainLayout>
                 <ProductCatalogPage />
+              </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        {/* Merged catalog: product catalog and ingredient filter in one page (catalog plan Part A). */}
+        <Route
+          path="/catalog"
+          element={
+            <RequireAuth>
+              <MainLayout>
+                <CatalogPage />
               </MainLayout>
             </RequireAuth>
           }
