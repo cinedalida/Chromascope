@@ -56,6 +56,22 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
+    // Favorites (catalog plan Part B, decision B2 = Option 1): each user reads and writes only their own.
+    // Fields as plan rule F-R1; at most 3 items (one shade per region, B4). The 50-favorite cap (F-R7) is enforced
+    // in favoritesService.js, since rules cannot count documents.
+    match /users/{uid}/favorites/{favoriteId} {
+      function validFavorite(d) {
+        return d.keys().hasOnly(['type', 'name', 'items', 'created_at', 'updated_at'])
+          && d.type in ['product', 'look']
+          && okText(d.name, 40)
+          && d.items is list && d.items.size() >= 1 && d.items.size() <= 3
+          && okText(d.created_at, 40)
+          && okText(d.updated_at, 40);
+      }
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validFavorite(request.resource.data);
+    }
+
     match /products/{productId} {
       allow read: if signedIn();
       allow write: if false;
