@@ -1,11 +1,12 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { getProductCatalog, runFilter } from "../services/productService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
 import { CatalogFilters } from "../components/catalog/CatalogFilters.jsx";
+import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 // The safety filter checks one category per request (api.py category_map), so the page asks once per category.
@@ -23,14 +24,14 @@ const byCategoryThenName = (a, b) =>
 const verdictOf = (item) => String(item?.verdict ?? "").toLowerCase();
 
 /* Card grid: 2 columns on phones, 3 on tablets, then as many as fit (min 200px). Shows PAGE_SIZE more per tap. */
-function ProductGrid({ items }) {
+function ProductGrid({ items, onSelect }) {
   const [visible, setVisible] = useState(PAGE_SIZE);
   return (
     <>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
         {items.slice(0, visible).map((item) => (
           <li key={item.product_id}>
-            <ProductCard product={item} />
+            <ProductCard product={item} onSelect={(e) => onSelect(item, e.currentTarget)} />
           </li>
         ))}
       </ul>
@@ -110,6 +111,34 @@ export function CatalogPage() {
       { replace: true },
     );
 
+  // Product detail: the open product is ?product=<id>. Opening pushes a history entry (marked in its state), so the
+  // back button closes it; the close button steps back over that entry, or just drops the parameter on a shared link.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const productId = searchParams.get("product");
+  const openerRef = useRef(null);
+  const openDetail = (item, opener) => {
+    openerRef.current = opener;
+    setSearchParams(
+      (params) => {
+        params.set("product", item.product_id);
+        return params;
+      },
+      { state: { catalogDetail: true } },
+    );
+  };
+  const closeDetail = () => {
+    if (location.state?.catalogDetail) navigate(-1);
+    else setFilters({ product: "" });
+  };
+  // Back on the card that opened the detail, however it was closed.
+  useEffect(() => {
+    if (!productId && openerRef.current?.isConnected) {
+      openerRef.current.focus();
+      openerRef.current = null;
+    }
+  }, [productId]);
+
   const [catalog, setCatalog] = useState(null); // null while loading
   const [filterResults, setFilterResults] = useState(null); // null while loading or not requested
   const [catalogAttempt, setCatalogAttempt] = useState(0);
@@ -174,6 +203,16 @@ export function CatalogPage() {
     setFilterResults(null);
     setFilterAttempt((n) => n + 1);
   };
+
+  // The product the detail view shows: its filter result when there is one, else the catalog entry.
+  const detailItem = useMemo(() => {
+    if (!productId) return null;
+    return (
+      (filterResults || []).find((item) => item.product_id === productId) ??
+      (catalog || []).find((item) => item.product_id === productId) ??
+      null
+    );
+  }, [productId, filterResults, catalog]);
 
   // Filtering happens on data already loaded: no new requests.
   const { filteredSafe, filteredMain, filteredExcluded } = useMemo(() => {
@@ -251,7 +290,7 @@ export function CatalogPage() {
       );
     }
     if (filteredSafe.length === 0) return noMatches;
-    return <ProductGrid key={`safe-${category}-${verdict}-${deferredQuery}`} items={filteredSafe} />;
+    return <ProductGrid key={`safe-${category}-${verdict}-${deferredQuery}`} items={filteredSafe} onSelect={openDetail} />;
   };
 
   const renderFullView = () => {
@@ -285,13 +324,13 @@ export function CatalogPage() {
           </p>
         )}
         {filteredMain.length + filteredExcluded.length === 0 && noMatches}
-        {filteredMain.length > 0 && <ProductGrid key={`all-${category}-${verdict}-${deferredQuery}`} items={filteredMain} />}
+        {filteredMain.length > 0 && <ProductGrid key={`all-${category}-${verdict}-${deferredQuery}`} items={filteredMain} onSelect={openDetail} />}
         {filteredExcluded.length > 0 && (
           <section aria-labelledby="excluded-heading" className="space-y-3 border-t border-primary-lighter pt-6">
             <h2 id="excluded-heading" className="font-heading text-xl font-semibold">
               Excluded for your profile ({filteredExcluded.length})
             </h2>
-            <ProductGrid key={`excluded-${category}-${verdict}-${deferredQuery}`} items={filteredExcluded} />
+            <ProductGrid key={`excluded-${category}-${verdict}-${deferredQuery}`} items={filteredExcluded} onSelect={openDetail} />
           </section>
         )}
       </>
@@ -326,6 +365,7 @@ export function CatalogPage() {
         <OfflineNote>The catalog needs internet. Connect and reload this page to see products.</OfflineNote>
 
         {view === "safe" ? renderSafeView() : renderFullView()}
+        {detailItem && <ProductDetail product={detailItem} onClose={closeDetail} />}
       </div>
     </main>
   );
