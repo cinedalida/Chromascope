@@ -191,8 +191,10 @@ function ProductRow({ group, selectedShades, onSelect, showType }) {
   );
 }
 
-/* ── Recommended product: one shade each, so a compact card in a two-column grid. Tap the swatch to apply it,
-      tap again to remove it. `showType` adds the type tag (only on "All"). ── */
+/* ── Recommended product: one shade each, so a compact card. The whole card is one button: tap to apply the shade,
+      tap again to remove it. Inner parts are spans (a button holds phrasing content only). The heart is a separate
+      button over the top-right corner, since a button cannot hold another. `showType` adds the type tag (only on
+      "All"). ── */
 function RecommendedCard({ group, selectedShades, onSelect, showType }) {
   const shade = group.shades[0];
   const isSelected = shade.id === selectedIdFor(group, selectedShades);
@@ -200,55 +202,58 @@ function RecommendedCard({ group, selectedShades, onSelect, showType }) {
   const fullName = shade.shade || shade.product;
   const hasBadges = group.verdict || group.fitTier || group.seasonMatch;
   return (
-    <div
-      className={`flex h-full min-w-0 flex-col rounded-2xl p-2.5 ring-1 transition-colors duration-200 ${
-        isSelected ? "bg-primary-lightest ring-primary" : "bg-white ring-gray-lightest hover:ring-gray-lighter"
-      }`}
-    >
-      {/* The shade first: the same round swatch as Browse (tap to apply, tap again to remove) and its name. */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onSelect(group.region, isSelected ? null : shade)}
-          title={fullName}
-          aria-label={fullName}
-          aria-pressed={isSelected}
-          className="group shrink-0 rounded-full p-0.5 focus:outline-none"
-        >
+    <div className="relative h-full min-w-0">
+      <button
+        type="button"
+        onClick={() => onSelect(group.region, isSelected ? null : shade)}
+        aria-pressed={isSelected}
+        aria-label={`${fullName}, ${group.brand} ${group.product}`}
+        title={fullName}
+        className={`group flex h-full w-full flex-col rounded-2xl p-3 text-left ring-1 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          isSelected ? "bg-primary-lightest ring-primary" : "bg-white ring-gray-lightest hover:ring-primary-light"
+        }`}
+      >
+        {/* The shade first: the same round swatch as Browse, and its name (room kept for the heart when applied). */}
+        <span className={`flex w-full items-center gap-2 ${isSelected ? "pr-7" : ""}`}>
           <span
             aria-hidden="true"
-            className={`block h-8 w-8 rounded-full ring-offset-2 transition-transform duration-150 group-hover:scale-115 group-focus-visible:scale-115 group-focus-visible:ring-2 group-focus-visible:ring-primary-light ${
+            className={`block h-8 w-8 shrink-0 rounded-full ring-offset-2 transition-transform duration-150 group-hover:scale-110 ${
               isSelected ? "ring-2 ring-primary" : "ring-1 ring-black/5"
             }`}
             style={{ backgroundColor: shade.hex }}
           />
-        </button>
-        <span title={fullName} className="min-w-0 flex-1 truncate font-heading text-[13px] font-semibold text-black">
-          {shortShadeName(fullName)}
+          <span className="line-clamp-2 min-w-0 flex-1 font-heading text-[13px] leading-snug font-semibold text-black">
+            {shortShadeName(fullName)}
+          </span>
         </span>
-        {isSelected && <ShadeFavoriteButton shade={shade} />}
-      </div>
 
-      {/* Then the product, quieter */}
-      <span className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
-      <p title={group.product} className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray">
-        {group.product}
-      </p>
-      {hasBadges && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {group.verdict && <VerdictBadge verdict={group.verdict} />}
-          <MatchBadge group={group} />
-        </div>
-      )}
-      {((showType && group.region) || price) && (
-        <div className="mt-auto flex min-w-0 items-center gap-1.5 pt-1.5 text-[11px] text-gray-light">
-          {showType && group.region && (
-            <span className="shrink-0 rounded-md bg-gray-lightest px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-black/60">
-              {REGION_LABEL[group.region] ?? group.region}
-            </span>
-          )}
-          {price && <span className="truncate">{price}</span>}
-        </div>
+        {/* Then the product, quieter */}
+        <span className="mt-2.5 block w-full truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
+        <span className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray">{group.product}</span>
+        {hasBadges && (
+          <span className="mt-2 flex flex-wrap gap-1">
+            {group.verdict && <VerdictBadge verdict={group.verdict} />}
+            <MatchBadge group={group} />
+          </span>
+        )}
+        {/* Bottom row: type tag on the left, price on the right. */}
+        {((showType && group.region) || price) && (
+          <span className="mt-auto flex w-full min-w-0 items-center justify-between gap-2 pt-2.5">
+            {showType && group.region ? (
+              <span className="shrink-0 rounded-md bg-gray-lightest px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-black/60">
+                {REGION_LABEL[group.region] ?? group.region}
+              </span>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            {price && <span className="truncate text-xs font-semibold text-black">{price}</span>}
+          </span>
+        )}
+      </button>
+      {isSelected && (
+        <span className="absolute top-4 right-3">
+          <ShadeFavoriteButton shade={shade} />
+        </span>
       )}
     </div>
   );
@@ -274,7 +279,8 @@ function ProductList({ groups, selectedShades, onSelect, showType, asCards }) {
   return (
     <>
       {asCards ? (
-        <div className="grid grid-cols-2 gap-2.5 px-4 py-3 sm:px-5">
+        // One column on very narrow phones (under 360px), where two cards would be about 138px wide.
+        <div className="grid grid-cols-1 gap-2.5 px-4 py-3 min-[360px]:grid-cols-2 sm:px-5">
           {groups.slice(0, visible).map((group) => (
             <RecommendedCard key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} showType={showType} />
           ))}
@@ -396,7 +402,9 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
   const notesReady = !loading && status === "ok";
 
   return (
-    <div className="flex h-full flex-col bg-white font-body">
+    // Phones: the whole panel scrolls (title and "On your face" scroll away, the tabs and filters stick).
+    // From sm: only the product list scrolls.
+    <div className="flex h-full flex-col bg-white font-body max-sm:overflow-y-auto">
       {/* ── Header: title and Basic/Advanced, then the "On your face" card when shades are applied ── */}
       <div className="px-4 pt-4 sm:px-5">
         <div className="flex items-center justify-between gap-3">
@@ -405,7 +413,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         </div>
 
         {(applied.length > 0 || activeLook || saved) && (
-          <div className="mt-3 space-y-2.5 rounded-2xl border border-gray-lightest bg-gray-lightest/40 p-3">
+          <div className="mt-3 space-y-2 rounded-2xl border border-gray-lightest bg-gray-lightest/40 p-2.5 sm:space-y-2.5 sm:p-3">
             {/* Card header: the loaded look's name (renamable) or "On your face", and Clear all */}
             <div className="flex min-h-6 items-center gap-2 text-xs">
               {activeLook && renaming ? (
@@ -437,9 +445,20 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
                   </button>
                 </span>
               ) : (
-                <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">
+                <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">
                   On your face{applied.length > 0 ? ` · ${applied.length}` : ""}
                 </span>
+              )}
+              {/* Phones: a small Save look pill here instead of the full-width button below. */}
+              {signedIn && applied.length > 0 && !renaming && (
+                <button
+                  type="button"
+                  onClick={() => setSaveOpen(true)}
+                  className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-1 sm:hidden"
+                >
+                  <Bookmark aria-hidden="true" size={12} strokeWidth={2.25} />
+                  Save look
+                </button>
               )}
               {applied.length > 0 && !renaming && (
                 <button
@@ -480,7 +499,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
               <button
                 type="button"
                 onClick={() => setSaveOpen(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2"
+                className="hidden w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2 sm:flex"
               >
                 <Bookmark aria-hidden="true" size={14} strokeWidth={2.25} />
                 Save look
@@ -510,6 +529,8 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         />
       )}
 
+      {/* Tabs and filters: stick to the top of the panel on phones while the list scrolls under them. */}
+      <div className="bg-white max-sm:sticky max-sm:top-0 max-sm:z-10">
       {/* ── Region tabs: text with an underline on the active tab ── */}
       <div className="mt-2 flex border-b border-gray-lightest px-2 sm:px-3">
         {AR_GROUPS.map(({ label, key }) => {
@@ -609,8 +630,10 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         )}
       </div>
 
+      </div>
+
       {/* ── Product List ── */}
-      <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-lightest">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-lightest max-sm:flex-none max-sm:overflow-visible">
         {notesReady && (
           <div className="px-4 pt-3 pb-1 sm:px-5">
             {source === "browse" ? (

@@ -363,7 +363,7 @@ export function ARTryOnPage() {
                   type="button"
                   onClick={clearShades}
                   disabled={!hasShades}
-                  className={`col-start-5 justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+                  className={`col-start-5 justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
                     isExpanded
                       ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] hover:text-white/80 disabled:text-white/40"
                       : "text-secondary hover:text-secondary-dark disabled:text-gray-lighter"
@@ -378,7 +378,7 @@ export function ARTryOnPage() {
         </section>
 
         {/* RIGHT PANEL */}
-        <aside className="flex h-[55dvh] min-h-0 flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+        <aside className="flex h-[60dvh] min-h-0 sm:h-[55dvh] flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
           {/* Offline: Recommended calls the backend and fails, Browse is served from the device cache. */}
           <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
             Offline: Recommended needs internet. Browse works if you used it online before.
@@ -561,11 +561,11 @@ function CaptureButton({ onClick, disabled, light = false }) {
       disabled={disabled}
       aria-label="Save photo"
       title="Save photo"
-      className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 sm:h-16 sm:w-16 ${ring} ${
+      className={`group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[3px] transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 sm:h-16 sm:w-16 ${ring} ${
         disabled ? "cursor-not-allowed opacity-40" : "active:scale-95"
       }`}
     >
-      <span className={`h-10 w-10 rounded-full transition-colors duration-200 sm:h-12 sm:w-12 ${disc}`} />
+      <span className={`h-9 w-9 rounded-full transition-colors duration-200 sm:h-12 sm:w-12 ${disc}`} />
     </button>
   );
 }
@@ -598,7 +598,7 @@ function CompareButton({ pressed, disabled, onChange, light = false }) {
       onBlur={stop}
       onContextMenu={(e) => e.preventDefault()}
       // Text only, styled like Reset; the color deepens while held.
-      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
         light
           ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
           : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`
