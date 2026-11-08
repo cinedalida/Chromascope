@@ -24,6 +24,8 @@ function toShadeItem(entry, region) {
     url: entry.url,
     verdict: null,
     seasonMatch: false,
+    // Season scores (0..100) for the 12 seasons, on lips, lip liner, blush and eyeshadow; see utils/arFit.js.
+    ss: entry.ss ?? null,
   };
 }
 

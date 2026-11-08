@@ -20,7 +20,7 @@ const ALL_HIDDEN = Object.fromEntries(ALL_REGIONS.map((region) => [region, false
 
 // DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
 // Profile, App Settings, "AR blend tuning (dev)" is on.
-const BLEND_MODES = ["color", "multiply", "soft-light", "overlay", "hard-light"];
+const BLEND_MODES = ["color", "multiply", "soft-light", "overlay", "hard-light", "screen", "source-over"];
 const TUNING_REGIONS = ALL_REGIONS.map((key) => ({ key, label: REGION_LABEL[key] }));
 
 // Browser full screen where supported. iPhone Safari has no element full screen (the

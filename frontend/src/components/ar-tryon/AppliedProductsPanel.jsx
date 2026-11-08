@@ -615,6 +615,12 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
             Not checked by the ingredient safety filter.
           </p>
         )}
+        {source === "browse" && !loading && status === "ok" && ranked && (
+          <p className="flex items-center gap-1 text-[11px] text-gray-light">
+            <Info size={12} className="shrink-0" />
+            Sorted by how well each shade suits your colors. Best match first.
+          </p>
+        )}
 
         {/* Advanced only: product type inside the tab, with how many products each has, in one sideways row */}
         {!isBasic && !loading && source !== "favorites" && typeOptions.length > 1 && (

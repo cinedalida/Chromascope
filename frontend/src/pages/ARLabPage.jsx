@@ -16,7 +16,7 @@ import { toCanvasSpace } from "../utils/arRenderer.js";
  *   await __arLab.setImage(url)                    load a face image (a blob/data URL, so the canvas stays untainted)
  *   await __arLab.render({ colors, finishes, render })   draw looks; resolves once the result has settled
  *   __arLab.capture()                              PNG data URL of the canvas (camera frame + makeup)
- *   __arLab.landmarks()                            { w, h, points: [[x, y]...] } in canvas pixels
+ *   __arLab.landmarks()                            { w, h, skinL, skin: {L,a,b}, points: [[x, y]...] } in canvas pixels
  */
 const STILL_W = 720;
 const STILL_H = 900;
@@ -84,6 +84,9 @@ export function ARLabPage() {
         setStillReady(true);
         await waitFrames(SETTLE_FRAMES);
         if (!landmarksRef.current) throw new Error("no face found in the image");
+        // The skin color is smoothed over time and would still hold the previous image's: measure it again.
+        overlayRef.current?.resetSkin();
+        await waitFrames(2);
       },
       async render(next) {
         setScripted({ colors: next.colors ?? {}, finishes: next.finishes ?? {}, render: next.render });
@@ -97,6 +100,7 @@ export function ARLabPage() {
           w: l.canvasW,
           h: l.canvasH,
           skinL: l.skinL,
+          skin: l.skin, // { L, a, b } CIELAB of the sampled cheek skin
           points: l.points.map((p) => toCanvasSpace(p.x * l.videoW, p.y * l.videoH, l.videoW, l.videoH, l.canvasW, l.canvasH)),
         };
       },
