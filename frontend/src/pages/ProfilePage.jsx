@@ -12,6 +12,7 @@ import {
   AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2
 } from "lucide-react";
 import { useSettingsStore } from "../store/settingsStore";
+import { InstallAppButton } from "../components/common/InstallAppButton.jsx";
 import { SKIN_TYPES, SKIN_CONCERNS, AVOID_INGREDIENTS, CONCERNS_WITHOUT_FILTER_RULE } from "../constants/profileOptions";
 
 // "Acne Prone", "acne-prone" and "acne_prone" are the same choice (older profiles used different spellings).
@@ -440,6 +441,8 @@ export function ProfilePage() {
                   </button>
                 </div>
               )}
+              {/* Install the app on this device. Renders nothing when installed or not installable. */}
+              <InstallAppButton className="mt-5" />
             </section>
 
             {/* Delete account (RA 10173: right to erasure) */}

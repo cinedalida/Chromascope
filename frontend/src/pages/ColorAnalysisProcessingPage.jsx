@@ -6,6 +6,15 @@ import { Microscope, Check, Loader2, X, Fingerprint, AlertTriangle } from "lucid
 import { auth } from "../firebase";
 import { apiUrl } from "../config";
 
+// A request that never reached the server, or a device with no connection. fetch throws a TypeError
+// with "Failed to fetch" (Chrome), "NetworkError ..." (Firefox) or "Load failed" (Safari); other
+// TypeErrors are bugs and stay "unknown". The upload page then says "You're Offline".
+function failureCode(error) {
+  const networkFailure =
+    error instanceof TypeError && /failed to fetch|networkerror|load failed/i.test(error.message);
+  return !navigator.onLine || networkFailure ? "offline" : "unknown";
+}
+
 export function ColorAnalysisProcessingPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,11 +65,16 @@ export function ColorAnalysisProcessingPage() {
       } catch (error) {
         if (signal.aborted) return;
         console.error("Profile save error:", error);
-        navigate("/color-analysis", { state: { photoError: "unknown" } });
+        navigate("/color-analysis", { state: { photoError: failureCode(error) } });
       }
     };
 
     const runAnalysis = async () => {
+      // Offline: go straight back instead of showing progress for a request that cannot be sent.
+      if (!navigator.onLine) {
+        navigate("/color-analysis", { state: { photoError: "offline" } });
+        return;
+      }
       try {
         const response = await fetch(image, { signal });
         const blob = await response.blob();
@@ -100,7 +114,7 @@ export function ColorAnalysisProcessingPage() {
       } catch (error) {
         if (signal.aborted) return;
         console.error("Pipeline error:", error);
-        navigate("/color-analysis", { state: { photoError: "unknown" } });
+        navigate("/color-analysis", { state: { photoError: failureCode(error) } });
       }
     };
 

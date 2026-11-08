@@ -1,9 +1,20 @@
 // AdminDatabasePage is an admin dashboard for managing the product database.
 
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+
 export function AdminDatabasePage() {
   return (
     <main className="min-h-dvh bg-surface p-8 font-body text-black">
       <div className="mx-auto max-w-5xl space-y-6 pt-20">
+        {/* This page has no navbar, and the installed app has no browser back button. */}
+        <Link
+          to="/home"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary-dark"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Back to app
+        </Link>
         <header className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             Admin

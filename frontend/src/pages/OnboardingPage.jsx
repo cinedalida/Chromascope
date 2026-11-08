@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2, AlertCircle } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -27,6 +27,7 @@ const dataCards = [
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,8 +97,10 @@ export function OnboardingPage() {
     if (step > 1) {
       setStep(step - 1);
     } else {
-      // Step 1: Navigates back to the Auth/Login screen
-      navigate(-1); 
+      // Step 1: back to the Auth/Login screen. With no earlier page in this session (the installed
+      // app opened from the home screen), navigate(-1) would do nothing, so go to /auth directly.
+      if (location.key === "default") navigate("/auth");
+      else navigate(-1);
     }
   };
 

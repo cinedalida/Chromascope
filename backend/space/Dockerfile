@@ -19,6 +19,12 @@ RUN pip install --no-cache-dir --user torch==2.15.0 torchvision==0.29.2 --index-
 
 COPY --chown=user app ./app
 COPY --chown=user catalog_images ./catalog_images
+COPY --chown=user fetch_models.py .
+
+# FaRL backbone (MIT), downloaded from the authors' official release instead of being uploaded with the Space.
+ADD --chown=user https://github.com/FacePerceiver/FaRL/releases/download/pretrained_weights/FaRL-Base-Patch16-LAIONFace20M-ep64.pth \
+    ./app/core/skin_analysis/ml/weights/FaRL-Base-Patch16-LAIONFace20M-ep64.pth
 
 EXPOSE 7860
-CMD ["uvicorn", "app.api.api:app", "--host", "0.0.0.0", "--port", "7860"]
+# The trained models come from the private model repo at startup (fetch_models.py, HF_MODELS_TOKEN secret).
+CMD ["sh", "-c", "python fetch_models.py && exec uvicorn app.api.api:app --host 0.0.0.0 --port 7860"]

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/src/assets/images/chro-banner.png" alt="Chromascope — unlock the biological data beneath your surface." width="100%" />
+  <img src=".github/assets/chro-banner.png" alt="Chromascope — unlock the biological data beneath your surface." width="100%" />
 </p>
 
 # chromascope

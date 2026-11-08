@@ -16,6 +16,7 @@ import {
   Loader2,
   Dna
 } from "lucide-react";
+import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { auth, db } from "../firebase"; 
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -62,6 +63,11 @@ const PHOTO_ERRORS = {
   invalid_image: {
     title: "Can't Open Photo",
     message: "We couldn't open that file. Please upload a JPG or PNG photo.",
+  },
+  // Set by ColorAnalysisProcessingPage when the device is offline or the request never reached the server.
+  offline: {
+    title: "You're Offline",
+    message: "Your photo wasn't sent. Connect to the internet and try again.",
   },
   unknown: {
     title: "Something Went Wrong",
@@ -195,6 +201,9 @@ export function ColorAnalysisPage() {
             Upload a photo or use your webcam to run our clinical AI model and map your genomic color profile.
           </p>
         </header>
+
+        {/* Shown before the user takes or uploads a photo, so they do not wait for an analysis that cannot run. */}
+        <OfflineNote>Color analysis needs internet. Connect to analyze your photo.</OfflineNote>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           

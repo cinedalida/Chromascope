@@ -2,6 +2,7 @@
   "name": "Chromascope",
   "short_name": "Chromascope",
   "description": "Personal color analysis, ingredient safety filtering, and AR makeup try-on.",
+  "lang": "en",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -13,5 +14,21 @@
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "AR Try-On",
+      "short_name": "Try-On",
+      "description": "Try makeup shades on your face with the camera.",
+      "url": "/ar-tryon",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Color Analysis",
+      "short_name": "Analysis",
+      "description": "Find your seasonal color palette from a photo.",
+      "url": "/color-analysis",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

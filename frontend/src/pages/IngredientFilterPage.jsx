@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import placeholderImg from "../assets/images/placeholder.svg";
+import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 export function IngredientFilterPage() {
   const user = useUserStore((state) => state.user);
@@ -145,6 +146,10 @@ export function IngredientFilterPage() {
               Synchronizing biometric data with 248+ active formulations to
               ensure biological safety and perceptual accuracy.
             </p>
+            {/* Offline the filter request fails and the list is empty, which would read as "nothing is safe for you". */}
+            <OfflineNote className="mt-4">
+              The ingredient filter needs internet. Connect and reload this page to check products.
+            </OfflineNote>
           </div>
 
           <div className="space-y-6 mb-10">
