@@ -19,6 +19,7 @@ import { ColorAnalysisSubtypePage } from "../pages/ColorAnalysisSubtypePage.jsx"
 // import { PaletteGuideProductPage } from "../pages/PaletteGuideProductPage.jsx";
 import { ProfilePage } from "../pages/ProfilePage.jsx";
 import { CatalogPage } from "../pages/CatalogPage.jsx";
+import { FavoritesPage } from "../pages/FavoritesPage.jsx";
 import { AdminDatabasePage } from "../pages/AdminDatabasePage.jsx";
 import { MainLayout } from "../layouts/MainLayout";
 import { RequireAuth } from "./RequireAuth.jsx";
@@ -135,6 +136,18 @@ export default function AppRouter() {
             <RequireAuth>
               <MainLayout>
                 <CatalogPage />
+              </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        {/* Favorites: saved products and looks (catalog plan Part B). */}
+        <Route
+          path="/favorites"
+          element={
+            <RequireAuth>
+              <MainLayout>
+                <FavoritesPage />
               </MainLayout>
             </RequireAuth>
           }
