@@ -176,7 +176,7 @@ research/**/*.xlsx
 backend/app/core/skin_analysis/test/test_images/
 backend/app/core/skin_analysis/test/test_output/
 
-# Local notes and editor/assistant settings
-docs/SAFETY_FILTER_TODO_JAN.md
+# Local notes and plans, editor/assistant settings
+docs/
 .claude/
 .vscode/
