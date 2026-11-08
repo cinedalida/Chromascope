@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react";
-import { getProductCatalog, runFilter } from "../services/productService";
+import { getCatalog, getSafetyResults } from "../services/catalogDataService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
@@ -11,7 +11,6 @@ import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 
 // The safety filter checks one category per request (api.py category_map), so the page asks once per category.
 // These are the same requests the old ingredient filter page made, one at a time.
-const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
 const PAGE_SIZE = 20;
 const VIEWS = ["safe", "all"];
 // Category filter value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
@@ -292,24 +291,19 @@ export function CatalogPage() {
 
   useEffect(() => {
     let active = true;
-    getProductCatalog().then((items) => active && setCatalog(items));
+    getCatalog().then((items) => active && setCatalog(items));
     return () => {
       active = false;
     };
   }, [catalogAttempt]);
 
-  // Same payload as the old ingredient filter page, once per category. Loaded once; switching views reuses it.
+  // Same payload as the old ingredient filter page, once per category. Kept per profile (catalogDataService.js), so
+  // switching views or coming back to this page reuses it, and only a profile change asks the server again.
   useEffect(() => {
     if (!user || !hasProfile) return;
     let active = true;
-    const payload = {
-      skin_type: user.skin_type || user.skin_profile?.base_type || "Normal",
-      avoid_ingredients: user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [],
-      user_lab: user.user_lab,
-      seasonal_label: user.seasonal_label,
-    };
-    Promise.all(FILTER_CATEGORIES.map((category) => runFilter({ ...payload, category }))).then((responses) => {
-      if (active) setFilterResults(responses.flatMap((response) => response.color_matched || []));
+    getSafetyResults(user).then(({ results }) => {
+      if (active) setFilterResults(results);
     });
     return () => {
       active = false;
