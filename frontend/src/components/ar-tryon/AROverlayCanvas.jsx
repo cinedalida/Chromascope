@@ -85,6 +85,8 @@ function drawLandmarkNumbers(ctx, landmarks, videoW, videoH, canvasW, canvasH, o
  * Returns null when no live frame has been drawn yet (mock mode, or before
  * the camera is ready).
  */
+const NO_FACE_RESET_FRAMES = 20; // about 0.7 s of video
+
 export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   videoRef,
   isReady,
@@ -113,6 +115,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   // Skin color ({ L, a, b } in CIELAB) for skin-adaptive makeup; re-measured every few frames and smoothed so it never flickers.
   const skinRef = useRef(null);
   const skinFramesRef = useRef(0);
+  const noFaceFramesRef = useRef(0);
   const hasFrameRef = useRef(false);
   const [status, setStatus] = useState("loading"); // loading | ready | tracking | error
 
@@ -121,6 +124,11 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
       const canvas = canvasRef.current;
       if (isMock || !canvas || !hasFrameRef.current) return null;
       return canvas.toDataURL("image/png");
+    },
+    // Forget the measured skin color so the next frame measures it afresh (a new photo in the DEV lab).
+    resetSkin() {
+      skinRef.current = null;
+      skinFramesRef.current = 0;
     },
   }), [isMock]);
 
@@ -210,6 +218,10 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         hasFrameRef.current = true;
 
         const hasFace = result.faceLandmarks?.length > 0;
+        // The skin estimate is smoothed over time, so after the face has been gone for a while (another person may
+        // appear) it is thrown away and measured again instead of slowly drifting from the old face's color.
+        noFaceFramesRef.current = hasFace ? 0 : noFaceFramesRef.current + 1;
+        if (noFaceFramesRef.current === NO_FACE_RESET_FRAMES) skinRef.current = null;
         if (hasFace) {
           if (status !== "tracking") setStatus("tracking");
 

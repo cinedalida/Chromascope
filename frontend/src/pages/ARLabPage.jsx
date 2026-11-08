@@ -84,6 +84,9 @@ export function ARLabPage() {
         setStillReady(true);
         await waitFrames(SETTLE_FRAMES);
         if (!landmarksRef.current) throw new Error("no face found in the image");
+        // The skin color is smoothed over time and would still hold the previous image's: measure it again.
+        overlayRef.current?.resetSkin();
+        await waitFrames(2);
       },
       async render(next) {
         setScripted({ colors: next.colors ?? {}, finishes: next.finishes ?? {}, render: next.render });
