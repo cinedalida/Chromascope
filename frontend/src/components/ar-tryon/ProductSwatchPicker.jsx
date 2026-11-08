@@ -93,7 +93,7 @@ function PageArrow({ direction, disabled, onClick }) {
 }
 
 // Heart for the selected shade (Part B, Phase F4): saves that one shade as a product favorite. Signed in only (B1).
-function ShadeFavoriteButton({ shade }) {
+export function ShadeFavoriteButton({ shade }) {
   const { signedIn, isFavorite, toggleProduct } = useFavorites();
   if (!signedIn || !shade?.region) return null;
   const item = shadeToFavoriteItem(shade.region, shade);

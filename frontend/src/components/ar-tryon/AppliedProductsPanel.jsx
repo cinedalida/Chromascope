@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bookmark, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
+import { Bookmark, Check, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts, shortShadeName } from "../../utils/shadeGroups.js";
-import { ProductSwatchPicker } from "./ProductSwatchPicker.jsx";
+import { ProductSwatchPicker, ShadeFavoriteButton } from "./ProductSwatchPicker.jsx";
 import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
 import { selectedShadesToItems, useFavorites } from "../../hooks/useFavorites.js";
 import { SaveLookDialog } from "../favorites/SaveLookDialog.jsx";
@@ -191,9 +191,69 @@ function ProductRow({ group, selectedShades, onSelect, showType }) {
   );
 }
 
-/* ── Paged row list. Remounted (keyed) when tab, type, source or query changes, which resets the page count.
-      The next page loads when "Show more" scrolls into view, or on tap. ── */
-function ProductList({ groups, selectedShades, onSelect, showType }) {
+/* ── Recommended product: one shade each, so a compact card in a two-column grid. Tap the swatch to apply it,
+      tap again to remove it. `showType` adds the type tag (only on "All"). ── */
+function RecommendedCard({ group, selectedShades, onSelect, showType }) {
+  const shade = group.shades[0];
+  const isSelected = shade.id === selectedIdFor(group, selectedShades);
+  const price = formatPrice(group.price, group.currency);
+  const fullName = shade.shade || shade.product;
+  const hasBadges = group.verdict || group.fitTier || group.seasonMatch;
+  return (
+    <div
+      className={`flex h-full min-w-0 flex-col rounded-2xl p-3 ring-1 transition-colors duration-200 ${
+        isSelected ? "bg-primary-lightest ring-primary" : "bg-white ring-gray-lightest hover:ring-gray-lighter"
+      }`}
+    >
+      {/* The shade first: a wide color block that applies it (tap again to remove), with a check when applied. */}
+      <button
+        type="button"
+        onClick={() => onSelect(group.region, isSelected ? null : shade)}
+        title={fullName}
+        aria-label={fullName}
+        aria-pressed={isSelected}
+        className="relative flex h-14 w-full shrink-0 items-center justify-center rounded-xl ring-1 ring-black/5 transition duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        style={{ backgroundColor: shade.hex }}
+      >
+        {isSelected && (
+          <Check aria-hidden="true" size={20} strokeWidth={3} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
+        )}
+      </button>
+      <div className="mt-2 flex min-h-6 items-center gap-1">
+        <span title={fullName} className="min-w-0 flex-1 truncate font-heading text-[13px] font-semibold text-black">
+          {shortShadeName(fullName)}
+        </span>
+        {isSelected && <ShadeFavoriteButton shade={shade} />}
+      </div>
+
+      {/* Then the product, quieter */}
+      <span className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
+      <p title={group.product} className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray">
+        {group.product}
+      </p>
+      {hasBadges && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {group.verdict && <VerdictBadge verdict={group.verdict} />}
+          <MatchBadge group={group} />
+        </div>
+      )}
+      {((showType && group.region) || price) && (
+        <div className="mt-auto flex min-w-0 items-center gap-1.5 pt-1.5 text-[11px] text-gray-light">
+          {showType && group.region && (
+            <span className="shrink-0 rounded-md bg-gray-lightest px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-black/60">
+              {REGION_LABEL[group.region] ?? group.region}
+            </span>
+          )}
+          {price && <span className="truncate">{price}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Paged list: rows on Browse, a two-column card grid on Recommended. Remounted (keyed) when tab, type, source or
+      query changes, which resets the page count. The next page loads when "Show more" scrolls into view, or on tap. ── */
+function ProductList({ groups, selectedShades, onSelect, showType, asCards }) {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const moreRef = useRef(null);
   const hasMore = groups.length > visible;
@@ -210,11 +270,19 @@ function ProductList({ groups, selectedShades, onSelect, showType }) {
 
   return (
     <>
-      <div className="divide-y divide-gray-lightest">
-        {groups.slice(0, visible).map((group) => (
-          <ProductRow key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} showType={showType} />
-        ))}
-      </div>
+      {asCards ? (
+        <div className="grid grid-cols-2 gap-2.5 px-4 py-3 sm:px-5">
+          {groups.slice(0, visible).map((group) => (
+            <RecommendedCard key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} showType={showType} />
+          ))}
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-lightest">
+          {groups.slice(0, visible).map((group) => (
+            <ProductRow key={group.key} group={group} selectedShades={selectedShades} onSelect={onSelect} showType={showType} />
+          ))}
+        </div>
+      )}
       {hasMore && (
         <div className="px-4 py-3 sm:px-5">
           <button
@@ -592,6 +660,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
             selectedShades={selectedShades}
             onSelect={onSelectShade}
             showType={effectiveType === "all"}
+            asCards={source === "recommended"}
           />
         )}
       </div>
