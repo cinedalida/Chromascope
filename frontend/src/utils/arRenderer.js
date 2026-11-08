@@ -201,7 +201,7 @@ export const FINISH_OVERRIDES = {
         { blend: "multiply", opacity: 0.26 },
         { blend: "color", opacity: 0.22 },
       ],
-      specular: 0.4,
+      specular: 0.34,
     },
   },
 };
@@ -691,27 +691,33 @@ const LOOKS = {
   },
 };
 
-// Soft white shine on the middle of each lip.
+// Soft white shine on the middle of each lip: a radial gradient that fades to nothing (no edge), clipped to the lips by
+// the region guard.
 function drawLipShine(ctx, frame, strength) {
   const lm = frame.px;
   const left = lm(61);
   const right = lm(291);
   const mouthW = dist(left, right);
   const spots = [
-    { c: mid(lm(17), lm(14)), w: mouthW * 0.2, h: mouthW * 0.05 }, // lower lip
-    { c: mid(lm(0), lm(13)), w: mouthW * 0.14, h: mouthW * 0.03 }, // upper lip
+    { c: mid(lm(17), lm(14)), w: mouthW * 0.26, h: mouthW * 0.07, a: 1 }, // lower lip
+    { c: mid(lm(0), lm(13)), w: mouthW * 0.18, h: mouthW * 0.045, a: 0.55 }, // upper lip
   ];
-  const feather = frame.cw * 0.005;
-  ctx.filter = `blur(${feather}px)`;
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = "#ffffff";
-  spots.forEach(({ c, w, h }, i) => {
-    ctx.globalAlpha = strength * (i === 0 ? 1 : 0.6);
+  for (const { c, w, h, a } of spots) {
+    ctx.save();
+    ctx.translate(c[0], c[1]);
+    ctx.scale(w, h);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.45, "rgba(255,255,255,0.55)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.globalAlpha = strength * a;
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.ellipse(c[0], c[1], w, h, 0, 0, Math.PI * 2);
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
     ctx.fill();
-  });
-  ctx.filter = "none";
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
 }
 
