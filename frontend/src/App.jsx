@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
+import { startARPrefetch } from "./services/arPrefetch";
 import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
 import { OfflineBanner } from "./components/common/OfflineBanner.jsx";
 
@@ -13,6 +14,9 @@ export function App() {
   const setUser = useUserStore((state) => state.setUser);
   const clearUser = useUserStore((state) => state.clearUser);
   const setAuthStatus = useUserStore((state) => state.setAuthStatus);
+
+  // Warm the AR data in the background (and again after a color analysis or profile edit), so opening Try-On is instant.
+  useEffect(() => startARPrefetch(), []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

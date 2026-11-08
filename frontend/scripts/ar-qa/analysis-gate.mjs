@@ -110,9 +110,13 @@ await setProfile(uid, {
 });
 
 // Open AR (full load or in-app), look at every group, then at Browse > Lips. Returns what was requested and shown.
-async function arVisit(label, { reload = false } = {}) {
+// Requests are counted from the last markChange(), so a refetch the app does in the background right after a change
+// (the prefetch) counts the same as one made when AR opens.
+function markChange() {
   filterCalls = [];
   filterSeasons.length = 0;
+}
+async function arVisit(label, { reload = false } = {}) {
   if (reload) await page.goto(`${APP}/ar-tryon`);
   else await spaGo(page, "/ar-tryon");
   await page.getByRole("button", { name: /start try-on now/i }).click({ timeout: 6000 }).catch(() => {});
@@ -150,15 +154,18 @@ async function runAnalysis(season, lab, confidence) {
 }
 
 // ---------- scenario ----------
+markChange();
 const A = await arVisit("1_before", { reload: true });
 check("start: first AR visit requests every category", A.calls.length === 5, A.calls.join(","));
 check("start: server used the starting season", A.seasons.every((s) => s === START.season), [...new Set(A.seasons)].join(","));
 
+markChange();
 const A2 = await arVisit("1b_revisit");
 check("start: re-entering AR makes no request", A2.calls.length === 0, `${A2.calls.length} calls`);
 
 // 1) New analysis => store matches Firestore, new values.
 const NEW = { season: "Deep Winter", lab: [38, 14, 14], conf: 0.88 };
+markChange();
 await runAnalysis(NEW.season, NEW.lab, NEW.conf);
 const st = await storeProfile(page);
 const fs1 = await firestoreProfile(uid);
@@ -168,13 +175,14 @@ check("analysis: Firestore holds the same values as the store", fs1.seasonal_lab
 
 // 2, 3) Back in AR with no reload: refetch, new season, Browse reranked.
 const B = await arVisit("2_after_analysis");
-check("analysis: AR asks the server again", B.calls.length === 5, B.calls.join(","));
+check("analysis: the server is asked again, exactly once per category", B.calls.length === 5, B.calls.join(","));
 check("analysis: server answers for the new season", B.seasons.length > 0 && B.seasons.every((s) => s === NEW.season), [...new Set(B.seasons)].join(","));
 check("analysis: Browse ranking changed without a reload", JSON.stringify(A.browse) !== JSON.stringify(B.browse), `before: ${A.browse.slice(0, 4).join(" | ")}  after: ${B.browse.slice(0, 4).join(" | ")}`);
 check("analysis: Recommended lists changed", JSON.stringify(A.rec) !== JSON.stringify(B.rec), "informational; the sandbox catalog is small");
 
 // 4) A save that fails must leave the store alone and AR must keep using the cache.
 await context.route("**/user/analysis-result", (route) => route.abort());
+markChange();
 await runAnalysis("Light Spring", [75, 8, 18], 0.8);
 await context.unroute("**/user/analysis-result");
 const stFail = await storeProfile(page);
@@ -184,6 +192,7 @@ const B2 = await arVisit("3_after_failed_save");
 check("failed save: AR still served from the cache", B2.calls.length === 0, `${B2.calls.length} calls`);
 
 // 5) Profile edit through the real Profile page => refetch, and the blocked ingredient disappears.
+markChange();
 const scentedBefore = B2.rec.LIPS.some((l) => /Scented Berry Lipstick/.test(l));
 await spaGo(page, "/profile");
 await page.waitForTimeout(1500);
@@ -195,7 +204,7 @@ const stEdit = await storeProfile(page);
 const fsEdit = await firestoreProfile(uid);
 check("profile edit: store and Firestore both hold the blocked ingredient", /fragrance/i.test(String(stEdit.avoid_ingredients)) && /fragrance/i.test(String(fsEdit.avoid_ingredients)), JSON.stringify([stEdit.avoid_ingredients, fsEdit.avoid_ingredients]));
 const C = await arVisit("4_after_profile_edit");
-check("profile edit: AR asks the server again", C.calls.length === 5, C.calls.join(","));
+check("profile edit: the server is asked again, exactly once per category", C.calls.length === 5, C.calls.join(","));
 check("profile edit: scented product shown before, gone after", scentedBefore && !C.rec.LIPS.some((l) => /Scented Berry Lipstick/.test(l)), `before=${scentedBefore}`);
 
 check("no console or page errors", errors.length === 0, errors.slice(0, 3).join(" || "));
