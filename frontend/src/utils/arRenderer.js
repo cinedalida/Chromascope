@@ -55,7 +55,7 @@ export const REGION_RENDER = {
   // Lipstick needs real pigment: "color" alone keeps the lip's own brightness, so a dark shade could not darken a
   // paler lip (it came out lilac). "source-over" moves the lip towards the shade, "multiply" adds depth, "color" sets hue.
   lips: {
-    feather: 0.01,
+    feather: 0.016,
     radial: false,
     layers: [
       { blend: "source-over", opacity: 0.22 },
@@ -127,7 +127,7 @@ export const REGION_RENDER = {
     feather: 0.003,
     slim: 0.7, // fraction of the landmark brow thickness that is coloured
     layers: [
-      { blend: "multiply", opacity: 0.4 },
+      { blend: "multiply", opacity: 0.25 },
       { blend: "color", opacity: 0.3 },
     ],
   },
