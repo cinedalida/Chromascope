@@ -59,3 +59,40 @@ jobs:
       # 5. Fail the job if the Vite production build breaks
       - name: Build
         run: npm run build
+
+  pwa:
+    name: Frontend (PWA tests)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Same Node version and clean install as the frontend job
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Only Chromium is needed; --with-deps adds its system libraries
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The tests need a production build. Build first so dist/ exists before the second test server
+      # (serve-two-versions.mjs) starts; playwright.pwa.config.js rebuilds for vite preview as well.
+      - name: Build
+        run: npm run build
+
+      - name: PWA tests
+        run: npm run test:pwa
