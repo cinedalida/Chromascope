@@ -31,9 +31,10 @@ function favoritesRef() {
 // Exactly the four reference fields; anything else on the input is dropped. Browse shades have no product_id.
 // Exported so the useFavorites hook shows the same item instantly before the save finishes.
 export function toFavoriteItem(input) {
-  const region = String(input?.region ?? "");
+  // A catalog product that AR cannot try on has no region; it can still be a product favorite (not part of a look).
+  const region = input?.region ? String(input.region) : null;
   const source = String(input?.source ?? "");
-  if (!ALL_REGIONS.includes(region)) throw new FavoritesError("invalid", `Unknown region: ${region}`);
+  if (region !== null && !ALL_REGIONS.includes(region)) throw new FavoritesError("invalid", `Unknown region: ${region}`);
   if (!SOURCES.includes(source)) throw new FavoritesError("invalid", `Unknown source: ${source}`);
   const item = {
     region,
@@ -88,6 +89,7 @@ export async function addProductFavorite(input, existing) {
 export async function saveLook(name, inputs, existing) {
   const items = (inputs || []).map(toFavoriteItem);
   if (items.length === 0) throw new FavoritesError("invalid", "Add at least one shade to save a look.");
+  if (items.some((item) => !item.region)) throw new FavoritesError("invalid", "Every shade in a look needs a region.");
   const regions = items.map((i) => i.region);
   if (new Set(regions).size !== regions.length) {
     throw new FavoritesError("invalid", "A look can have only one shade per region.");

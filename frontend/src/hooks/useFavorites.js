@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { useUserStore } from "../store/userStore";
 import * as favoritesService from "../services/favoritesService";
+import { regionForProduct } from "../utils/arProductMap";
 
 // One shared list for the whole app (catalog cards, the detail view and the AR panel all read it), loaded once per
 // signed-in user. Taps update the list at once; if the save fails, the change is rolled back and a short message
@@ -36,34 +37,58 @@ export const favoritesStore = create((set, get) => ({
       (f) => f.type === "product" && sameRef(f.items?.[0]?.product_id, productId) && sameRef(f.items?.[0]?.shade_id, shadeId),
     ),
 
-  // Adds the product (and shade) to favorites, or removes it if it is already there.
+  // A catalog product counts as a favorite whatever shade was stored with it (its best shade can change later).
+  findByProductId: (productId) =>
+    productId ? get().favorites.find((f) => f.type === "product" && f.items?.[0]?.product_id === productId) : undefined,
+
+  removeExisting: async (existing) => {
+    set({ favorites: get().favorites.filter((f) => f.id !== existing.id), error: null });
+    try {
+      await favoritesService.removeFavorite(existing.id);
+      return { ok: true };
+    } catch (error) {
+      const message = messageOf(error, "Couldn't remove the favorite. Try again.");
+      set({ favorites: [existing, ...get().favorites], error: message });
+      return { ok: false, error: message };
+    }
+  },
+
+  // Adds the product (and shade) to favorites, or removes it if it is already there. Resolves with { ok, error }.
   toggleProduct: async (input) => {
     let item;
     try {
       item = favoritesService.toFavoriteItem(input);
     } catch (error) {
-      set({ error: messageOf(error, "Couldn't save this favorite.") });
-      return;
+      const message = messageOf(error, "Couldn't save this favorite.");
+      set({ error: message });
+      return { ok: false, error: message };
     }
     const existing = get().findProduct(item.product_id, item.shade_id);
-    if (existing) {
-      set({ favorites: get().favorites.filter((f) => f.id !== existing.id), error: null });
-      try {
-        await favoritesService.removeFavorite(existing.id);
-      } catch (error) {
-        set({ favorites: [existing, ...get().favorites], error: messageOf(error, "Couldn't remove the favorite. Try again.") });
-      }
-      return;
-    }
+    if (existing) return get().removeExisting(existing);
     const before = get().favorites;
     const temp = { id: `pending-${++tempId}`, type: "product", name: null, items: [item], pending: true };
     set({ favorites: [temp, ...before], error: null });
     try {
       const saved = await favoritesService.addProductFavorite(item, before);
       set({ favorites: get().favorites.map((f) => (f.id === temp.id ? saved : f)) });
+      return { ok: true };
     } catch (error) {
-      set({ favorites: get().favorites.filter((f) => f.id !== temp.id), error: messageOf(error, "Couldn't save the favorite. Try again.") });
+      const message = messageOf(error, "Couldn't save the favorite. Try again.");
+      set({ favorites: get().favorites.filter((f) => f.id !== temp.id), error: message });
+      return { ok: false, error: message };
     }
+  },
+
+  // The heart on a catalog card or the detail view: the product with its best shade for this user, if known.
+  toggleCatalogProduct: async (product) => {
+    const existing = get().findByProductId(product?.product_id);
+    if (existing) return get().removeExisting(existing);
+    return get().toggleProduct({
+      region: regionForProduct(product),
+      source: "catalog",
+      product_id: product?.product_id,
+      shade_id: product?.best_shade?.shade_id ?? null,
+    });
   },
 
   // Looks are saved from a dialog that waits for the result, so this resolves with the saved look or throws.
@@ -118,7 +143,9 @@ export function useFavorites() {
     favorites: uid ? store.favorites : [],
     error: store.error,
     isFavorite: (productId, shadeId) => Boolean(uid && store.findProduct(productId, shadeId)),
+    isProductFavorite: (productId) => Boolean(uid && store.findByProductId(productId)),
     toggleProduct: store.toggleProduct,
+    toggleCatalogProduct: store.toggleCatalogProduct,
     saveLook: store.saveLook,
     renameLook: store.renameLook,
     removeFavorite: store.removeFavorite,

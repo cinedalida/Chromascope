@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { SafetyBadge } from "./SafetyBadge.jsx";
+import { FavoriteButton } from "./ProductCard.jsx";
 
 // Same rules as ProductCard (a component file cannot share plain helpers under the fast-refresh lint rule).
 function imageSrc(url) {
@@ -99,15 +100,18 @@ export function ProductDetail({ product, onClose }) {
           <h2 id="product-detail-title" className="font-heading text-lg font-semibold leading-snug text-black">
             {name}
           </h2>
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Close product details"
-            className="shrink-0 rounded-full p-2 text-gray transition hover:bg-gray-lightest hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <X aria-hidden="true" className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-start gap-1">
+            <FavoriteButton product={product} />
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Close product details"
+              className="shrink-0 rounded-full p-2 text-gray transition hover:bg-gray-lightest hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <X aria-hidden="true" className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
