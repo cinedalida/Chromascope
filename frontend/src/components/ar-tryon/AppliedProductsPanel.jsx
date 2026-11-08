@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bookmark, Check, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
+import { Bookmark, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { groupByProduct, searchProducts, shortShadeName } from "../../utils/shadeGroups.js";
 import { ProductSwatchPicker, ShadeFavoriteButton } from "./ProductSwatchPicker.jsx";
@@ -201,25 +201,28 @@ function RecommendedCard({ group, selectedShades, onSelect, showType }) {
   const hasBadges = group.verdict || group.fitTier || group.seasonMatch;
   return (
     <div
-      className={`flex h-full min-w-0 flex-col rounded-2xl p-3 ring-1 transition-colors duration-200 ${
+      className={`flex h-full min-w-0 flex-col rounded-2xl p-2.5 ring-1 transition-colors duration-200 ${
         isSelected ? "bg-primary-lightest ring-primary" : "bg-white ring-gray-lightest hover:ring-gray-lighter"
       }`}
     >
-      {/* The shade first: a wide color block that applies it (tap again to remove), with a check when applied. */}
-      <button
-        type="button"
-        onClick={() => onSelect(group.region, isSelected ? null : shade)}
-        title={fullName}
-        aria-label={fullName}
-        aria-pressed={isSelected}
-        className="relative flex h-14 w-full shrink-0 items-center justify-center rounded-xl ring-1 ring-black/5 transition duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        style={{ backgroundColor: shade.hex }}
-      >
-        {isSelected && (
-          <Check aria-hidden="true" size={20} strokeWidth={3} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
-        )}
-      </button>
-      <div className="mt-2 flex min-h-6 items-center gap-1">
+      {/* The shade first: the same round swatch as Browse (tap to apply, tap again to remove) and its name. */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onSelect(group.region, isSelected ? null : shade)}
+          title={fullName}
+          aria-label={fullName}
+          aria-pressed={isSelected}
+          className="group shrink-0 rounded-full p-0.5 focus:outline-none"
+        >
+          <span
+            aria-hidden="true"
+            className={`block h-8 w-8 rounded-full ring-offset-2 transition-transform duration-150 group-hover:scale-115 group-focus-visible:scale-115 group-focus-visible:ring-2 group-focus-visible:ring-primary-light ${
+              isSelected ? "ring-2 ring-primary" : "ring-1 ring-black/5"
+            }`}
+            style={{ backgroundColor: shade.hex }}
+          />
+        </button>
         <span title={fullName} className="min-w-0 flex-1 truncate font-heading text-[13px] font-semibold text-black">
           {shortShadeName(fullName)}
         </span>
@@ -227,7 +230,7 @@ function RecommendedCard({ group, selectedShades, onSelect, showType }) {
       </div>
 
       {/* Then the product, quieter */}
-      <span className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
+      <span className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-gray-light">{group.brand}</span>
       <p title={group.product} className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray">
         {group.product}
       </p>
