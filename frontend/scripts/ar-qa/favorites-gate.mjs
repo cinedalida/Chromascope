@@ -62,13 +62,16 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 const page = await context.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(String(e)));
-let counts = { products: 0, filter: 0 };
+let counts = { products: 0, batch: 0, filter: 0 };
+const t0 = Date.now();
 page.on("request", (r) => {
   const u = new URL(r.url());
-  if (u.pathname.endsWith("/run-filter")) counts.filter += 1;
+  if (process.env.DEBUG_REQ && /\/(run-filter-batch|run-filter|products)$/.test(u.pathname)) console.log(`    +${Date.now() - t0} ms ${r.method()} ${u.pathname} ${r.postData()?.slice(0, 60) ?? ""}`);
+  if (u.pathname.endsWith("/run-filter-batch")) counts.batch += 1;
+  else if (u.pathname.endsWith("/run-filter")) counts.filter += 1;
   else if (u.pathname.endsWith("/products") && r.method() === "GET") counts.products += 1;
 });
-await page.route(/\/(run-filter|products)(\?|$)/, async (route) => {
+await page.route(/\/(run-filter-batch|run-filter|products)(\?|$)/, async (route) => {
   await sleep(DELAY_MS);
   await route.continue();
 });
@@ -106,7 +109,7 @@ await sleep(8000); // background warm-up settles first
 
 // Opens Favorites in-app; returns requests made, ms until the first verdict badge, and the page text.
 async function visit(label) {
-  counts = { products: 0, filter: 0 };
+  counts = { products: 0, batch: 0, filter: 0 };
   const start = Date.now();
   await spaGo("/favorites");
   await page.waitForSelector("text=/Rose Lipstick/", { timeout: 30000 });
@@ -114,23 +117,23 @@ async function visit(label) {
   const ms = Date.now() - start;
   await sleep(2500);
   const text = await page.evaluate(() => document.body.innerText);
-  console.log(`  [${label}] /products=${counts.products} /run-filter=${counts.filter} verdicts after ${ms} ms`);
+  console.log(`  [${label}] /products=${counts.products} /run-filter-batch=${counts.batch} /run-filter=${counts.filter} verdicts after ${ms} ms`);
   return { label, ...counts, ms, text };
 }
 
 const first = await visit("first visit");
-check("first visit: favorites show with a verdict", /Rose Lipstick/.test(first.text) && /Safe/.test(first.text), `${first.products} /products, ${first.filter} /run-filter`);
-check("first visit: each request once (6 categories + the product list)", first.products === 1 && first.filter === 6, `${first.products} /products, ${first.filter} /run-filter`);
+check("first visit: favorites show with a verdict", /Rose Lipstick/.test(first.text) && /Safe/.test(first.text), `${first.products} /products, ${first.batch} /run-filter-batch`);
+check("first visit: two requests in all (the product list and one filter call for all categories)", first.products === 1 && first.batch === 1 && first.filter === 0, `${first.products} /products, ${first.batch} /run-filter-batch, ${first.filter} /run-filter`);
 check("first visit: nothing is Excluded yet", !/Excluded/.test(first.text));
 
 await spaGo("/profile");
 await sleep(1500);
 const back = await visit("back from Profile");
-check("coming back: no /products and no /run-filter", back.products === 0 && back.filter === 0, `${back.products} /products, ${back.filter} /run-filter`);
+check("coming back: no requests at all", back.products + back.batch + back.filter === 0, `${back.products} /products, ${back.batch} /run-filter-batch, ${back.filter} /run-filter`);
 check(`coming back: verdicts appear in under ${DELAY_MS / 2} ms`, back.ms < DELAY_MS / 2, `${back.ms} ms vs ${first.ms} ms on the first visit`);
 
 // "Try on" from a favorite: the page already holds the data, so AR needs nothing more from the server for it.
-counts = { products: 0, filter: 0 };
+counts = { products: 0, batch: 0, filter: 0 };
 await page.getByRole("button", { name: /^try on$/i }).first().click();
 await page.waitForURL(/\/ar-tryon/, { timeout: 15000 });
 await page.getByRole("button", { name: /start try-on now/i }).click({ timeout: 3000 }).catch(() => {});
@@ -138,7 +141,7 @@ await page.waitForSelector("canvas", { timeout: 30000 });
 await sleep(3000);
 const arText = await page.evaluate(() => document.body.innerText);
 check("Try on: opens Try-On with no 'Not applied' notice", !/Not applied/.test(arText));
-check("Try on: no /products request for it (the page's data is reused)", counts.products === 0, `${counts.products} /products, ${counts.filter} /run-filter`);
+check("Try on: no /products or filter request for it (the page's data is reused)", counts.products + counts.batch === 0, `${counts.products} /products, ${counts.batch} /run-filter-batch`);
 
 // A real profile edit: the safety filter's inputs change, so the verdicts must be fetched again.
 await spaGo("/profile");
@@ -148,13 +151,13 @@ await page.getByRole("button", { name: "Fragrance / Parfum" }).click();
 await page.getByRole("button", { name: /^save$/i }).click();
 await sleep(2500);
 const edited = await visit("after blocking fragrance");
-check("profile edit: verdicts are fetched again, once per category", edited.filter === 6 && edited.products === 0, `${edited.products} /products, ${edited.filter} /run-filter`);
+check("profile edit: verdicts are fetched again, in one request", edited.batch === 1 && edited.filter === 0 && edited.products === 0, `${edited.products} /products, ${edited.batch} /run-filter-batch, ${edited.filter} /run-filter`);
 check("profile edit: the scented favorite is now Excluded", /Excluded/.test(edited.text));
 
 await spaGo("/profile");
 await sleep(1000);
 const again = await visit("again");
-check("then back again: served from memory", again.products === 0 && again.filter === 0, `${again.products} /products, ${again.filter} /run-filter`);
+check("then back again: served from memory", again.products + again.batch + again.filter === 0, `${again.products} /products, ${again.batch} /run-filter-batch, ${again.filter} /run-filter`);
 check("no uncaught errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" || "));
 
 fs.writeFileSync(path.join(outDir, "favorites_gate_report.json"), JSON.stringify({ checks }, null, 1));

@@ -46,16 +46,20 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 const page = await context.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(String(e)));
-let counts = { products: 0, filter: 0 };
-page.on("request", (r) => {
+let counts = { products: 0, batch: 0, filter: 0 };
+// /run-filter-batch (one request for all categories) and /run-filter (one per category) are counted apart.
+const track = (p, c) => p.on("request", (r) => {
   const u = new URL(r.url());
-  if (u.pathname.endsWith("/run-filter")) counts.filter += 1;
-  else if (u.pathname.endsWith("/products") && r.method() === "GET") counts.products += 1;
+  if (u.pathname.endsWith("/run-filter-batch")) c().batch += 1;
+  else if (u.pathname.endsWith("/run-filter")) c().filter += 1;
+  else if (u.pathname.endsWith("/products") && r.method() === "GET") c().products += 1;
 });
-await page.route(/\/(run-filter|products)(\?|$)/, async (route) => {
+const delayRoute = (p) => p.route(/\/(run-filter-batch|run-filter|products)(\?|$)/, async (route) => {
   await sleep(DELAY_MS);
-  await route.continue();
+  await route.fallback();
 });
+track(page, () => counts);
+await delayRoute(page);
 
 const spaGo = (to) => page.evaluate((p) => { window.history.pushState({}, "", p); window.dispatchEvent(new PopStateEvent("popstate")); }, to);
 // The verdict badge, not the "Excluded" option in the filter sidebar.
@@ -90,7 +94,7 @@ await sleep(8000); // let any background warm-up settle so it is not counted aga
 
 // Opens the Full catalog view in-app (every product with its verdict, whatever the "Safe for me" view hides); returns requests made, time until the first card, and the page text.
 async function visit(label) {
-  counts = { products: 0, filter: 0 };
+  counts = { products: 0, batch: 0, filter: 0 };
   const start = Date.now();
   await spaGo("/catalog?view=all");
   await page.waitForSelector(CARD, { timeout: 30000 });
@@ -99,19 +103,19 @@ async function visit(label) {
   const text = await page.evaluate(() => document.body.innerText);
   const out = { label, ...counts, ms, text };
   fs.writeFileSync(path.join(outDir, `page_${label.replace(/\W+/g, "_")}.txt`), text);
-  console.log(`  [${label}] /products=${out.products} /run-filter=${out.filter} first card after ${ms} ms`);
+  console.log(`  [${label}] /products=${out.products} /run-filter-batch=${out.batch} /run-filter=${out.filter} first card after ${ms} ms`);
   return out;
 }
 
 const first = await visit("first visit");
-check("first visit: catalog loads from the server", first.products >= 1 && first.filter >= 1, `${first.products} /products, ${first.filter} /run-filter`);
-check("first visit: each request is made once (6 categories + the product list), even when the page effect runs twice", first.products === 1 && first.filter === 6, `${first.products} /products, ${first.filter} /run-filter`);
+check("first visit: catalog loads from the server", first.products >= 1 && first.batch >= 1, `${first.products} /products, ${first.batch} /run-filter-batch`);
+check("first visit: two requests in all (the product list and ONE filter call for all six categories), even when the page effect runs twice", first.products === 1 && first.batch === 1 && first.filter === 0, `${first.products} /products, ${first.batch} /run-filter-batch, ${first.filter} /run-filter`);
 check("first visit: scented product is listed and nothing is Excluded yet", /Scented Berry/.test(first.text) && !EXCLUDED.test(first.text));
 
 await spaGo("/profile");
 await sleep(1500);
 const back = await visit("back from Profile");
-check("coming back: no /products and no /run-filter", back.products === 0 && back.filter === 0, `${back.products} /products, ${back.filter} /run-filter`);
+check("coming back: no requests at all", back.products + back.batch + back.filter === 0, `${back.products} /products, ${back.batch} /run-filter-batch, ${back.filter} /run-filter`);
 check(`coming back: cards appear in under ${DELAY_MS / 2} ms`, back.ms < DELAY_MS / 2, `${back.ms} ms vs ${first.ms} ms on the first visit`);
 check("coming back: same products as before", /Scented Berry/.test(back.text) && !EXCLUDED.test(back.text));
 
@@ -123,13 +127,38 @@ await page.getByRole("button", { name: "Fragrance / Parfum" }).click();
 await page.getByRole("button", { name: /^save$/i }).click();
 await sleep(2500);
 const edited = await visit("after blocking fragrance");
-check("profile edit: the safety results are fetched again, once per category", edited.filter === 6, `${edited.filter} /run-filter`);
+check("profile edit: the safety results are fetched again, in one request", edited.batch === 1 && edited.filter === 0, `${edited.batch} /run-filter-batch, ${edited.filter} /run-filter`);
 check("profile edit: the product list itself is not refetched", edited.products === 0, `${edited.products} /products`);
 check("profile edit: the scented product is now Excluded", EXCLUDED.test(edited.text));
 await spaGo("/profile");
 await sleep(1000);
 const again = await visit("again");
-check("then back again: served from memory", again.products === 0 && again.filter === 0, `${again.products} /products, ${again.filter} /run-filter`);
+check("then back again: served from memory", again.products + again.batch + again.filter === 0, `${again.products} /products, ${again.batch} /run-filter-batch, ${again.filter} /run-filter`);
+
+// ---- An old backend (not redeployed yet): the batch route answers 404 with CORS headers, like the real server would.
+const page2 = await context.newPage();
+page2.on("pageerror", (e) => pageErrors.push(String(e)));
+let counts2 = { products: 0, batch: 0, filter: 0 };
+track(page2, () => counts2);
+await delayRoute(page2);
+const CORS = { "access-control-allow-origin": APP, "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,POST,PATCH,DELETE" };
+await page2.route(/\/run-filter-batch(\?|$)/, (route) =>
+  route.request().method() === "OPTIONS" ? route.fulfill({ status: 204, headers: CORS }) : route.fulfill({ status: 404, headers: CORS, contentType: "application/json", body: '{"detail":"Not Found"}' }));
+const startOld = Date.now();
+await page2.goto(`${APP}/catalog?view=all`);
+await page2.waitForSelector(CARD, { timeout: 40000 });
+await sleep(6000);
+const oldText = await page2.evaluate(() => document.body.innerText);
+console.log(`  [old backend] /products=${counts2.products} /run-filter-batch=${counts2.batch} /run-filter=${counts2.filter} (${Date.now() - startOld} ms to load)`);
+check("old backend: the page still loads, by asking per category (batch tried once, then six single calls)", counts2.batch === 1 && counts2.filter === 6, `${counts2.batch} /run-filter-batch, ${counts2.filter} /run-filter`);
+check("old backend: shows exactly what the batch showed (same page text)", oldText.replace(/\s+/g, " ") === again.text.replace(/\s+/g, " "), `${oldText.length} vs ${again.text.length} chars`);
+counts2 = { products: 0, batch: 0, filter: 0 };
+await page2.evaluate(() => { window.history.pushState({}, "", "/profile"); window.dispatchEvent(new PopStateEvent("popstate")); });
+await sleep(1200);
+await page2.evaluate(() => { window.history.pushState({}, "", "/catalog?view=all"); window.dispatchEvent(new PopStateEvent("popstate")); });
+await page2.waitForSelector(CARD, { timeout: 10000 });
+await sleep(1500);
+check("old backend: coming back still makes no requests", counts2.products + counts2.batch + counts2.filter === 0, `${counts2.products + counts2.batch + counts2.filter} requests`);
 
 check("no uncaught errors", pageErrors.length === 0, pageErrors.slice(0, 2).join(" || "));
 fs.writeFileSync(path.join(outDir, "catalog_gate_report.json"), JSON.stringify({ checks }, null, 1));
