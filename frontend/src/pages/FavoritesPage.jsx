@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Sparkles, X } from "lucide-react";
-import { getProductCatalog, runFilter } from "../services/productService";
+import { getCatalog, getSafetyResults } from "../services/catalogDataService";
 import { getShades } from "../services/arShadeService";
 import { useUserStore } from "../store/userStore";
 import { TRY_ON_GROUPS, canTryOn, favoriteToTryOn, useFavorites } from "../hooks/useFavorites";
@@ -10,8 +10,7 @@ import { FavoriteProductCard } from "../components/favorites/FavoriteProductCard
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { LookCard } from "../components/favorites/LookCard.jsx";
 
-// Same safety filter requests as the catalog page, so every badge is the current verdict, never a saved one (F-R1).
-const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
+// Same safety filter results as the catalog page, so every badge is the current verdict, never a saved one (F-R1).
 const TABS = [
   { key: "products", label: "Products" },
   { key: "looks", label: "Looks" },
@@ -72,9 +71,10 @@ export function FavoritesPage() {
   const [filterResults, setFilterResults] = useState(null);
   const [browse, setBrowse] = useState({}); // region -> Browse shade items
 
+  // Both are kept across visits (catalogDataService.js): coming back makes no requests, a profile change refreshes the verdicts.
   useEffect(() => {
     let active = true;
-    getProductCatalog().then((items) => active && setCatalog(items));
+    getCatalog().then((items) => active && setCatalog(items));
     return () => {
       active = false;
     };
@@ -83,14 +83,8 @@ export function FavoritesPage() {
   useEffect(() => {
     if (!user || !hasProfile) return undefined;
     let active = true;
-    const payload = {
-      skin_type: user.skin_type || user.skin_profile?.base_type || "Normal",
-      avoid_ingredients: user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [],
-      user_lab: user.user_lab,
-      seasonal_label: user.seasonal_label,
-    };
-    Promise.all(FILTER_CATEGORIES.map((category) => runFilter({ ...payload, category }))).then((responses) => {
-      if (active) setFilterResults(responses.flatMap((response) => response.color_matched || []));
+    getSafetyResults(user).then(({ results }) => {
+      if (active) setFilterResults(results);
     });
     return () => {
       active = false;

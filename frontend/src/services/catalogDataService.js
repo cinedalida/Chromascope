@@ -32,18 +32,27 @@ function filterInputs(user) {
 const isComplete = (responses) => responses.every((response) => response?.active_profile);
 
 /**
- * Safety and match results for every category: { results, complete }. Cached per user and per profile, so editing the
- * profile (skin type, concerns, avoided ingredients, season, skin color) asks the server again and nothing else does.
- * A result with a failed category is returned but not kept, so the next visit (or Retry) tries again.
+ * One category's /run-filter response. Cached per user, category and profile, so editing the profile (skin type,
+ * concerns, avoided ingredients, season, skin color) asks the server again and nothing else does. The catalog page,
+ * the Favorites page and a favorite's "Try on" all read through here, so they share one request per category.
+ * A failed response is returned but not kept, so the next call (or Retry) tries again.
  */
-export function getSafetyResults(user) {
+export function getSafetyCategory(user, category) {
   const payload = filterInputs(user);
   const signature = profileSignature({ ...payload, concerns: user.concerns });
-  const load = async () => {
-    const responses = await Promise.all(FILTER_CATEGORIES.map((category) => runFilter({ ...payload, category })));
-    return { results: responses.flatMap((response) => response.color_matched || []), complete: isComplete(responses) };
-  };
-  return safetyCache.get(user.uid, "safety", signature, load, (value) => !value.complete);
+  return safetyCache.get(
+    user.uid,
+    `safety:${category}`,
+    signature,
+    () => runFilter({ ...payload, category }),
+    (response) => !isComplete([response]),
+  );
+}
+
+/** Every category's results together: { results, complete }. */
+export async function getSafetyResults(user) {
+  const responses = await Promise.all(FILTER_CATEGORIES.map((category) => getSafetyCategory(user, category)));
+  return { results: responses.flatMap((response) => response.color_matched || []), complete: isComplete(responses) };
 }
 
 // Sign-out: the next person on this device starts clean.

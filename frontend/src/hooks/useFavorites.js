@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { useUserStore } from "../store/userStore";
 import * as favoritesService from "../services/favoritesService";
 import { regionForProduct } from "../utils/arProductMap";
-import { getProductCatalog, runFilter } from "../services/productService";
+import { getCatalog, getSafetyCategory } from "../services/catalogDataService";
 import { getShades } from "../services/arShadeService";
 import { productToTryOn } from "../services/arRecommendedService";
 import { REGION_LABEL, groupOfRegion } from "../utils/arGroups";
@@ -173,29 +173,16 @@ export const TRY_ON_GROUPS = ["lips", "cheeks", "eyes"];
 // Product category (data) -> safety filter category (api.py category_map).
 const FILTER_CATEGORY = { Lip: "Lips", Cheek: "Cheeks", Eye: "Eyes", Face: "Face", Concealer: "Concealer", "Multi-Use": "Multiuse" };
 
-let catalogRequest = null;
-const filterRequests = new Map();
-
-function filterPayload(user) {
-  return {
-    skin_type: user.skin_type || user.skin_profile?.base_type || "Normal",
-    avoid_ingredients: user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [],
-    user_lab: user.user_lab,
-    seasonal_label: user.seasonal_label,
-  };
-}
-
-// The product as the safety filter sees it now (current verdict, best shade), else the plain catalog entry.
+// The product as the safety filter sees it now (current verdict, best shade), else the plain catalog entry. Both reads
+// go through catalogDataService, so they are shared with the pages and refreshed when the profile changes.
 async function currentProduct(productId, user, context) {
   const fromContext = context?.byId?.get(productId);
   if (fromContext) return fromContext;
-  catalogRequest ??= getProductCatalog();
-  const raw = (await catalogRequest).find((p) => p.product_id === productId);
+  const raw = (await getCatalog()).find((p) => p.product_id === productId);
   if (!raw) return null;
   const category = FILTER_CATEGORY[raw.category];
   if (!user || !(user.profile_completed || user.skin_type) || !category) return raw;
-  if (!filterRequests.has(category)) filterRequests.set(category, runFilter({ ...filterPayload(user), category }));
-  const result = ((await filterRequests.get(category)).color_matched || []).find((p) => p.product_id === productId);
+  const result = ((await getSafetyCategory(user, category)).color_matched || []).find((p) => p.product_id === productId);
   return result ?? raw;
 }
 
