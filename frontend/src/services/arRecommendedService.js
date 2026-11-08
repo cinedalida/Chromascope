@@ -64,6 +64,8 @@ function toShadeItem(product) {
     url: null,
     verdict: verdict === "safe" || verdict === "caution" ? verdict : null,
     seasonMatch: Boolean(product.is_season_match),
+    seasonTags: product.season_tags ?? null, // the seasons the product is tagged for, shown on the card
+    matchBasis: product.match_basis ?? null, // "harmony" | "skin" | "neutral": what the fit is based on
     // How well the best shade suits the user, 0..1, or null when the product has no color target.
     fit: Number.isFinite(fit) && product.fit_score !== null ? fit : null,
     fitTier: TIER_LABEL[product.fit_tier] ?? null,

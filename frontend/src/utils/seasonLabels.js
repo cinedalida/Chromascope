@@ -42,13 +42,13 @@ export function seasonCodes(product) {
  * Chips for a product's seasons: at most 3 season names plus "+N", always at least one entry.
  * "ALL" or no tag reads "Matched to your skin tone" for products chosen by skin color, else "All seasons".
  */
-export function seasonChips(product) {
+export function seasonChips(product, limit = MAX_CHIPS) {
   const tags = splitTags(product?.season_tags);
   const codes = seasonCodes(product);
   if (codes.length > 0) {
     const names = codes.map((code) => SEASON_BY_CODE[code]);
-    const shown = names.slice(0, MAX_CHIPS);
-    return names.length > MAX_CHIPS ? [...shown, `+${names.length - MAX_CHIPS}`] : shown;
+    const shown = names.slice(0, limit);
+    return names.length > limit ? [...shown, `+${names.length - limit}`] : shown;
   }
   const isProse = tags.length > 0 && !tags.some((t) => /^all\b/i.test(t));
   if (isProse) return [tags.join(", ")];

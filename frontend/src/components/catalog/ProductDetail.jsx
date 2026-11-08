@@ -4,6 +4,7 @@ import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { SafetyBadge } from "./SafetyBadge.jsx";
 import { FavoriteButton } from "./ProductCard.jsx";
+import { SeasonTags } from "../common/SeasonTags.jsx";
 
 // Same rules as ProductCard (a component file cannot share plain helpers under the fast-refresh lint rule).
 function imageSrc(url) {
@@ -133,6 +134,7 @@ export function ProductDetail({ product, onClose }) {
               </p>
             )}
             {product.brand && <p className="text-sm uppercase tracking-wide text-gray">{product.brand}</p>}
+            <SeasonTags tags={product.season_tags} basis={product.match_basis} limit={12} />
           </div>
 
           {flagged.length > 0 && (

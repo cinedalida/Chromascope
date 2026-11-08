@@ -13,7 +13,7 @@ const AUTH = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
 const PASSWORD = "testpass123";
 const A = { email: "persist-a@example.com", name: "Persist A" };
 const B = { email: "persist-b@example.com", name: "Persist B" };
-const PREFIX = "chromascope:ar-rec:v2:";
+const PREFIX = "chromascope:ar-rec:v3:";
 fs.mkdirSync(outDir, { recursive: true });
 
 const num = (v) => ({ doubleValue: v });

@@ -7,6 +7,7 @@ import { ProductSwatchPicker, ShadeFavoriteButton } from "./ProductSwatchPicker.
 import { AR_GROUPS, REGION_LABEL, groupByKey, groupOfRegion } from "../../utils/arGroups.js";
 import { selectedShadesToItems, useFavorites } from "../../hooks/useFavorites.js";
 import { SaveLookDialog } from "../favorites/SaveLookDialog.jsx";
+import { SeasonTags } from "../common/SeasonTags.jsx";
 
 // A look's items as comparable keys, so "changed since it was loaded" ignores field order.
 const itemKeys = (items) => (items || []).map((i) => `${i.region}|${i.source}|${i.product_id}|${i.shade_id}`).sort().join(",");
@@ -236,6 +237,7 @@ function RecommendedCard({ group, selectedShades, onSelect, showType }) {
             <MatchBadge group={group} />
           </span>
         )}
+        <SeasonTags tags={group.seasonTags} basis={group.matchBasis} limit={2} className="mt-1" />
         {/* Bottom row: type tag on the left, price on the right. */}
         {((showType && group.region) || price) && (
           <span className="mt-auto flex w-full min-w-0 items-center justify-between gap-2 pt-2.5">

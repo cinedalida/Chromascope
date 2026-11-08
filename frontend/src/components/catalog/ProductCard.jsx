@@ -4,6 +4,7 @@ import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { useFavorites } from "../../hooks/useFavorites";
 import { SafetyBadge } from "./SafetyBadge.jsx";
+import { SeasonTags } from "../common/SeasonTags.jsx";
 
 /**
  * FavoriteButton: the heart for one catalog product (Part B, Phase F2). Hidden for signed-out users (decision B1)
@@ -108,6 +109,7 @@ export function ProductCard({ product, verdict = product.verdict, onSelect }) {
           </span>
           <span className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{name}</span>
           {product.brand && <span className="block truncate text-xs uppercase tracking-wide text-gray">{product.brand}</span>}
+          <SeasonTags tags={product.season_tags} basis={product.match_basis} limit={2} />
           {reason && <span className="line-clamp-2 text-xs leading-snug text-gray">{reason}</span>}
           {/* Bottom row: shade dot on the left, price on the right. */}
           {(product.hex_color || price) && (

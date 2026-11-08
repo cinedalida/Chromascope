@@ -22,6 +22,8 @@ export function groupByProduct(items) {
         url: item.url,
         verdict: item.verdict,
         seasonMatch: item.seasonMatch,
+        seasonTags: item.seasonTags,
+        matchBasis: item.matchBasis,
         fitTier: item.fitTier,
         shades: [],
       });

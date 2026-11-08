@@ -34,8 +34,8 @@ const safely = (fn, fallback = null) => {
   }
 };
 
-// Bump when the shape of a stored result changes, so results saved by older code are ignored. (v2: items gained shadeId.)
-const STORAGE_PREFIX = "chromascope:ar-rec:v2:";
+// Bump when the shape of a stored result changes, so results saved by older code are ignored. (v2: shadeId. v3: seasonTags, matchBasis.)
+const STORAGE_PREFIX = "chromascope:ar-rec:v3:";
 
 /**
  * Persists results in a Storage-like object (localStorage), one slot per user and group, so a reload does not refetch.
