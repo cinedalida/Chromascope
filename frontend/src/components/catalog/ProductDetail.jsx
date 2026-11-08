@@ -25,7 +25,7 @@ const CATEGORY_LABEL = { "Multi-Use": "Multiuse" };
 
 /**
  * ProductDetail: the safety details of one product without leaving the catalog. A bottom sheet on phones and a
- * side panel on desktop. Closes with the close button, the Escape key, a tap on the backdrop, or the back button
+ * centered dialog on desktop. Closes with the close button, the Escape key, a tap on the backdrop, or the back button
  * (the page keeps the open product in the URL). Focus moves into the panel on open and stays inside while it is
  * open; the page returns it to the card on close. Only fields the data has are shown (C4).
  */
@@ -86,7 +86,7 @@ export function ProductDetail({ product, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-500 flex items-end bg-black/40 lg:items-stretch lg:justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-500 flex items-end bg-black/40 lg:items-center lg:justify-center lg:p-6" onClick={onClose}>
       <div
         ref={panelRef}
         role="dialog"
@@ -94,7 +94,7 @@ export function ProductDetail({ product, onClose }) {
         aria-labelledby="product-detail-title"
         onKeyDown={onKeyDown}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl lg:max-h-none lg:w-110 lg:rounded-none lg:rounded-l-3xl"
+        className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl lg:max-h-[85dvh] lg:w-full lg:max-w-xl lg:rounded-3xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-gray-lightest px-5 py-4">
           <h2 id="product-detail-title" className="font-heading text-lg font-semibold leading-snug text-black">
