@@ -36,10 +36,16 @@ def init_firebase(key_filename: str = "serviceAccountKey.json"):
     # FIREBASE_KEY_JSON: the key's contents in a hosting secret (Hugging Face Space); FIREBASE_KEY_FILE: a path outside
     # the repo (never copy the key into git-tracked folders).
     key_json = os.environ.get("FIREBASE_KEY_JSON", "").strip()
+    key_file = os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename)
     if key_json:
         import json
         cred = credentials.Certificate(json.loads(key_json))
+    elif os.path.exists(key_file):
+        cred = credentials.Certificate(key_file)
+    elif os.environ.get("K_SERVICE"):
+        # Google Cloud Run: the service's own identity (its service account), so no key file exists anywhere.
+        cred = credentials.ApplicationDefault()
     else:
-        cred = credentials.Certificate(os.environ.get("FIREBASE_KEY_FILE") or os.path.join(BACKEND_DIR, key_filename))
+        cred = credentials.Certificate(key_file)  # raises a clear "file not found" error, as before
     return firebase_admin.initialize_app(cred, options={
         "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "chromascope-new.firebasestorage.app")})
