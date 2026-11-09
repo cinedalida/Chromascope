@@ -42,6 +42,41 @@ function FilterGroup({ id, title, options, selected, onToggle }) {
   );
 }
 
+/* A vertical list of one-choice rows. `count` is optional. Pressing the active row again clears it. */
+function PillGroup({ id, title, options, selected, onSelect, allLabel }) {
+  const pill = (isActive) =>
+    `flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      isActive ? "bg-primary-lighter font-semibold text-primary-dark" : "text-black hover:bg-primary-lightest"
+    }`;
+  return (
+    <div role="group" aria-labelledby={id} className="rounded-2xl bg-white p-3 ring-1 ring-primary-lighter">
+      <h3 id={id} className="mb-2 px-1 text-[11px] font-bold uppercase tracking-widest text-gray">
+        {title}
+      </h3>
+      <div className="flex flex-col gap-0.5">
+        <button type="button" aria-pressed={!selected} onClick={() => onSelect("")} className={pill(!selected)}>
+          {allLabel}
+        </button>
+        {options.map((option) => {
+          const isActive = selected === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onSelect(isActive ? "" : option.value)}
+              className={pill(isActive)}
+            >
+              <span className="min-w-0 truncate">{option.label}</span>
+              {option.count !== undefined && <span className="shrink-0 text-xs text-gray-light">{option.count}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Search on product name and brand (no ingredient search: plan decision 4). */
 export function CatalogSearch({ value, onChange }) {
   return (
@@ -60,25 +95,41 @@ export function CatalogSearch({ value, onChange }) {
  * CatalogFilters: the filter panel (a sidebar on desktop, a sheet on phones). Owns no state: the page keeps every
  * filter in the URL next to the view, and filters the data it already loaded.
  */
-export function CatalogFilters({ idPrefix, view, categories, verdicts, onToggle, onClear, active }) {
-  const verdictOptions = view === "all" ? VERDICT_OPTIONS : VERDICT_OPTIONS.filter((option) => option.value !== "excluded");
+export function CatalogFilters({ idPrefix, view, categories, subOptions, sub, verdicts, onSelectCategory, onSelectSub, onToggle, onClear, active }) {
+  const verdictOptions = VERDICT_OPTIONS.filter((option) => option.value !== "excluded"); // Excluded products are never listed
   // idPrefix keeps the heading ids unique: the sidebar stays in the page while the phone sheet is open.
   return (
     <div className="space-y-4">
-      <FilterGroup
+      {/* One category at a time, then its sub-categories (Lip: Lipstick, Lip liner ...). A shared link with several
+          categories still filters by all of them; the first press here replaces them with one. */}
+      <PillGroup
         id={`${idPrefix}-category`}
         title="Category"
+        allLabel="All"
         options={CATEGORY_OPTIONS}
-        selected={categories}
-        onToggle={(value) => onToggle("category", value)}
+        selected={categories.length === 1 ? categories[0] : categories.length > 1 ? "multiple" : ""}
+        onSelect={onSelectCategory}
       />
-      <FilterGroup
-        id={`${idPrefix}-verdict`}
-        title="Safety verdict"
-        options={verdictOptions}
-        selected={verdicts}
-        onToggle={(value) => onToggle("verdict", value)}
-      />
+      {subOptions.length > 1 && (
+        <PillGroup
+          id={`${idPrefix}-sub`}
+          title="Type"
+          allLabel="All"
+          options={subOptions}
+          selected={sub}
+          onSelect={onSelectSub}
+        />
+      )}
+      {/* The Full catalog is not checked against the profile, so it has no safety filter. */}
+      {view !== "all" && (
+        <FilterGroup
+          id={`${idPrefix}-verdict`}
+          title="Safety verdict"
+          options={verdictOptions}
+          selected={verdicts}
+          onToggle={(value) => onToggle("verdict", value)}
+        />
+      )}
       {active && (
         <button
           type="button"

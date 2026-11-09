@@ -33,8 +33,9 @@ async function uidOf(email) {
   });
   return res.ok ? (await res.json()).localId : null;
 }
-async function setProfile(uid, fields) {
-  const mask = Object.keys(fields).map((k) => `updateMask.fieldPaths=${k}`).join("&");
+// Fields named in `clear` but absent from `fields` are deleted (Firestore field mask semantics).
+async function setProfile(uid, fields, clear = []) {
+  const mask = [...Object.keys(fields), ...clear].map((k) => `updateMask.fieldPaths=${k}`).join("&");
   const res = await fetch(`${FIRESTORE}/users/${uid}?${mask}`, {
     method: "PATCH", headers: { authorization: "Bearer owner", "content-type": "application/json" }, body: JSON.stringify({ fields }),
   });
@@ -81,10 +82,11 @@ if (!(await uidOf(ACCT.email))) {
   await page.goto(`${APP}/auth`);
 }
 const uid = await uidOf(ACCT.email);
+// No season on purpose: "Compatible with me" also drops products whose shades do not fit the user's colors, and this
+// gate is about requests and caching, so it keeps every safe product (the berry lipstick would not fit Soft Autumn).
 await setProfile(uid, {
-  seasonal_label: str("Soft Autumn"), user_lab: arr([60, 10, 12].map(num)), season_confidence_level: num(0.9),
   profile_completed: { booleanValue: true }, skin_type: str("normal"), concerns: arr([]), avoid_ingredients: arr([]),
-});
+}, ["seasonal_label", "user_lab", "season_confidence_level"]);
 await page.goto(`${APP}/auth`);
 await page.locator('input[name="email"]').fill(ACCT.email);
 await page.locator('input[name="password"]').fill(PASSWORD);
@@ -92,11 +94,11 @@ await page.getByRole("button", { name: /^log ?in$|^sign in$/i }).first().click()
 await page.waitForURL((u) => !u.pathname.startsWith("/auth"));
 await sleep(8000); // let any background warm-up settle so it is not counted against the page
 
-// Opens the Full catalog view in-app (every product with its verdict, whatever the "Safe for me" view hides); returns requests made, time until the first card, and the page text.
+// Opens the "Compatible with me" view in-app (the only view that asks for the safety check); returns requests made, time until the first card, and the page text.
 async function visit(label) {
   counts = { products: 0, batch: 0, filter: 0 };
   const start = Date.now();
-  await spaGo("/catalog?view=all");
+  await spaGo("/catalog?view=safe");
   await page.waitForSelector(CARD, { timeout: 30000 });
   const ms = Date.now() - start;
   await sleep(2500); // let the slower requests finish, so late ones are counted too
@@ -129,7 +131,7 @@ await sleep(2500);
 const edited = await visit("after blocking fragrance");
 check("profile edit: the safety results are fetched again, in one request", edited.batch === 1 && edited.filter === 0, `${edited.batch} /run-filter-batch, ${edited.filter} /run-filter`);
 check("profile edit: the product list itself is not refetched", edited.products === 0, `${edited.products} /products`);
-check("profile edit: the scented product is now Excluded", EXCLUDED.test(edited.text));
+check("profile edit: the scented product is now Excluded, so it drops out of the list", !/Scented Berry/.test(edited.text));
 await spaGo("/profile");
 await sleep(1000);
 const again = await visit("again");
@@ -145,7 +147,7 @@ const CORS = { "access-control-allow-origin": APP, "access-control-allow-headers
 await page2.route(/\/run-filter-batch(\?|$)/, (route) =>
   route.request().method() === "OPTIONS" ? route.fulfill({ status: 204, headers: CORS }) : route.fulfill({ status: 404, headers: CORS, contentType: "application/json", body: '{"detail":"Not Found"}' }));
 const startOld = Date.now();
-await page2.goto(`${APP}/catalog?view=all`);
+await page2.goto(`${APP}/catalog?view=safe`);
 await page2.waitForSelector(CARD, { timeout: 40000 });
 await sleep(6000);
 const oldText = await page2.evaluate(() => document.body.innerText);
@@ -155,7 +157,7 @@ check("old backend: shows exactly what the batch showed (same page text)", oldTe
 counts2 = { products: 0, batch: 0, filter: 0 };
 await page2.evaluate(() => { window.history.pushState({}, "", "/profile"); window.dispatchEvent(new PopStateEvent("popstate")); });
 await sleep(1200);
-await page2.evaluate(() => { window.history.pushState({}, "", "/catalog?view=all"); window.dispatchEvent(new PopStateEvent("popstate")); });
+await page2.evaluate(() => { window.history.pushState({}, "", "/catalog?view=safe"); window.dispatchEvent(new PopStateEvent("popstate")); });
 await page2.waitForSelector(CARD, { timeout: 10000 });
 await sleep(1500);
 check("old backend: coming back still makes no requests", counts2.products + counts2.batch + counts2.filter === 0, `${counts2.products + counts2.batch + counts2.filter} requests`);
