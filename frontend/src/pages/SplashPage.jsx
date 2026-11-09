@@ -3,11 +3,20 @@ import { useNavigate } from "react-router-dom";
 import {
   AnimatePresence,
   motion,
+  useInView,
   useReducedMotion,
   useScroll,
   useTransform,
 } from "framer-motion";
-import { ArrowRight, Play } from "lucide-react";
+import {
+  ArrowRight,
+  LayoutGrid,
+  Percent,
+  Play,
+  ScanFace,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { SplashNavbar } from "../components/common/SplashNavbar.jsx";
 import { SplashFooter } from "../components/common/SplashFooter.jsx";
 import { ScrollToTopButton } from "../components/common/ScrollToTopButton.jsx";
@@ -158,31 +167,49 @@ const seasonGroups = [
   { season: "Summer", colors: ["#E1B0C5", "#1F8CAB", "#82CADD"] },
 ];
 
+// "See it in action" showcase: one tab per feature, each with an app screenshot and a floating badge.
+const SHOWCASE_INTERVAL_MS = 5000;
+
 const tryOnSlides = [
   {
+    id: "tryon",
+    title: "Virtual Try-On",
+    icon: Sparkles,
     image: tryOn1Img,
+    alt: "Chromascope try-on screen with lipstick and blush shades applied live on a face, next to recommended shades",
+    badge: { icon: ScanFace, text: "Real-time AR" },
     caption:
-      "The virtual try-on lets users simulate exactly what a shade or product looks like on their own skin, in real time.",
+      "The virtual try-on lets you simulate shades and makeup on your own face in real time.",
   },
   {
+    id: "safety",
+    title: "Safety Filter",
+    icon: ShieldCheck,
     image: tryOn2Img,
+    alt: "Product details showing a Safe verdict, the shades that fit, and the full ingredient list",
+    badge: { icon: ShieldCheck, text: "Safe for your skin", tone: "success" },
     caption:
-      "The scientific filter cross-checks every product against your restrictions, flagging anything that doesn't clear your clinical profile.",
+      "The safety filter checks each product's ingredients against your skin profile and what you want to avoid.",
   },
   {
+    id: "catalog",
+    title: "Smart Catalog",
+    icon: LayoutGrid,
     image: tryOn3Img,
+    alt: "Catalog of products compatible with a Deep Winter season, each with a Safe badge and a match percentage",
+    badge: { icon: Percent, text: "86% match" },
     caption:
-      "The product catalog stays organized by season and safety status, so recommendations always match who you actually are.",
+      "The catalog shows products that are safe for your skin and match your season's colors.",
   },
 ];
 
 export function SplashPage() {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
-  // Try-on carousel slide width, as a % of the full-bleed viewport. Bigger on
-  // mobile (one prominent image) than desktop (which peeks at neighbors) —
-  // kept in JS since the translateX animation below has to match it exactly.
-  const [slideWidth, setSlideWidth] = useState(85);
+  // Showcase autoplay pauses while hovered or focused, and while the section is off-screen.
+  const [showcasePaused, setShowcasePaused] = useState(false);
+  const showcaseRef = useRef(null);
+  const showcaseInView = useInView(showcaseRef, { amount: 0.3 });
   // Hero background crossfade: the incoming frame fades in on top while the
   // previous one stays fully opaque underneath, so the background never dips.
   const [splashFrame, setSplashFrame] = useState({ active: 0, prev: 0 });
@@ -198,12 +225,26 @@ export function SplashPage() {
   // Shade over the background that builds in as the hero scrolls out, so it reads as receding.
   const heroShadeOpacity = useTransform(heroScrollProgress, [0, 0.6], [0, 1]);
 
+  // A fresh timer per slide, so picking a tab by hand restarts the countdown.
+  const showcaseAutoplay =
+    !prefersReducedMotion && showcaseInView && !showcasePaused;
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (!showcaseAutoplay) return;
+    const timer = setTimeout(() => {
       setActiveSlide((i) => (i + 1) % tryOnSlides.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+    }, SHOWCASE_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [showcaseAutoplay, activeSlide]);
+
+  // Arrow keys move between showcase tabs (WAI-ARIA tabs pattern).
+  function handleShowcaseKeyDown(event) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = (activeSlide + step + tryOnSlides.length) % tryOnSlides.length;
+    setActiveSlide(next);
+    document.getElementById(`showcase-tab-${tryOnSlides[next].id}`)?.focus();
+  }
 
   useEffect(() => {
     if (prefersReducedMotion) return;
@@ -216,17 +257,8 @@ export function SplashPage() {
     return () => clearInterval(interval);
   }, [prefersReducedMotion]);
 
-  useEffect(() => {
-    function updateSlideWidth() {
-      const w = window.innerWidth;
-      if (w >= 1024) setSlideWidth(55);
-      else if (w >= 640) setSlideWidth(65);
-      else setSlideWidth(85);
-    }
-    updateSlideWidth();
-    window.addEventListener("resize", updateSlideWidth);
-    return () => window.removeEventListener("resize", updateSlideWidth);
-  }, []);
+  const activeShowcase = tryOnSlides[activeSlide];
+  const BadgeIcon = activeShowcase.badge.icon;
 
   return (
     <main className="min-h-dvh bg-primary-lightest font-body">
@@ -463,82 +495,236 @@ export function SplashPage() {
         </section>
 
         {/* ── Virtual Try-on and Safety Filter ── */}
-        <section className="bg-primary-lightest py-20">
+        <section className="relative overflow-hidden bg-primary-lightest py-20 sm:py-24">
           <Reveal className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
-            <motion.h2
-              variants={revealItemVariants}
-              className="mb-12 text-center font-heading text-4xl font-semibold tracking-tight text-primary sm:text-5xl"
-            >
-              Virtual Try-On and a Safety Filter
-            </motion.h2>
-
             <motion.div
               variants={revealItemVariants}
-              className="relative left-1/2 right-1/2 mx-[-50vw] w-screen overflow-hidden py-8"
-              style={{
-                maskImage:
-                  "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
-                WebkitMaskImage:
-                  "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
-              }}
+              className="mx-auto mb-12 flex max-w-2xl flex-col items-center text-center"
             >
-              <motion.div
-                className="flex"
-                animate={{
-                  x: `${-activeSlide * slideWidth + (100 - slideWidth) / 2}%`,
-                }}
-                transition={{ duration: 0.7, ease: "easeInOut" }}
-              >
-                {tryOnSlides.map((slide, i) => (
-                  <div
-                    key={slide.image}
-                    className="shrink-0 px-3"
-                    style={{ width: `${slideWidth}%` }}
-                  >
-                    <div
-                      className={`overflow-hidden rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] transition-all duration-500 ${
-                        i === activeSlide
-                          ? "scale-100 opacity-100"
-                          : "scale-95 opacity-40"
-                      }`}
-                    >
-                      <img
-                        src={slide.image}
-                        alt=""
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
+              <h2 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
+                <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  Virtual Try-On
+                </span>{" "}
+                and a{" "}
+                <span className="bg-linear-to-r from-secondary to-primary-dark bg-clip-text text-transparent">
+                  Safety Filter
+                </span>
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-gray">
+                Try shades on your face, then shop only what&apos;s safe for your skin.
+              </p>
             </motion.div>
 
             <motion.div
+              ref={showcaseRef}
               variants={revealItemVariants}
-              className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-4 text-center"
+              onMouseEnter={() => setShowcasePaused(true)}
+              onMouseLeave={() => setShowcasePaused(false)}
+              onFocus={() => setShowcasePaused(true)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setShowcasePaused(false);
+                }
+              }}
+              className="grid items-center gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14"
             >
-              <div className="flex items-center gap-2">
-                {tryOnSlides.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveSlide(i)}
-                    aria-label={`Show slide ${i + 1}`}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === activeSlide ? "w-16 bg-primary" : "w-7 bg-secondary"
-                    }`}
-                  />
-                ))}
+              {/* Feature tabs: three equal columns on phones and tablets, a stack of cards on desktop. */}
+              <div
+                role="tablist"
+                aria-label="Chromascope features"
+                onKeyDown={handleShowcaseKeyDown}
+                className="mx-auto grid w-full max-w-xl grid-cols-3 gap-2 lg:flex lg:max-w-none lg:flex-col lg:gap-3"
+              >
+                {tryOnSlides.map((slide, i) => {
+                  const isActive = i === activeSlide;
+                  const Icon = slide.icon;
+                  return (
+                    <button
+                      key={slide.id}
+                      id={`showcase-tab-${slide.id}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls="showcase-panel"
+                      aria-labelledby={`showcase-title-${slide.id}`}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActiveSlide(i)}
+                      className={`relative rounded-2xl px-2 py-3 text-center transition-colors duration-300 lg:p-5 lg:text-left ${
+                        isActive ? "text-black" : "text-gray hover:bg-white/50"
+                      }`}
+                    >
+                      {/* The white card slides between tabs instead of blinking on and off. */}
+                      {isActive && (
+                        <motion.span
+                          layoutId="showcase-active-tab"
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-2xl border border-white bg-white shadow-[0_12px_40px_color-mix(in_srgb,var(--color-primary)_18%,transparent)]"
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { type: "spring", stiffness: 300, damping: 30 }
+                          }
+                        />
+                      )}
+                      <span className="relative flex flex-col items-center gap-1.5 lg:flex-row lg:gap-3">
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors duration-300 lg:h-10 lg:w-10 ${
+                            isActive
+                              ? "bg-primary text-white shadow-md shadow-primary/30"
+                              : "bg-primary-lighter text-primary"
+                          }`}
+                        >
+                          <Icon className="h-4 w-4 lg:h-5 lg:w-5" aria-hidden="true" />
+                        </span>
+                        <span
+                          id={`showcase-title-${slide.id}`}
+                          className="whitespace-nowrap font-heading text-xs font-semibold sm:text-sm lg:text-lg"
+                        >
+                          {slide.title}
+                        </span>
+                      </span>
+                      {/* Desktop: the active tab opens to show its caption and a countdown to the next slide. */}
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.span
+                            key="details"
+                            className="relative hidden overflow-hidden lg:block"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                              duration: prefersReducedMotion ? 0 : 0.35,
+                              ease: "easeOut",
+                            }}
+                          >
+                            <span className="block pl-13 pt-2 text-base leading-relaxed text-gray">
+                              {slide.caption}
+                            </span>
+                            <span className="ml-13 mt-4 block h-1 overflow-hidden rounded-full bg-primary-lighter">
+                              <motion.span
+                                key={`${activeSlide}-${showcaseAutoplay}`}
+                                className="block h-full origin-left rounded-full bg-linear-to-r from-secondary to-primary"
+                                initial={{ scaleX: showcaseAutoplay ? 0 : 1 }}
+                                animate={{ scaleX: 1 }}
+                                transition={{
+                                  duration: showcaseAutoplay ? SHOWCASE_INTERVAL_MS / 1000 : 0,
+                                  ease: "linear",
+                                }}
+                              />
+                            </span>
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </button>
+                  );
+                })}
               </div>
-              <AnimatePresence mode="wait">
+
+              <div className="relative">
+                {/* Soft color blobs drifting behind the app window. */}
+                <motion.div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -left-10 -top-12 h-56 w-56 rounded-full bg-primary-light/50 blur-3xl sm:h-72 sm:w-72"
+                  animate={
+                    prefersReducedMotion
+                      ? undefined
+                      : { x: [0, 30, 0], y: [0, 20, 0], scale: [1, 1.08, 1] }
+                  }
+                  transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <motion.div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-14 -right-8 h-60 w-60 rounded-full bg-secondary/40 blur-3xl sm:h-80 sm:w-80"
+                  animate={
+                    prefersReducedMotion
+                      ? undefined
+                      : { x: [0, -25, 0], y: [0, -30, 0], scale: [1, 1.1, 1] }
+                  }
+                  transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+                />
+
+                {/* App window frame around the screenshot. */}
+                <div className="relative rounded-3xl border border-white/70 bg-white/60 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_30px_80px_color-mix(in_srgb,var(--color-primary)_25%,transparent)] backdrop-blur-xl sm:p-3">
+                  <div
+                    aria-hidden="true"
+                    className="flex items-center gap-1.5 px-2 pb-2 sm:px-3 sm:pb-3"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary-light" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-secondary-light" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary-lighter" />
+                    <span className="ml-3 rounded-full bg-primary-lightest px-3 py-0.5 text-[11px] font-medium text-gray-light">
+                      chromascope
+                    </span>
+                  </div>
+                  <div
+                    id="showcase-panel"
+                    role="tabpanel"
+                    aria-labelledby={`showcase-tab-${activeShowcase.id}`}
+                    className="relative aspect-4/3 overflow-hidden rounded-2xl bg-primary-lightest"
+                  >
+                    <AnimatePresence initial={false}>
+                      <motion.img
+                        key={activeShowcase.id}
+                        src={activeShowcase.image}
+                        alt={activeShowcase.alt}
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover object-top"
+                        initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 1.05 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Floating badge for the current slide: pops in, then bobs gently. */}
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={activeShowcase.id}
+                    className="absolute -bottom-4 right-3 sm:-bottom-5 sm:-right-4 lg:-right-6"
+                    initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0.2 }
+                        : { type: "spring", stiffness: 260, damping: 20, delay: 0.15 }
+                    }
+                  >
+                    <motion.div
+                      animate={prefersReducedMotion ? undefined : { y: [0, -6, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      className="flex items-center gap-2.5 rounded-2xl border border-white/80 bg-white/90 py-2 pl-2 pr-4 shadow-[0_16px_40px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] backdrop-blur-md"
+                    >
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                          activeShowcase.badge.tone === "success"
+                            ? "bg-success/10 text-success"
+                            : "bg-primary-lighter text-primary"
+                        }`}
+                      >
+                        <BadgeIcon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="text-sm font-semibold text-black">
+                        {activeShowcase.badge.text}
+                      </span>
+                    </motion.div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* Phones and tablets: the caption sits under the window (desktop shows it in the tab). */}
+              <AnimatePresence mode="wait" initial={false}>
                 <motion.p
-                  key={activeSlide}
+                  key={activeShowcase.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.4 }}
-                  className="text-lg leading-relaxed text-gray"
+                  transition={{ duration: 0.3 }}
+                  className="mx-auto mt-2 max-w-xl text-center text-base leading-relaxed text-gray lg:hidden"
                 >
-                  {tryOnSlides[activeSlide].caption}
+                  {activeShowcase.caption}
                 </motion.p>
               </AnimatePresence>
             </motion.div>
