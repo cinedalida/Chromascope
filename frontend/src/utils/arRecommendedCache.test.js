@@ -222,7 +222,7 @@ test("corrupt stored data is ignored", async () => {
   const storage = fakeStorage();
   const persist = createStoragePersist(() => storage);
   for (const junk of ["not json", "null", "{}", '{"signature":"s"}', '{"signature":"s","savedAt":"x","result":{}}']) {
-    storage.data.set("chromascope:ar-rec:v3:u1:lips", junk);
+    storage.data.set("chromascope:ar-rec:v9:u1:lips", junk);
     let loads = 0;
     await createRecommendedCache({ persist }).get("u1", "lips", "s", async () => { loads += 1; return ok(1); });
     assert.equal(loads, 1, junk);

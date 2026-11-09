@@ -34,8 +34,8 @@ const safely = (fn, fallback = null) => {
   }
 };
 
-// Bump when the shape of a stored result changes, so results saved by older code are ignored. (v2: shadeId. v3: seasonTags, matchBasis.)
-const STORAGE_PREFIX = "chromascope:ar-rec:v3:";
+// Bump when the shape of a stored result changes, so results saved by older code are ignored. (v2: shadeId. v3: seasonTags, matchBasis. v4: one item per fitting shade, shadeSeasons. v5: products that do not fit the user are left out. v6: imageUrl. v7: kind. v8: kinds. v9: skin-matched products are no longer hidden by fit.)
+const STORAGE_PREFIX = "chromascope:ar-rec:v9:";
 
 /**
  * Persists results in a Storage-like object (localStorage), one slot per user and group, so a reload does not refetch.

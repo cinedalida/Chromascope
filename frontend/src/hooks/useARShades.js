@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getGroupShades } from "../services/arShadeService";
 import { getRecommended } from "../services/arRecommendedService";
 import { rankBrowseItems } from "../utils/arFit";
@@ -29,6 +29,7 @@ export function useARShades(group, source) {
   const requestKey = `${source}:${group}`;
   const profile = useUserStore((state) => state.user);
   const [result, setResult] = useState({ requestKey: null, ...IDLE });
+  const [attempt, setAttempt] = useState(0); // bumped by retry() to load the same list again
 
   useEffect(() => {
     let active = true;
@@ -43,7 +44,12 @@ export function useARShades(group, source) {
     return () => {
       active = false;
     };
-  }, [requestKey, group, source]);
+  }, [requestKey, group, source, attempt]);
+
+  const retry = useCallback(() => {
+    setResult({ requestKey: null, ...IDLE }); // back to the loading state right away
+    setAttempt((n) => n + 1);
+  }, []);
 
   // Browse is a static catalog, so it is ranked here for the signed-in user (Recommended arrives ranked by the server).
   // Done at render time so it re-ranks once the profile has loaded.
@@ -53,7 +59,7 @@ export function useARShades(group, source) {
     [loaded, source, result, profile],
   );
 
-  if (!loaded) return { ...IDLE, loading: true };
-  if (browse) return { items: browse.items, status: result.status, seasonFilter: null, ranked: browse.ranked, loading: false };
-  return { items: result.items, status: result.status, seasonFilter: result.seasonFilter, ranked: result.ranked, loading: false };
+  if (!loaded) return { ...IDLE, loading: true, retry };
+  if (browse) return { items: browse.items, status: result.status, seasonFilter: null, ranked: browse.ranked, loading: false, retry };
+  return { items: result.items, status: result.status, seasonFilter: result.seasonFilter, ranked: result.ranked, loading: false, retry };
 }

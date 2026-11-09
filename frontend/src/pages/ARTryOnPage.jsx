@@ -32,6 +32,13 @@ function exitBrowserFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
 }
 
+// Shades panel width limits (px, desktop). The max keeps the camera card from getting squeezed.
+const PANEL_WIDTH_KEY = "chromascope.tryon.panelWidth";
+const PANEL_MIN = 340;
+const PANEL_DEFAULT = 460;
+const maxPanelWidth = () => Math.max(PANEL_MIN, Math.min(720, Math.round(window.innerWidth * 0.5)));
+const clampPanelWidth = (w) => Math.min(maxPanelWidth(), Math.max(PANEL_MIN, Math.round(w)));
+
 export function ARTryOnPage() {
   // Camera access (and its permission prompt) is gated behind the "Start
   // Try-On Now" screen below — useARCamera only requests the stream once
@@ -138,6 +145,16 @@ export function ARTryOnPage() {
   const [comparing, setComparing] = useState(false);
   const canCompare = hasShades && isReady && !isMock;
 
+  // Split compare: a divider that follows the mouse (or a finger); makeup to its left, the bare face to its right.
+  // Its position (a fraction of the width, null = off) lives in a ref the overlay reads every frame, so moving it
+  // never re-renders this page. A second way to compare next to the hold-to-compare button.
+  const splitRef = useRef(null);
+  const [splitOn, setSplitOn] = useState(false);
+  const splitActive = splitOn && canCompare; // also ends by itself when the shades are cleared or the camera stops
+  useEffect(() => {
+    splitRef.current = splitActive ? (splitRef.current ?? 0.5) : null;
+  }, [splitActive]);
+
   // DEV only: live blend and opacity values from the tuning panel. With the panel off
   // (and always in production) the overlay uses its hardcoded REGION_RENDER values.
   const showBlendTuner = useSettingsStore((s) => s.showBlendTuner);
@@ -200,11 +217,67 @@ export function ARTryOnPage() {
     setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Desktop only: drag the Shades panel's left edge to resize it (the stacked mobile layout has no side panel).
+  const [panelWidth, setPanelWidth] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(PANEL_WIDTH_KEY));
+      return saved ? clampPanelWidth(saved) : PANEL_DEFAULT;
+    } catch {
+      return PANEL_DEFAULT;
+    }
+  });
+  const [resizing, setResizing] = useState(false);
+  const startResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    let latest = startWidth;
+    setResizing(true);
+    const onMove = (ev) => {
+      latest = clampPanelWidth(startWidth + (startX - ev.clientX));
+      setPanelWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      setResizing(false);
+      try {
+        localStorage.setItem(PANEL_WIDTH_KEY, String(latest));
+      } catch {
+        /* storage unavailable: width just isn't remembered */
+      }
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+  const onResizeKey = (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const next = clampPanelWidth(panelWidth + (e.key === "ArrowLeft" ? 24 : -24));
+    setPanelWidth(next);
+    try {
+      localStorage.setItem(PANEL_WIDTH_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+  };
+  // Keep the width valid if the window shrinks.
+  useEffect(() => {
+    const onResize = () => setPanelWidth((w) => clampPanelWidth(w));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   return (
     <main className="min-h-[calc(100dvh-64px)] bg-primary-lightest font-body lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
       {/* Layout */}
       {/* Desktop: locked to the viewport so the panel scrolls inside itself and the camera stays in view. */}
-      <div className="mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_440px] lg:overflow-hidden xl:grid-cols-[1fr_480px]">
+      <div
+        style={{ "--panel-w": `${panelWidth}px` }}
+        className={`mx-auto grid grid-cols-1 lg:h-[calc(100dvh-64px)] lg:grid-cols-[1fr_var(--panel-w)] lg:overflow-hidden ${resizing ? "select-none" : ""}`}
+      >
         {/* CENTER */}
         <section className="relative flex items-center justify-center bg-primary-lightest p-4 sm:p-6 lg:h-full lg:min-h-0">
           {/* Card: camera on top, white controls bar under it.
@@ -246,8 +319,12 @@ export function ARTryOnPage() {
               colors={colors}
               finishes={finishes}
               render={tunerEnabled ? tuning : undefined}
+              splitRef={splitRef}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
+
+            {/* SPLIT: catches the mouse / finger over the camera and moves the divider. Below the buttons (z-10). */}
+            {splitActive && <SplitLayer splitRef={splitRef} />}
 
             {/* PERFORMANCE STATS — FPS + latency, live and 30 s average (survey TR1–TR3) */}
             {perfEnabled && <PerfStatsBadge stats={perfStats} />}
@@ -350,6 +427,7 @@ export function ARTryOnPage() {
               {/* Same 5 columns as the toggle row: Compare sits under Lips, capture under Eyes, Reset under Full Face. */}
               <div className="grid grid-cols-5 items-center">
                 <CompareButton light={isExpanded} pressed={comparing && canCompare} disabled={!canCompare} onChange={setComparing} />
+                <SplitButton light={isExpanded} pressed={splitActive} disabled={!canCompare} onChange={setSplitOn} />
                 <div className="col-start-3 justify-self-center">
                   <CaptureButton light={isExpanded} onClick={handleCapture} disabled={!isReady || isMock} />
                 </div>
@@ -372,7 +450,23 @@ export function ARTryOnPage() {
         </section>
 
         {/* RIGHT PANEL */}
-        <aside className="flex h-[60dvh] min-h-0 sm:h-[55dvh] flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+        <aside className="relative flex h-[60dvh] min-h-0 sm:h-[55dvh] flex-col overflow-hidden border-t border-gray-lighter/60 bg-white shadow-[-4px_0px_20px_rgba(0,0,0,0.02)] lg:h-full lg:border-t-0 lg:border-l">
+          {/* Resize handle (desktop only): drag, or focus and use the left/right arrow keys. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize shades panel"
+            aria-valuemin={PANEL_MIN}
+            aria-valuemax={maxPanelWidth()}
+            aria-valuenow={panelWidth}
+            tabIndex={0}
+            onPointerDown={startResize}
+            onKeyDown={onResizeKey}
+            onDoubleClick={() => setPanelWidth(PANEL_DEFAULT)}
+            className={`group absolute inset-y-0 left-0 z-20 hidden w-2 cursor-col-resize touch-none lg:block focus:outline-none ${resizing ? "bg-primary/20" : "hover:bg-primary/10 focus-visible:bg-primary/20"}`}
+          >
+            <span className="absolute top-1/2 left-0.5 h-10 w-1 -translate-y-1/2 rounded-full bg-gray-lighter transition-colors group-hover:bg-primary/60" />
+          </div>
           {/* Offline: Recommended calls the backend and fails, Browse is served from the device cache. */}
           <OfflineNote className="mx-4 mt-3 shrink-0 rounded-xl px-3 py-2 text-xs">
             Offline: Recommended needs internet. Browse works if you used it online before.
@@ -564,6 +658,65 @@ function CaptureButton({ onClick, disabled, light = false }) {
   );
 }
 
+// Split compare: a text button like Compare. Toggles the divider on and off.
+function SplitButton({ pressed, disabled, onChange, light = false }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={pressed}
+      title="Move the divider: makeup on the left, your bare face on the right"
+      onClick={() => onChange(!pressed)}
+      className={`col-start-2 select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+        light
+          ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
+          : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`
+      }`}
+    >
+      Split
+    </button>
+  );
+}
+
+// Covers the camera while Split is on. The divider follows the mouse as it moves over the camera, and a finger while it
+// drags; the arrow keys move it too. It only writes the fraction into the ref the overlay draws from.
+const SPLIT_MIN = 0.02;
+const SPLIT_MAX = 0.98;
+function SplitLayer({ splitRef }) {
+  const layerRef = useRef(null);
+  const set = (fraction) => {
+    const clamped = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, fraction));
+    splitRef.current = clamped;
+    layerRef.current?.setAttribute("aria-valuenow", String(Math.round(clamped * 100)));
+  };
+  const fromPointer = (e) => {
+    const rect = layerRef.current.getBoundingClientRect();
+    set((e.clientX - rect.left) / rect.width);
+  };
+  return (
+    <div
+      ref={layerRef}
+      role="slider"
+      tabIndex={0}
+      aria-label="Divider: makeup on the left, bare face on the right"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={50}
+      onPointerMove={fromPointer}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        fromPointer(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        set((splitRef.current ?? 0.5) + (e.key === "ArrowRight" ? 0.03 : -0.03));
+      }}
+      className="absolute inset-0 z-5 cursor-ew-resize touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+    />
+  );
+}
+
 // Press and hold to see the face without makeup; release to bring it back.
 // Pointer capture keeps the release firing even if the finger slides off the button.
 function CompareButton({ pressed, disabled, onChange, light = false }) {
@@ -602,3 +755,4 @@ function CompareButton({ pressed, disabled, onChange, light = false }) {
     </button>
   );
 }
+

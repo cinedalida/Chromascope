@@ -30,7 +30,7 @@ function toShadeItem(entry, region) {
 }
 
 async function fetchShades(region) {
-  const response = await fetch(`${import.meta.env.BASE_URL}data/ar-shades-${region}.json`);
+  const response = await fetch(`${import.meta.env.BASE_URL}data/ar-shades-${region}.json`, { signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if (!Array.isArray(data)) throw new Error("Shade catalog is not an array");
