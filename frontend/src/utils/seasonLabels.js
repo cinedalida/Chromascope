@@ -21,8 +21,6 @@ const SEASON_BY_CODE = {
 
 export const SEASON_COUNT = Object.keys(SEASON_BY_CODE).length;
 
-const MAX_CHIPS = 3;
-
 function splitTags(tags) {
   if (Array.isArray(tags)) return tags.map((t) => String(t).trim()).filter(Boolean);
   return String(tags ?? "")
@@ -38,19 +36,22 @@ export function seasonCodes(product) {
     .filter((t) => t in SEASON_BY_CODE);
 }
 
+/** Every season name for season codes ("sp-true", ...), in order. Unknown codes are skipped; may be empty. Never "+N". */
+export function seasonChipsForCodes(codes) {
+  return (codes ?? []).map((code) => SEASON_BY_CODE[String(code).toLowerCase()]).filter(Boolean);
+}
+
 /**
- * Chips for a product's seasons: at most 3 season names plus "+N", always at least one entry.
- * "ALL" or no tag reads "Matched to your skin tone" for products chosen by skin color, else "All seasons".
+ * Chips for a product's seasons: every season name it is tagged for, always at least one entry.
+ * "ALL" or no tag reads "All seasons", except for skin-matched and neutral products, which have no season (empty list).
  */
 export function seasonChips(product) {
   const tags = splitTags(product?.season_tags);
   const codes = seasonCodes(product);
-  if (codes.length > 0) {
-    const names = codes.map((code) => SEASON_BY_CODE[code]);
-    const shown = names.slice(0, MAX_CHIPS);
-    return names.length > MAX_CHIPS ? [...shown, `+${names.length - MAX_CHIPS}`] : shown;
-  }
+  if (codes.length > 0) return seasonChipsForCodes(codes);
   const isProse = tags.length > 0 && !tags.some((t) => /^all\b/i.test(t));
   if (isProse) return [tags.join(", ")];
-  return [product?.match_basis === "skin" ? "Matched to your skin tone" : "All seasons"];
+  // Base products (skin) and brows/liner/mascara (neutral) have no season, so there is nothing true to say.
+  if (product?.match_basis === "skin" || product?.match_basis === "neutral") return [];
+  return ["All seasons"];
 }

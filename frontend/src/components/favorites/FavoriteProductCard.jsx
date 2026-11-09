@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FadeImage } from "../common/FadeImage.jsx";
 import { Heart } from "lucide-react";
 import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
@@ -11,13 +12,10 @@ function imageSrc(url) {
   return url.startsWith("/public/") ? url.replace("/public/", "/") : assetUrl(url);
 }
 
-function formatPrice(price, currency) {
+function formatPrice(price) {
   if (price === null || price === undefined || price === "") return null;
   if (typeof price !== "number") return String(price);
-  const amount = price.toLocaleString("en-PH", { maximumFractionDigits: 2 });
-  if (currency === "Peso") return `₱${amount}`;
-  if (currency === "Dollar") return `$${amount}`;
-  return amount;
+  return `₱${price.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`; // all prices are in pesos
 }
 
 /**
@@ -38,7 +36,7 @@ export function FavoriteProductCard({ product, isBrowse = false, onSelect, onRem
     <>
       <span className="block h-28 w-full overflow-hidden bg-linear-to-br from-primary-lightest via-white to-primary-lighter/40 sm:h-32">
         {showImage ? (
-          <img src={src} alt={name} loading="lazy" onError={() => setFailedSrc(src)} className="h-full w-full object-contain p-3" />
+          <FadeImage src={src} alt={name} loading="lazy" onError={() => setFailedSrc(src)} className="h-full w-full object-contain p-3" />
         ) : (
           <img src={placeholderImg} alt="" aria-hidden="true" className="h-full w-full object-cover opacity-50" />
         )}

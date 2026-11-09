@@ -62,7 +62,9 @@ jobs:
 
   pwa:
     name: Frontend (PWA tests)
-    runs-on: ubuntu-latest
+    # Pinned: on GitHub's newer ubuntu-latest image, `playwright install --with-deps` failed in about a second,
+    # before any test ran (it passed on 24.04). Unpin once the Playwright version in package.json supports the new image.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 

@@ -114,6 +114,60 @@ class SkinOrderingTests(unittest.TestCase):
         self.assertNotIn("skin_delta_e", unscored)
 
 
+class MatchingShadesTests(unittest.TestCase):
+    """Every shade that fits the user is offered, best first, with no cap (the best shade is always included)."""
+
+    def test_harmony_lists_every_fitting_shade_best_first(self):
+        shades = [shade("berry", "#8E2A5B"), shade("coral", "#FF7F50"), shade("peach", "#FFB08A"), shade("plum", "#4B1F3F")]
+        item = run_color_matching([product("range", "Lipstick", shades)], "Warm Spring", SKIN, "Lip")[0]
+        listed = item["matching_shades"]
+        fits = [s["fit"] for s in listed]
+        self.assertEqual(fits, sorted(fits, reverse=True))
+        self.assertEqual(listed[0]["shade_id"], item["best_shade"]["shade_id"])
+        self.assertTrue(all(f >= 0.55 for f in fits[1:]))
+        # none dropped: compare with the season classifier's own ranking
+        expected = [s["shade_id"] for f, s in sc.rank_shades(item, "sp-true") if f >= 0.55]
+        self.assertEqual([s["shade_id"] for s in listed if s["fit"] >= 0.55], expected)
+        self.assertGreaterEqual(len(listed), 2)
+
+    def test_harmony_has_no_cap(self):
+        many = [shade(f"c{i}", h) for i, h in enumerate(["#FF7F50", "#FF8A5B", "#FF9068", "#FF6F4A", "#F97A55", "#FF8560",
+                                                           "#FA8C6B", "#FF7B4F", "#F58360", "#FF8E66"])]
+        item = run_color_matching([product("many", "Lipstick", many)], "Warm Spring", SKIN, "Lip")[0]
+        self.assertGreater(len(item["matching_shades"]), 6)
+
+    def test_every_listed_harmony_shade_carries_its_own_seasons(self):
+        shades = [shade("berry", "#8E2A5B"), shade("coral", "#FF7F50")]
+        item = run_color_matching([product("range", "Lipstick", shades)], "Warm Spring", SKIN, "Lip")[0]
+        for entry in item["matching_shades"]:
+            self.assertTrue(entry["seasons"])
+            self.assertTrue(all(code in sc.SEASON_PROFILES for code in entry["seasons"]))
+        self.assertEqual(item["best_shade"]["seasons"], item["matching_shades"][0]["seasons"])
+
+    def test_a_shade_that_does_not_fit_is_left_out(self):
+        item = run_color_matching([product("one", "Lipstick", [shade("coral", "#FF7F50"), shade("navy", "#101040")])],
+                                  "Warm Spring", SKIN, "Lip")[0]
+        self.assertEqual([s["name"] for s in item["matching_shades"]], ["coral"])
+
+    def test_best_shade_is_kept_even_when_nothing_fits(self):
+        item = run_color_matching([product("bad", "Lipstick", [shade("navy", "#101040")])], "Warm Spring", SKIN, "Lip")[0]
+        self.assertEqual(len(item["matching_shades"]), 1)
+        self.assertLess(item["matching_shades"][0]["fit"], 0.55)
+
+    def test_skin_products_list_close_shades_without_seasons(self):
+        shades = [shade("near", "#D5A58A"), shade("near2", "#D3A88F"), shade("dark", "#4A2C1C"), shade("pale", "#F2D7C5")]
+        item = run_color_matching([product("f", "Foundation", shades, category="Face")], "Cool Winter", SKIN, "Face")[0]
+        listed = item["matching_shades"]
+        self.assertEqual(listed[0]["shade_id"], item["best_shade"]["shade_id"])
+        self.assertNotIn("dark", [s["shade_id"] for s in listed])
+        self.assertTrue(all("seasons" not in s for s in listed))
+        self.assertTrue(all(f["fit"] >= 0.55 for f in listed[1:]))
+
+    def test_neutral_products_have_none(self):
+        item = run_color_matching([product("m", "Mascara", [shade("black", "#111111")])], "Warm Spring", SKIN, "Eye")[0]
+        self.assertNotIn("matching_shades", item)
+
+
 class NeutralAndLegacyTests(unittest.TestCase):
     def test_neutral_products_keep_order_and_have_no_fit(self):
         a = product("a", "Mascara", [shade("black", "#111111")])

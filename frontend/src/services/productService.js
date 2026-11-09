@@ -16,7 +16,8 @@ export async function getProductCatalog() {
   }
 }
 
-export async function runFilter(payload) {
+// timeoutMs: give up (and return the empty result) instead of waiting forever on a slow or sleeping backend.
+export async function runFilter(payload, { timeoutMs } = {}) {
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
@@ -30,6 +31,7 @@ export async function runFilter(payload) {
         'Authorization': `Bearer ${token}` 
       },
       body: JSON.stringify(payload),
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     });
 
     if (!response.ok) {

@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
+import { FadeImage } from "../common/FadeImage.jsx";
 import { Heart } from "lucide-react";
 import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { useFavorites } from "../../hooks/useFavorites";
 import { SafetyBadge } from "./SafetyBadge.jsx";
+import { SeasonTags } from "../common/SeasonTags.jsx";
+import { ShadeSwatches } from "./ShadeSwatches.jsx";
+import { useUserStore } from "../../store/userStore";
+import { seasonCodeFor, seasonsForUser } from "../../utils/arFit";
 
 /**
  * FavoriteButton: the heart for one catalog product (Part B, Phase F2). Hidden for signed-out users (decision B1)
@@ -55,13 +60,10 @@ function imageSrc(url) {
 }
 
 // A number gets its currency symbol; text is shown as stored; a missing price is not shown at all.
-function formatPrice(price, currency) {
+function formatPrice(price) {
   if (price === null || price === undefined || price === "") return null;
   if (typeof price !== "number") return String(price);
-  const amount = price.toLocaleString("en-PH", { maximumFractionDigits: 2 });
-  if (currency === "Peso") return `₱${amount}`;
-  if (currency === "Dollar") return `$${amount}`;
-  return amount;
+  return `₱${price.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`; // all prices are in pesos
 }
 
 /**
@@ -70,13 +72,22 @@ function formatPrice(price, currency) {
  * `verdict` defaults to the product's own verdict, so Full catalog cards can pass one looked up elsewhere.
  * The whole card is one button (onSelect). Inner parts are spans, since a button may only hold phrasing content.
  * The heart is a separate button over the image corner (a button cannot hold another), so it never opens the detail.
+ * Colors: every shade of the product, the ones that fit the user ringed; with `onlyMatching` (Safe for me, which lists
+ * products that fit) just the fitting shades, and the seasons shown are those of the best of them.
+ * `plain` (Full catalog) is the product as sold: no safety badge, reason line, match percentage or ringed shades.
  */
-export function ProductCard({ product, verdict = product.verdict, onSelect }) {
+export function ProductCard({ product, verdict = product.verdict, onSelect, onlyMatching = false, plain = false }) {
+  const userSeason = seasonCodeFor(useUserStore((state) => state.user?.seasonal_label));
+  // Safe for me, season-based products: the seasons of the best shade for this user, not the whole product's tags.
+  const bestSeasons =
+    onlyMatching && product.match_basis === "harmony" && Array.isArray(product.best_shade?.seasons)
+      ? seasonsForUser(product.best_shade.seasons, product.fit_score, userSeason)
+      : undefined;
   const name = product.product_name || product.name || "";
   const src = imageSrc(product.image_url);
   const [failedSrc, setFailedSrc] = useState(null);
   const showImage = src && failedSrc !== src;
-  const flagged = ["caution", "excluded"].includes(String(verdict ?? "").toLowerCase());
+  const flagged = !plain && ["caution", "excluded"].includes(String(verdict ?? "").toLowerCase());
   const reason = flagged ? product.flagged_ingredients?.[0] : null;
   const price = formatPrice(product.price, product.price_currency);
 
@@ -90,7 +101,7 @@ export function ProductCard({ product, verdict = product.verdict, onSelect }) {
         {/* 16:10 in the one-column layout (under 360px) so one card does not fill the screen. */}
         <span className="block aspect-[16/10] w-full overflow-hidden min-[360px]:aspect-[4/3] bg-linear-to-br from-primary-lightest via-white to-primary-lighter/40">
           {showImage ? (
-            <img
+            <FadeImage
               src={src}
               alt={name}
               loading="lazy"
@@ -103,27 +114,23 @@ export function ProductCard({ product, verdict = product.verdict, onSelect }) {
         </span>
 
         <span className="flex flex-1 flex-col gap-1.5 p-3 sm:p-4">
-          <span className="block">
-            <SafetyBadge verdict={verdict} />
-          </span>
-          <span className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{name}</span>
-          {product.brand && <span className="block truncate text-xs uppercase tracking-wide text-gray">{product.brand}</span>}
-          {reason && <span className="line-clamp-2 text-xs leading-snug text-gray">{reason}</span>}
-          {/* Bottom row: shade dot on the left, price on the right. */}
-          {(product.hex_color || price) && (
-            <span className="mt-auto flex items-center justify-between gap-2 pt-1.5">
-              {product.hex_color ? (
-                <span
-                  aria-hidden="true"
-                  className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10"
-                  style={{ backgroundColor: product.hex_color }}
-                />
-              ) : (
-                <span aria-hidden="true" />
-              )}
-              {price && <span className="truncate text-sm font-semibold text-black">{price}</span>}
+          {!plain && (
+            <span className="block">
+              <SafetyBadge verdict={verdict} />
             </span>
           )}
+          <span className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{name}</span>
+          {product.brand && <span className="block truncate text-xs uppercase tracking-wide text-gray">{product.brand}</span>}
+          {!plain && product.match_basis === "skin" && Number.isFinite(product.fit_score) && (
+            <span className="block text-xs font-semibold text-primary">{Math.round(product.fit_score * 100)}% match</span>
+          )}
+          <SeasonTags tags={product.season_tags} basis={product.match_basis} codes={bestSeasons} />
+          {reason && <span className="line-clamp-2 text-xs leading-snug text-gray">{reason}</span>}
+          {/* Bottom: the product's colors, then the price. */}
+          <span className="mt-auto flex flex-col gap-1.5 pt-1.5">
+            <ShadeSwatches product={product} onlyMatching={onlyMatching} markFits={!onlyMatching && !plain} />
+            {price && <span className="truncate text-sm font-semibold text-black">{price}</span>}
+          </span>
         </span>
       </button>
       <FavoriteButton product={product} className="absolute right-2 top-2" />

@@ -1,7 +1,9 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+import hashlib
 import io
+import json
 import logging
 import os
 from PIL import Image
@@ -10,7 +12,8 @@ from firebase_admin import auth as fb_auth, firestore
 from .auth_utils import get_current_user
 from .limits import ALLOWED_FORMATS, MAX_IMAGE_SIDE, MAX_UPLOAD_BYTES, analysis_limiter
 from . import result_receipt
-from .schemas import AnalysisResultSave, FilterRequest, ProfileUpdate, avoid_key, concern_key, normalize_label
+from .http_cache import ApiGZipMiddleware, CachedStaticFiles, PRODUCTS_CACHE_CONTROL, etag_matches
+from .schemas import AnalysisResultSave, FilterBatchRequest, FilterRequest, ProfileUpdate, avoid_key, concern_key, normalize_label
 from ..core.engine import ChromascopeSafetyEngine
 from ..core import bayes_engine
 from ..core.retention import purge_inactive_face_data
@@ -37,12 +40,15 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+
+app.add_middleware(ApiGZipMiddleware, minimum_size=1000)
+
 # Product photos (scripts/fetch_catalog_images.py), served read-only at /catalog-images/<file>: free hosting
 # without Firebase Storage (PLAN_MIGRATION.md). No directory listing.
 CATALOG_IMAGES_DIR = os.environ.get("CATALOG_IMAGES_DIR") or os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "catalog_images")
 if os.path.isdir(CATALOG_IMAGES_DIR):
-    app.mount("/catalog-images", StaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
+    app.mount("/catalog-images", CachedStaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
     log.info("Serving product photos from %s", CATALOG_IMAGES_DIR)
 
 # Pillow refuses images above this many pixels (decompression-bomb guard), before any analysis runs.
@@ -59,18 +65,38 @@ log.info("Safety filter: %s | products collection: %s", SAFETY_FILTER, PRODUCTS_
 # Products change only when the catalog is re-imported, so keep one copy in memory for a few minutes instead of reading
 # all ~1,000 documents from Firestore on every request (a single catalog visit would otherwise cost ~2,000 reads).
 PRODUCTS_CACHE_SECONDS = float(os.environ.get("PRODUCTS_CACHE_SECONDS", "600"))
-_products_cache = {"at": 0.0, "items": None}
+_products_cache = {"at": 0.0, "items": None, "body": None, "etag": None}
 _products_lock = threading.Lock()
+
+
+def _refresh_products_if_stale() -> None:
+    """Caller holds _products_lock."""
+    if _products_cache["items"] is None or time.monotonic() - _products_cache["at"] > PRODUCTS_CACHE_SECONDS:
+        _products_cache["items"] = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+        _products_cache["at"] = time.monotonic()
+        _products_cache["body"] = None  # serialized again, on the next /api/products
+        _products_cache["etag"] = None
 
 
 def load_products(category: str | None = None) -> list:
     """All products (or one category), each a fresh dict copy so callers may modify them."""
     with _products_lock:
-        if _products_cache["items"] is None or time.monotonic() - _products_cache["at"] > PRODUCTS_CACHE_SECONDS:
-            _products_cache["items"] = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
-            _products_cache["at"] = time.monotonic()
+        _refresh_products_if_stale()
         items = _products_cache["items"]
     return [copy.deepcopy(p) for p in items if category is None or p.get("category") == category]
+
+
+def products_payload() -> tuple[bytes, str]:
+    """The whole catalog as ready-to-send JSON bytes and its ETag. Serialized once per reload, not per request, and never
+    handed out as a mutable object. The ETag is a hash of the content, so an unchanged catalog keeps its ETag across
+    reloads and server restarts (browsers then get a 304 instead of the list)."""
+    with _products_lock:
+        _refresh_products_if_stale()
+        if _products_cache["body"] is None:
+            body = json.dumps(jsonable_encoder(_products_cache["items"]), separators=(",", ":")).encode("utf-8")
+            _products_cache["body"] = body
+            _products_cache["etag"] = '"' + hashlib.md5(body).hexdigest() + '"'
+        return _products_cache["body"], _products_cache["etag"]
 
 
 def _warm_filter_cache():
@@ -126,8 +152,12 @@ async def root():
     return {"status": "Chromascope Safety API is running"}
 
 @app.get("/api/products")
-async def get_all_products(user_id: str = Depends(get_current_user)):
-    return load_products()
+async def get_all_products(request: Request, user_id: str = Depends(get_current_user)):
+    body, etag = products_payload()
+    headers = {"ETag": etag, "Cache-Control": PRODUCTS_CACHE_CONTROL}
+    if etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="application/json", headers=headers)
 
 @app.get("/api/catalog/summary")
 async def catalog_summary(user_id: str = Depends(get_current_user)):
@@ -165,68 +195,97 @@ async def update_user_profile(data: ProfileUpdate, user_id: str = Depends(get_cu
     except Exception:
         raise server_error("update_user_profile")
 
+CATEGORY_MAP = {"face": "Face", "concealer": "Concealer", "cheeks": "Cheek", "cheek": "Cheek", "lips": "Lip",
+                "lip": "Lip", "eyes": "Eye", "eye": "Eye", "multiuse": "Multi-Use", "multi-use": "Multi-Use"}
+
+
+def _filter_inputs(request_data: FilterRequest, user_id: str) -> dict:
+    """The profile the filter runs on: fields sent in the request win, the rest comes from users/{uid} (one read)."""
+    user_doc = db.collection("users").document(user_id).get()
+    user_profile = user_doc.to_dict() if user_doc.exists else {}
+    return {
+        "skin_type": normalize_label(request_data.skin_type or user_profile.get("skin_type") or "normal"),
+        "concerns": [concern_key(c) for c in (request_data.concerns or user_profile.get("concerns", []))],
+        "avoid": [avoid_key(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))],
+        "user_lab": request_data.user_lab or user_profile.get("user_lab"),
+        "ui_season": request_data.seasonal_label or user_profile.get("seasonal_label"),
+    }
+
+
+def _filter_category(category: str, inputs: dict) -> tuple[list, list]:
+    """Safety verdicts and color matching for one category: (safety_results, color_matched)."""
+    skin_type, concerns, avoid = inputs["skin_type"], inputs["concerns"], inputs["avoid"]
+    user_lab, ui_season = inputs["user_lab"], inputs["ui_season"]
+    target_cat = CATEGORY_MAP[category.lower()]
+
+    category_products = load_products(target_cat)
+
+    # Build lookup BEFORE engine strips the fields
+    product_lookup = {p["product_id"]: p for p in category_products}
+
+    if SAFETY_FILTER == "rules":
+        # Previous rule-based filter, kept for one release as a fallback (set SAFETY_FILTER=rules).
+        results = engine.filter(
+            products_list=category_products,
+            skin_type="normal" if skin_type == "sensitive" else skin_type,
+            concerns=concerns,
+            avoid_ingredients=avoid,
+            category=target_cat,
+        )
+    else:
+        # Decision D1: the Bayesian-Chromascope Hybrid filter evaluated in the paper (see core/bayes_engine.py).
+        results = bayes_engine.filter_products(category_products, skin_type, concerns, avoid)
+
+    # Re-merge original Firestore fields (lab_L, lab_a, lab_b, etc.) back in
+    # Engine fields (verdict, etc.) take priority via right-side **r
+    results = [{**product_lookup.get(r.get("product_id"), {}), **r} for r in results]
+
+    color_matched = []
+    try:
+        user_lab_tuple = tuple(user_lab) if (user_lab and len(user_lab) == 3) else None
+        if target_cat == "Face":
+            _use_closest_shade(results, user_lab_tuple)
+        color_matched = run_color_matching(
+            products=results,  # all verdicts — safe/caution/excluded sorted in color_matching
+            seasonal_label=ui_season,
+            user_lab=user_lab_tuple,
+            category=target_cat
+        )
+    except Exception:
+        log.exception("run_color_matching failed; returning unmatched results")
+        color_matched = results
+
+    return results, color_matched
+
+
 @app.post("/api/run-filter")
 async def run_safety_and_color_logic(request_data: FilterRequest, user_id: str = Depends(get_current_user)):
     try:
-        category_map = {"face": "Face", "concealer": "Concealer", "cheeks": "Cheek", "cheek": "Cheek", "lips": "Lip",
-                        "lip": "Lip", "eyes": "Eye", "eye": "Eye", "multiuse": "Multi-Use", "multi-use": "Multi-Use"}
-        target_cat = category_map[request_data.category.lower()]
-
-        category_products = load_products(target_cat)
-
-        # Build lookup BEFORE engine strips the fields
-        product_lookup = {p["product_id"]: p for p in category_products}
-
-        user_doc = db.collection("users").document(user_id).get()
-        user_profile = user_doc.to_dict() if user_doc.exists else {}
-
-        skin_type = normalize_label(request_data.skin_type or user_profile.get("skin_type") or "normal")
-
-        concerns = [concern_key(c) for c in (request_data.concerns or user_profile.get("concerns", []))]
-        avoid = [avoid_key(a) for a in (request_data.avoid_ingredients or user_profile.get("avoid_ingredients", []))]
-
-        if SAFETY_FILTER == "rules":
-            # Previous rule-based filter, kept for one release as a fallback (set SAFETY_FILTER=rules).
-            results = engine.filter(
-                products_list=category_products,
-                skin_type="normal" if skin_type == "sensitive" else skin_type,
-                concerns=concerns,
-                avoid_ingredients=avoid,
-                category=target_cat,
-            )
-        else:
-            # Decision D1: the Bayesian-Chromascope Hybrid filter evaluated in the paper (see core/bayes_engine.py).
-            results = bayes_engine.filter_products(category_products, skin_type, concerns, avoid)
-
-        # Re-merge original Firestore fields (lab_L, lab_a, lab_b, etc.) back in
-        # Engine fields (verdict, etc.) take priority via right-side **r
-        results = [{**product_lookup.get(r.get("product_id"), {}), **r} for r in results]
-
-        user_lab = request_data.user_lab or user_profile.get("user_lab")
-        ui_season = request_data.seasonal_label or user_profile.get("seasonal_label")
-
-        color_matched = []
-        try:
-            user_lab_tuple = tuple(user_lab) if (user_lab and len(user_lab) == 3) else None
-            if target_cat == "Face":
-                _use_closest_shade(results, user_lab_tuple)
-            color_matched = run_color_matching(
-                products=results,  # all verdicts — safe/caution/excluded sorted in color_matching
-                seasonal_label=ui_season,
-                user_lab=user_lab_tuple,
-                category=target_cat
-            )
-        except Exception:
-            log.exception("run_color_matching failed; returning unmatched results")
-            color_matched = results
-
+        inputs = _filter_inputs(request_data, user_id)
+        results, color_matched = _filter_category(request_data.category, inputs)
         return {
             "safety_results": results,
             "color_matched": color_matched,
-            "active_profile": {"skin_type": skin_type, "seasonal_label": ui_season}
+            "active_profile": {"skin_type": inputs["skin_type"], "seasonal_label": inputs["ui_season"]}
         }
     except Exception:
         raise server_error("run_safety_and_color_logic")
+
+
+@app.post("/api/run-filter-batch")
+async def run_safety_and_color_batch(request_data: FilterBatchRequest, user_id: str = Depends(get_current_user)):
+    """Several categories in one request: the user's profile is read once, and each category is answered exactly as
+    /api/run-filter would (the `color_matched` list). The duplicate `safety_results` copy is left out: the app does not
+    read it, and it doubled the size of every response."""
+    try:
+        inputs = _filter_inputs(request_data, user_id)
+        categories = {name: {"color_matched": _filter_category(name, inputs)[1]} for name in request_data.categories}
+        return {
+            "categories": categories,
+            "active_profile": {"skin_type": inputs["skin_type"], "seasonal_label": inputs["ui_season"]}
+        }
+    except Exception:
+        raise server_error("run_safety_and_color_batch")
 
 @app.post("/api/analyze-color")
 async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get_current_user)):

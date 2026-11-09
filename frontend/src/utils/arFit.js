@@ -100,6 +100,45 @@ export function userColors(profile) {
   };
 }
 
+// The same rule as season_classifier.shade_season_codes: a shade belongs to every season scoring at least
+// TAG_MIN_SCORE and within TAG_REL_MARGIN of its own best score.
+const TAG_MIN_SCORE = 0.6;
+const TAG_REL_MARGIN = 0.1;
+
+// A product or shade "fits" the user at the good tier or better. Recommended and Safe for me show only products that do.
+export const MATCH_MIN_FIT = 0.55;
+
+/**
+ * Whether a product's fit (0..1) is good enough to recommend. Only season-matched products (lips, lip liner, blush,
+ * eyeshadow: `basis` "harmony") are held to the cutoff. Skin-matched ones (foundation, concealer, powder, bronzer,
+ * contour, highlighter: "skin") are never hidden: they come in fixed shades, so how close the nearest one is says how
+ * well it suits you, and that is shown as a percentage and used to rank them, closest first. No fit (nothing to match, or
+ * no season / skin tone yet) is not hidden either.
+ */
+export const fitsUser = (fit, basis) => basis === "skin" || !Number.isFinite(fit) || fit >= MATCH_MIN_FIT;
+
+/**
+ * The seasons to show for a shade that fits the user. A shade can fit the user's season (fit >= 0.55) while another
+ * season is its closest; then the user's own season is added, so a card never lists only other seasons for a shade
+ * recommended to them. The user's season goes first. Null/undefined in (no season data) comes back as it was.
+ */
+export function seasonsForUser(codes, fit, userSeasonCode) {
+  if (!Array.isArray(codes)) return codes;
+  if (!userSeasonCode) return codes;
+  const rest = codes.filter((code) => code !== userSeasonCode);
+  return codes.includes(userSeasonCode) || (Number.isFinite(fit) && fit >= MATCH_MIN_FIT) ? [userSeasonCode, ...rest] : codes;
+}
+
+/** The seasons one shade belongs to, best first, from its 12 precomputed scores (`ss`, 0..100). [] without scores. */
+export function seasonsForShade(ss) {
+  if (!Array.isArray(ss) || ss.length !== SEASON_ORDER.length || !ss.every(Number.isFinite)) return [];
+  const top = Math.max(...ss);
+  return SEASON_ORDER.map((code, i) => [code, ss[i]])
+    .filter(([, score]) => score / 100 >= TAG_MIN_SCORE && score / 100 >= top / 100 - TAG_REL_MARGIN)
+    .sort((a, b) => b[1] - a[1])
+    .map(([code]) => code);
+}
+
 /** Fit 0..1 of one Browse shade item for this user, or null when it cannot be scored. */
 export function fitForShade(item, colors) {
   const basis = REGION_BASIS[item.region];
@@ -130,7 +169,14 @@ export function rankBrowseItems(items, profile) {
   const scored = items.map((item) => {
     const fit = fitForShade(item, colors);
     const tier = fit === null ? null : tierFor(fit);
-    return { ...item, fit, fitTier: SHOWN_TIERS.has(tier) ? tier : null };
+    const matchBasis = REGION_BASIS[item.region] ?? null;
+    return {
+      ...item,
+      fit,
+      fitTier: SHOWN_TIERS.has(tier) ? tier : null,
+      matchBasis,
+      shadeSeasons: matchBasis === "harmony" ? seasonsForShade(item.ss) : null, // this shade's own seasons
+    };
   });
   if (!scored.some((item) => item.fit !== null)) return { items, ranked: false };
 

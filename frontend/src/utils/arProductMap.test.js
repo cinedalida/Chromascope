@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { renderFinishFromText } from "./arProductMap.js";
+import { regionForSubCategory, renderFinishFromText } from "./arProductMap.js";
 import { FINISH_OVERRIDES, REGION_RENDER, settingsFor } from "./arRenderer.js";
 
 test("lip finishes are unchanged", () => {
@@ -45,4 +45,12 @@ test("a finish adds layers on top of the default and never removes any; no finis
     }
     assert.equal(settingsFor(region, "matte"), REGION_RENDER[region], `${region}: matte is the default look`);
   }
+});
+
+test("every face sub-category in the catalog maps to a region, except primers (no visible color)", () => {
+  for (const sub of ["Foundation", "Powder foundation", "Liquid foundation", "Tinted moisturiser", "BB & CC cream", "Concealer", "Powder", "Foundation;Powder"]) {
+    assert.ok(regionForSubCategory(sub), `${sub} should be tryable`);
+  }
+  assert.equal(regionForSubCategory("Face primer"), null);
+  assert.equal(regionForSubCategory("Primer"), null);
 });

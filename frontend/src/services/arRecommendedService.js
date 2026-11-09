@@ -2,12 +2,16 @@ import { auth } from "../firebase";
 import { runFilter } from "./productService";
 import { regionForProduct, renderFinishForSubCategory } from "../utils/arProductMap";
 import { groupByKey } from "../utils/arGroups";
+import { createRecommendedCache, createStoragePersist, profileSignature } from "../utils/arRecommendedCache";
+import { fitsUser } from "../utils/arFit";
+import { subcategoryLabels } from "../utils/catalogSubcategories";
+import { useUserStore } from "../store/userStore";
 
 // Recommended shades: products returned by the safety filter and matching engine.
 
-// The AR page clears this on mount. The expiry is only a backstop.
-const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map(); // "<uid>:<region>" -> { expires, request }
+// Keyed by user, group and a signature of the profile fields the server reads (see arRecommendedCache.js). Also kept in
+// localStorage so a reload does not refetch. If the shape of an item (toShadeItem below) changes, bump STORAGE_PREFIX there.
+const cache = createRecommendedCache({ persist: createStoragePersist() });
 
 const normalize = (value) => String(value ?? "").trim().toLowerCase();
 
@@ -51,6 +55,9 @@ function toShadeItem(product) {
     region: regionForProduct(product),
     brand: product.brand ?? "",
     product: product.product_name ?? "",
+    kinds: subcategoryLabels(product), // every type it is ("Lip gloss", "Lipstick", ...), for the Basic lipstick-only filter
+    kind: subcategoryLabels(product)[0] ?? null, // what it is: "Lipstick", "Lip liner", ... (the Advanced card shows it)
+    imageUrl: product.image_url ?? null, // the product photo, for the Try-On card and its preview
     shade: best?.name ?? null,
     shadeId: best?.shade_id ?? null, // kept so a saved favorite or look remembers the exact shade (plan Part B, F-R1)
     hex: String(best?.hex ?? product.hex_color).trim().toUpperCase(),
@@ -62,10 +69,36 @@ function toShadeItem(product) {
     url: null,
     verdict: verdict === "safe" || verdict === "caution" ? verdict : null,
     seasonMatch: Boolean(product.is_season_match),
+    seasonTags: product.season_tags ?? null, // the seasons the product is tagged for, shown on the card
+    matchBasis: product.match_basis ?? null, // "harmony" | "skin" | "neutral": what the fit is based on
     // How well the best shade suits the user, 0..1, or null when the product has no color target.
     fit: Number.isFinite(fit) && product.fit_score !== null ? fit : null,
     fitTier: TIER_LABEL[product.fit_tier] ?? null,
+    // The seasons this shade itself belongs to (not the whole product's), or null when it has none to show.
+    shadeSeasons: Array.isArray(best?.seasons) ? best.seasons : null,
   };
+}
+
+// One item per shade that fits the user (`matching_shades`, best first, the best always first), all sharing the product.
+// Without that list (an older backend) it is just the best shade, as before.
+function toShadeItems(product) {
+  const base = toShadeItem(product);
+  const listed = Array.isArray(product.matching_shades) ? product.matching_shades : [];
+  if (listed.length === 0) return [base];
+  return listed.map((entry, index) => {
+    if (index === 0) return base; // the best shade: same item as before, so a saved favorite still finds it
+    const fit = Number(entry.fit);
+    return {
+      ...base,
+      shade: entry.name ?? null,
+      shadeId: entry.shade_id ?? null,
+      hex: String(entry.hex ?? base.hex).trim().toUpperCase(),
+      lab: Array.isArray(entry.lab) ? entry.lab.map(Number) : base.lab,
+      fit: Number.isFinite(fit) ? fit : null,
+      fitTier: null, // only the best shade carries the product's tier
+      shadeSeasons: Array.isArray(entry.seasons) ? entry.seasons : null,
+    };
+  });
 }
 
 // Orders Recommended items by how well they suit the user. The backend already sends them in this order; this keeps it
@@ -96,15 +129,23 @@ export function productToTryOn(product) {
 }
 
 // Recommended products for one panel group (lips, cheeks, eyes, face). A group can span several API categories.
+const FILTER_TIMEOUT_MS = 30000;
+
+// One try per API category; a slow or failed one returns an empty list, which the caller treats as an error.
+const fetchResponses = (group) => Promise.all(group.api.map((category) => runFilter({ category }, { timeoutMs: FILTER_TIMEOUT_MS })));
+const isComplete = (responses) => responses.every((response) => response?.active_profile);
+
 async function loadRecommended(groupKey) {
   const group = groupByKey(groupKey);
-  const responses = await Promise.all(group.api.map((category) => runFilter({ category })));
+  let responses = await fetchResponses(group);
+  // A backend that was asleep often fails the first call and answers the second.
+  if (!isComplete(responses)) responses = await fetchResponses(group);
 
   // runFilter returns empty lists on any failure; a real response always has active_profile.
-  if (responses.some((response) => !response?.active_profile)) return emptyResult("error");
+  if (!isComplete(responses)) return emptyResult("error");
   const response = { active_profile: responses[0].active_profile, color_matched: responses.flatMap((r) => r.color_matched ?? []) };
 
-  const dropped = { subCategory: { total: 0, byValue: {} }, placeholder: 0, excluded: 0 };
+  const dropped = { subCategory: { total: 0, byValue: {} }, placeholder: 0, excluded: 0, lowFit: 0 };
   const kept = [];
 
   for (const product of response.color_matched) {
@@ -124,17 +165,53 @@ async function loadRecommended(groupKey) {
       dropped.excluded += 1;
       continue;
     }
-    kept.push(toShadeItem(product));
+    // Recommended means it suits the user: a season-matched product (lips, blush, eyeshadow) whose best shade does not fit
+    // their season is left out. Skin-matched ones (foundation, concealer, powder...) are all kept and ranked by closeness
+    // (see fitsUser), and so are products with nothing to match (brows, mascara...) or users without a season / skin tone.
+    if (!fitsUser(toShadeItem(product).fit, product.match_basis)) {
+      dropped.lowFit += 1;
+      continue;
+    }
+    kept.push(toShadeItems(product));
   }
 
-  // Everything that passed the safety check is shown, best fit first (see compareCompatibility).
-  const items = kept.sort(compareCompatibility);
+  // Everything that passed the safety check AND fits the user is shown, best fit first (see compareCompatibility). Products are ordered by
+  // their best shade (the first of each list); a product's shades then stay together, best first.
+  const items = kept.sort((a, b) => compareCompatibility(a[0], b[0])).flat();
   // "ranked" tells the panel that the order reflects the user's colors; without a color analysis it is only safe-first.
   const ranked = items.some((item) => item.fit !== null);
   const seasonFilter = response.active_profile.seasonal_label ? "season" : "no_season";
 
   return { status: items.length > 0 ? "ok" : "empty", items, seasonFilter, ranked, dropped };
 }
+
+const PROFILE_WAIT_MS = 5000;
+
+// The signed-in user's profile from the store, once it holds this uid's profile; null after PROFILE_WAIT_MS.
+function waitForProfile(uid, timeoutMs = PROFILE_WAIT_MS) {
+  const current = () => (useUserStore.getState().user?.uid === uid ? useUserStore.getState().user : null);
+  const now = current();
+  if (now) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      resolve(null);
+    }, timeoutMs);
+    const unsubscribe = useUserStore.subscribe(() => {
+      const profile = current();
+      if (!profile) return;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(profile);
+    });
+  });
+}
+
+const loadSafely = (groupKey) =>
+  loadRecommended(groupKey).catch((error) => {
+    console.error(`Error loading recommended ${groupKey}:`, error);
+    return emptyResult("error");
+  });
 
 export async function getRecommended(groupKey) {
   if (!groupByKey(groupKey)) throw new Error(`Unknown AR group: ${groupKey}`);
@@ -144,23 +221,17 @@ export async function getRecommended(groupKey) {
   const user = auth.currentUser;
   if (!user) return emptyResult("signed_out");
 
-  const key = `${user.uid}:${groupKey}`;
-  const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.request;
+  // The profile loads a moment after sign-in (App.jsx), and the cache is keyed on it. Wait for it, so a page opened
+  // directly on AR still shares one cached request. If it never arrives, ask the server without caching rather than
+  // store a result under the wrong profile.
+  const profile = await waitForProfile(user.uid);
+  if (!profile) return loadSafely(groupKey);
 
-  const request = loadRecommended(groupKey)
-    .catch((error) => {
-      console.error(`Error loading recommended ${groupKey}:`, error);
-      return emptyResult("error");
-    })
-    .then((result) => {
-      if (result.status === "error" && cache.get(key)?.request === request) cache.delete(key);
-      return result;
-    });
-  cache.set(key, { expires: Date.now() + CACHE_TTL_MS, request });
-  return request;
+  return cache.get(user.uid, groupKey, profileSignature(profile), () => loadSafely(groupKey), (result) => result.status === "error");
 }
 
+// Sign-out: forget everything, memory and storage (the next person on this device starts clean). A profile change needs
+// no call: its signature differs, so the next request misses by itself.
 export function clearRecommendedCache() {
   cache.clear();
 }

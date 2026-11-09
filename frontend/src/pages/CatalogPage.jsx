@@ -1,22 +1,24 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { ProductGridSkeleton } from "../components/common/Skeletons.jsx";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react";
-import { getProductCatalog, runFilter } from "../services/productService";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { getCatalog, getSafetyResults } from "../services/catalogDataService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
+import { SeasonContextBanner } from "../components/catalog/SeasonContextBanner.jsx";
 import { CatalogFilters, CatalogSearch } from "../components/catalog/CatalogFilters.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
+import { subcategoryCounts, subcategoryLabels } from "../utils/catalogSubcategories.js";
+import { fitsUser } from "../utils/arFit.js";
 
 // The safety filter checks one category per request (api.py category_map), so the page asks once per category.
 // These are the same requests the old ingredient filter page made, one at a time.
-const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
 const PAGE_SIZE = 20;
 const VIEWS = ["safe", "all"];
 // Category filter value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
 const CATEGORY_DATA = { cheek: "Cheek", concealer: "Concealer", eye: "Eye", face: "Face", lip: "Lip", multiuse: "Multi-Use" };
-const ALL_VERDICTS = ["safe", "caution", "excluded"];
 
 const byCategoryThenName = (a, b) =>
   String(a.category ?? "").localeCompare(String(b.category ?? "")) ||
@@ -28,13 +30,13 @@ const verdictOf = (item) => String(item?.verdict ?? "").toLowerCase();
 const parseList = (value, allowed) => allowed.filter((option) => String(value ?? "").split(",").includes(option));
 
 /* Card grid: 2 columns on phones, 3 on tablets and small laptops, 4 on laptops, 5 on wide screens. */
-function ProductGrid({ items, onSelect }) {
+function ProductGrid({ items, onSelect, onlyMatching = false, plain = false }) {
   return (
     // One column on very narrow phones (under 360px), where two cards would be about 138px wide.
     <ul className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
       {items.map((item) => (
         <li key={item.product_id}>
-          <ProductCard product={item} onSelect={(e) => onSelect(item, e.currentTarget)} />
+          <ProductCard product={item} onlyMatching={onlyMatching} plain={plain} onSelect={(e) => onSelect(item, e.currentTarget)} />
         </li>
       ))}
     </ul>
@@ -144,15 +146,6 @@ function FilterSheet({ resultCount, onClose, children }) {
   );
 }
 
-function LoadingState({ label }) {
-  return (
-    <div role="status" className="flex flex-col items-center gap-3 py-20 text-sm text-gray">
-      <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-primary" />
-      {label}
-    </div>
-  );
-}
-
 function MessageState({ title, text, actionLabel, onAction, children }) {
   return (
     <div className="mx-auto max-w-md rounded-3xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-primary-lighter">
@@ -183,29 +176,31 @@ export function CatalogPage() {
     setSearchParams((params) => {
       params.set("view", next);
       params.delete("page");
-      params.delete("xpage");
       return params;
     });
 
   // Filters live in the URL too ("lip,cheek"). They replace the current entry, so typing or ticking boxes does not
-  // fill history, and they send every list back to page 1. Excluded is a valid verdict only in Full catalog.
+  // fill history, and they send every list back to page 1. Only "Compatible with me" has a safety verdict filter.
   // BrowserRouter applies URL changes as a transition, so a ticked box would briefly snap back until the URL
   // catches up. The ticked boxes are therefore kept in local state too, updated at once, and re-read from the URL
   // whenever the URL changes (back button, shared link, Clear filters).
   const urlCategories = searchParams.get("category") ?? "";
   const urlVerdicts = searchParams.get("verdict") ?? "";
-  const [ticked, setTicked] = useState({ category: urlCategories, verdict: urlVerdicts });
-  const [tickedFrom, setTickedFrom] = useState(`${urlCategories}|${urlVerdicts}`);
-  if (tickedFrom !== `${urlCategories}|${urlVerdicts}`) {
-    setTickedFrom(`${urlCategories}|${urlVerdicts}`);
-    setTicked({ category: urlCategories, verdict: urlVerdicts });
+  const urlSub = searchParams.get("sub") ?? "";
+  const [ticked, setTicked] = useState({ category: urlCategories, verdict: urlVerdicts, sub: urlSub });
+  const [tickedFrom, setTickedFrom] = useState(`${urlCategories}|${urlVerdicts}|${urlSub}`);
+  if (tickedFrom !== `${urlCategories}|${urlVerdicts}|${urlSub}`) {
+    setTickedFrom(`${urlCategories}|${urlVerdicts}|${urlSub}`);
+    setTicked({ category: urlCategories, verdict: urlVerdicts, sub: urlSub });
   }
   const categories = parseList(ticked.category, Object.keys(CATEGORY_DATA));
-  const verdicts = parseList(ticked.verdict, view === "all" ? ALL_VERDICTS : ["safe", "caution"]);
+  const verdicts = view === "all" ? [] : parseList(ticked.verdict, ["safe", "caution"]);
+  // The sub-category (Lipstick, Lip liner ...) only applies while exactly one category is chosen.
+  const sub = categories.length === 1 ? ticked.sub : "";
   const query = searchParams.get("q") ?? "";
   // Filtering the grid can lag one keystroke behind typing, so the input itself never waits for it.
   const deferredQuery = useDeferredValue(query);
-  const filterCount = categories.length + verdicts.length;
+  const filterCount = categories.length + verdicts.length + (sub ? 1 : 0);
   const filtersActive = Boolean(filterCount || query.trim());
   const setFilters = (patch) =>
     setSearchParams(
@@ -215,7 +210,6 @@ export function CatalogPage() {
           else params.delete(key);
         }
         params.delete("page");
-        params.delete("xpage");
         return params;
       },
       { replace: true },
@@ -226,13 +220,22 @@ export function CatalogPage() {
     setTicked((t) => ({ ...t, [key]: next }));
     setFilters({ [key]: next });
   };
+  // Category pills: one category at a time; it replaces any others and resets the sub-category.
+  const selectCategory = (value) => {
+    setTicked((t) => ({ ...t, category: value, sub: "" }));
+    setFilters({ category: value, sub: "" });
+  };
+  const selectSub = (value) => {
+    setTicked((t) => ({ ...t, sub: value }));
+    setFilters({ sub: value });
+  };
   const clearFilters = () => {
-    setTicked({ category: "", verdict: "" });
-    setFilters({ category: "", verdict: "", q: "" });
+    setTicked({ category: "", verdict: "", sub: "" });
+    setFilters({ category: "", verdict: "", sub: "", q: "" });
   };
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Page numbers: ?page= for the main list, ?xpage= for the Excluded section. A page change is a new history entry,
+  // Page numbers: ?page=. A page change is a new history entry,
   // so the back button returns to the previous page, and the list scrolls back to its top.
   const resultsRef = useRef(null);
   const pageFrom = (key, total) => {
@@ -292,55 +295,48 @@ export function CatalogPage() {
 
   useEffect(() => {
     let active = true;
-    getProductCatalog().then((items) => active && setCatalog(items));
+    getCatalog().then((items) => active && setCatalog(items));
     return () => {
       active = false;
     };
   }, [catalogAttempt]);
 
-  // Same payload as the old ingredient filter page, once per category. Loaded once; switching views reuses it.
+  // Same payload as the old ingredient filter page, once per category. Kept per profile (catalogDataService.js), so
+  // switching views or coming back to this page reuses it, and only a profile change asks the server again.
+  // Only "Compatible with me" needs it: the Full catalog is not checked against the profile, so it asks nothing.
   useEffect(() => {
-    if (!user || !hasProfile) return;
+    if (!user || !hasProfile || view !== "safe") return;
     let active = true;
-    const payload = {
-      skin_type: user.skin_type || user.skin_profile?.base_type || "Normal",
-      avoid_ingredients: user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [],
-      user_lab: user.user_lab,
-      seasonal_label: user.seasonal_label,
-    };
-    Promise.all(FILTER_CATEGORIES.map((category) => runFilter({ ...payload, category }))).then((responses) => {
-      if (active) setFilterResults(responses.flatMap((response) => response.color_matched || []));
+    getSafetyResults(user).then(({ results }) => {
+      if (active) setFilterResults(results);
     });
     return () => {
       active = false;
     };
-  }, [user, hasProfile, filterAttempt]);
+  }, [user, hasProfile, view, filterAttempt]);
 
-  // Safe for me: Safe first, then Caution, keeping the filter's own order inside each group. Never Excluded (C2).
-  const safeItems = useMemo(() => {
-    if (!filterResults) return [];
-    const safe = filterResults.filter((item) => verdictOf(item) === "safe");
-    const caution = filterResults.filter((item) => verdictOf(item) === "caution");
-    return [...safe, ...caution];
+  // Compatible with me: Safe first, then Caution, keeping the filter's own order inside each group. Never Excluded (C2). Only
+  // products that also suit the user's colors: a season-matched one (lips, blush, eyeshadow) whose best shade does not fit
+  // their season is left out. Skin-matched ones (foundation, concealer, powder...) all stay, closest first, with their
+  // percentage, as do products with nothing to match and users without a season / skin tone yet. The full catalog still
+  // lists everything.
+  const { safeItems, colorHiddenCount } = useMemo(() => {
+    if (!filterResults) return { safeItems: [], colorHiddenCount: 0 };
+    const passed = filterResults.filter((item) => ["safe", "caution"].includes(verdictOf(item)));
+    const fitting = passed.filter((item) => fitsUser(item.fit_score, item.match_basis));
+    const safe = fitting.filter((item) => verdictOf(item) === "safe");
+    const caution = fitting.filter((item) => verdictOf(item) === "caution");
+    return { safeItems: [...safe, ...caution], colorHiddenCount: passed.length - fitting.length };
   }, [filterResults]);
 
-  // Full catalog: every product, with its verdict where the filter returned one (the filter result carries the
-  // product's own fields too). Excluded products go to their own section below (decision 2, provisional).
-  const { mainItems, excludedItems } = useMemo(() => {
-    if (!catalog) return { mainItems: [], excludedItems: [] };
-    const results = new Map((filterResults || []).map((item) => [item.product_id, item]));
-    const merged = catalog.map((product) => results.get(product.product_id) ?? product);
-    return {
-      mainItems: merged.filter((item) => verdictOf(item) !== "excluded").sort(byCategoryThenName),
-      excludedItems: merged.filter((item) => verdictOf(item) === "excluded").sort(byCategoryThenName),
-    };
-  }, [catalog, filterResults]);
+  // Full catalog: every product as stored, no safety or color check applied.
+  const mainItems = useMemo(() => (catalog ? [...catalog].sort(byCategoryThenName) : []), [catalog]);
 
   // The services return an empty list when a request fails, so "empty" is read as an error where real data is never
   // empty: the catalog itself, and all six filter responses together.
   const userLoading = !user;
-  const filterLoading = hasProfile && filterResults === null;
-  const filterFailed = hasProfile && filterResults !== null && filterResults.length === 0;
+  const filterLoading = view === "safe" && hasProfile && filterResults === null;
+  const filterFailed = view === "safe" && hasProfile && filterResults !== null && filterResults.length === 0;
   const retryCatalog = () => {
     setCatalog(null);
     setCatalogAttempt((n) => n + 1);
@@ -350,50 +346,64 @@ export function CatalogPage() {
     setFilterAttempt((n) => n + 1);
   };
 
-  // The product the detail view shows: its filter result when there is one, else the catalog entry.
+  // The product the detail view shows: in "Compatible with me" its filter result when there is one, else the catalog
+  // entry; in the Full catalog always the catalog entry.
   const detailItem = useMemo(() => {
     if (!productId) return null;
     return (
-      (filterResults || []).find((item) => item.product_id === productId) ??
+      (view === "safe" ? (filterResults || []).find((item) => item.product_id === productId) : null) ??
       (catalog || []).find((item) => item.product_id === productId) ??
       null
     );
-  }, [productId, filterResults, catalog]);
+  }, [productId, view, filterResults, catalog]);
 
   // Filtering happens on data already loaded: no new requests. Within a group, any ticked option matches.
   const categoriesKey = categories.join(",");
   const verdictsKey = verdicts.join(",");
-  const { filteredSafe, filteredMain, filteredExcluded } = useMemo(() => {
+  const { filteredSafe, filteredMain } = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     const has = (text) => String(text ?? "").toLowerCase().includes(q);
     const wantedCategories = categoriesKey ? categoriesKey.split(",").map((c) => CATEGORY_DATA[c]) : [];
     const wantedVerdicts = verdictsKey ? verdictsKey.split(",") : [];
     const matches = (item) =>
       (!wantedCategories.length || wantedCategories.includes(item.category)) &&
+      (!sub || subcategoryLabels(item).includes(sub)) &&
       (!wantedVerdicts.length || wantedVerdicts.includes(verdictOf(item))) &&
       (!q || has(item.product_name) || has(item.brand));
     return {
       filteredSafe: safeItems.filter(matches),
       filteredMain: mainItems.filter(matches),
-      filteredExcluded: excludedItems.filter(matches),
     };
-  }, [safeItems, mainItems, excludedItems, categoriesKey, verdictsKey, deferredQuery]);
+  }, [safeItems, mainItems, categoriesKey, verdictsKey, sub, deferredQuery]);
+
+  // Sub-categories of the chosen category, with how many products each has in the current view.
+  const subOptions = useMemo(() => {
+    if (categoriesKey.includes(",") || !categoriesKey) return [];
+    const wanted = CATEGORY_DATA[categoriesKey];
+    const pool = view === "safe" ? safeItems : mainItems;
+    return subcategoryCounts(pool.filter((item) => item.category === wanted)).map(([label, count]) => ({
+      value: label,
+      label,
+      count,
+    }));
+  }, [categoriesKey, view, safeItems, mainItems]);
 
   // Count line for the current view, shown once its data is ready.
+  const hasSeason = Boolean(String(user?.seasonal_label ?? "").trim());
   const safeCount = safeItems.filter((item) => verdictOf(item) === "safe").length;
   const countText =
     view === "safe"
       ? !userLoading && !filterLoading && !filterFailed && safeItems.length > 0
         ? filtersActive
-          ? `${filteredSafe.length} of ${safeItems.length} products for your skin`
-          : `${safeItems.length} products for your skin: ${safeCount} Safe, ${safeItems.length - safeCount} Caution`
+          ? `${filteredSafe.length} of ${safeItems.length} products for you`
+          : `${safeItems.length} products for your skin${hasSeason ? " and colors" : ""}: ${safeCount} Safe, ${safeItems.length - safeCount} Caution`
         : null
-      : !userLoading && !filterLoading && catalog?.length
+      : !userLoading && catalog?.length
         ? filtersActive
-          ? `${filteredMain.length + filteredExcluded.length} of ${catalog.length} products`
+          ? `${filteredMain.length} of ${catalog.length} products`
           : `${catalog.length} products`
         : null;
-  const resultCount = view === "safe" ? filteredSafe.length : filteredMain.length + filteredExcluded.length;
+  const resultCount = view === "safe" ? filteredSafe.length : filteredMain.length;
   const noMatches = (
     <MessageState
       title="No products match these filters"
@@ -408,7 +418,7 @@ export function CatalogPage() {
       return (
         <MessageState
           title="Set up your skin profile first"
-          text="Safe for me checks every product against your skin type and the ingredients you avoid."
+          text="Compatible with me checks every product against your skin type, the ingredients you avoid and your colors."
           actionLabel="Open full catalog"
           onAction={() => setView("all")}
         >
@@ -418,7 +428,7 @@ export function CatalogPage() {
         </MessageState>
       );
     }
-    if (userLoading || filterLoading) return <LoadingState label="Checking products for your skin..." />;
+    if (userLoading || filterLoading) return <ProductGridSkeleton label="Checking products for your skin..." />;
     if (filterFailed) {
       return (
         <MessageState
@@ -432,8 +442,12 @@ export function CatalogPage() {
     if (safeItems.length === 0) {
       return (
         <MessageState
-          title="No products passed your ingredient check"
-          text="Every product we checked is Excluded for your profile. You can still browse them in the full catalog."
+          title={colorHiddenCount > 0 ? "No safe product matches your colors yet" : "No products passed your ingredient check"}
+          text={
+            colorHiddenCount > 0
+              ? "The products that passed your ingredient check have no shade that fits your colors. You can still browse every product in the full catalog."
+              : "Every product we checked is Excluded for your profile. You can still browse them in the full catalog."
+          }
           actionLabel="Open full catalog"
           onAction={() => setView("all")}
         />
@@ -443,14 +457,14 @@ export function CatalogPage() {
     const page = pageFrom("page", filteredSafe.length);
     return (
       <>
-        <ProductGrid items={pageSlice(filteredSafe, page)} onSelect={openDetail} />
+        <ProductGrid items={pageSlice(filteredSafe, page)} onSelect={openDetail} onlyMatching />
         <Pagination label="Product pages" page={page} total={filteredSafe.length} onChange={(n) => goToPage("page", n)} />
       </>
     );
   };
 
   const renderFullView = () => {
-    if (userLoading || catalog === null || filterLoading) return <LoadingState label="Loading the catalog..." />;
+    if (userLoading || catalog === null) return <ProductGridSkeleton label="Loading the catalog..." />;
     if (catalog.length === 0) {
       return (
         <MessageState
@@ -462,47 +476,12 @@ export function CatalogPage() {
       );
     }
     const page = pageFrom("page", filteredMain.length);
-    const xpage = pageFrom("xpage", filteredExcluded.length);
+    if (filteredMain.length === 0) return noMatches;
     return (
-      <>
-        {!hasProfile && (
-          <p className="rounded-2xl bg-white px-4 py-3 text-sm text-gray ring-1 ring-primary-lighter">
-            Products show &quot;Not checked&quot; until you set up your skin profile.{" "}
-            <Link to="/onboarding" className="font-semibold text-primary underline">
-              Set up my profile
-            </Link>
-          </p>
-        )}
-        {filterFailed && (
-          <p className="rounded-2xl bg-white px-4 py-3 text-sm text-gray ring-1 ring-primary-lighter">
-            Your safety check is unavailable right now, so products show &quot;Not checked&quot;.{" "}
-            <button type="button" onClick={retryFilter} className="font-semibold text-primary underline">
-              Try again
-            </button>
-          </p>
-        )}
-        {filteredMain.length + filteredExcluded.length === 0 && noMatches}
-        {filteredMain.length > 0 && (
-          <div>
-            <ProductGrid items={pageSlice(filteredMain, page)} onSelect={openDetail} />
-            <Pagination label="Product pages" page={page} total={filteredMain.length} onChange={(n) => goToPage("page", n)} />
-          </div>
-        )}
-        {filteredExcluded.length > 0 && (
-          <section aria-labelledby="excluded-heading" className="space-y-3 border-t border-primary-lighter pt-6">
-            <h2 id="excluded-heading" className="font-heading text-xl font-semibold">
-              Excluded for your profile ({filteredExcluded.length})
-            </h2>
-            <ProductGrid items={pageSlice(filteredExcluded, xpage)} onSelect={openDetail} />
-            <Pagination
-              label="Excluded product pages"
-              page={xpage}
-              total={filteredExcluded.length}
-              onChange={(n) => goToPage("xpage", n)}
-            />
-          </section>
-        )}
-      </>
+      <div>
+        <ProductGrid items={pageSlice(filteredMain, page)} onSelect={openDetail} plain />
+        <Pagination label="Product pages" page={page} total={filteredMain.length} onChange={(n) => goToPage("page", n)} />
+      </div>
     );
   };
 
@@ -511,8 +490,12 @@ export function CatalogPage() {
       idPrefix={idPrefix}
       view={view}
       categories={categories}
+      subOptions={subOptions}
+      sub={sub}
       verdicts={verdicts}
       active={filtersActive}
+      onSelectCategory={selectCategory}
+      onSelectSub={selectSub}
       onToggle={toggleFilter}
       onClear={clearFilters}
     />
@@ -556,6 +539,9 @@ export function CatalogPage() {
             {filterPanel("sidebar")}
           </aside>
           <div ref={resultsRef} className="min-w-0 scroll-mt-24 space-y-6">
+            {view === "safe" && hasProfile && !userLoading && (
+              <SeasonContextBanner season={user?.seasonal_label} hasSkinTone={Array.isArray(user?.user_lab) && user.user_lab.length === 3} />
+            )}
             {view === "safe" ? renderSafeView() : renderFullView()}
           </div>
         </div>
@@ -565,7 +551,7 @@ export function CatalogPage() {
             {filterPanel("sheet")}
           </FilterSheet>
         )}
-        {detailItem && <ProductDetail product={detailItem} onClose={closeDetail} />}
+        {detailItem && <ProductDetail product={detailItem} onClose={closeDetail} plain={view === "all"} />}
       </div>
     </main>
   );

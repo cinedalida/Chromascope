@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FavoriteCardSkeleton, ProductGridSkeleton } from "../components/common/Skeletons.jsx";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Sparkles, X } from "lucide-react";
-import { getProductCatalog, runFilter } from "../services/productService";
+import { Sparkles, X } from "lucide-react";
+import { getCatalog, getSafetyResults } from "../services/catalogDataService";
 import { getShades } from "../services/arShadeService";
 import { useUserStore } from "../store/userStore";
-import { TRY_ON_GROUPS, canTryOn, favoriteToTryOn, useFavorites } from "../hooks/useFavorites";
-import { groupOfRegion } from "../utils/arGroups";
+import { canTryOn, favoriteToTryOn, isTryOnRegion, useFavorites } from "../hooks/useFavorites";
 import { FavoriteProductCard } from "../components/favorites/FavoriteProductCard.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { LookCard } from "../components/favorites/LookCard.jsx";
 
-// Same safety filter requests as the catalog page, so every badge is the current verdict, never a saved one (F-R1).
-const FILTER_CATEGORIES = ["Face", "Concealer", "Cheeks", "Lips", "Eyes", "Multiuse"];
+// Same safety filter results as the catalog page, so every badge is the current verdict, never a saved one (F-R1).
 const TABS = [
   { key: "products", label: "Products" },
   { key: "looks", label: "Looks" },
@@ -72,9 +71,10 @@ export function FavoritesPage() {
   const [filterResults, setFilterResults] = useState(null);
   const [browse, setBrowse] = useState({}); // region -> Browse shade items
 
+  // Both are kept across visits (catalogDataService.js): coming back makes no requests, a profile change refreshes the verdicts.
   useEffect(() => {
     let active = true;
-    getProductCatalog().then((items) => active && setCatalog(items));
+    getCatalog().then((items) => active && setCatalog(items));
     return () => {
       active = false;
     };
@@ -83,14 +83,8 @@ export function FavoritesPage() {
   useEffect(() => {
     if (!user || !hasProfile) return undefined;
     let active = true;
-    const payload = {
-      skin_type: user.skin_type || user.skin_profile?.base_type || "Normal",
-      avoid_ingredients: user.avoid_ingredients || user.skin_profile?.blacklisted_ingredients || [],
-      user_lab: user.user_lab,
-      seasonal_label: user.seasonal_label,
-    };
-    Promise.all(FILTER_CATEGORIES.map((category) => runFilter({ ...payload, category }))).then((responses) => {
-      if (active) setFilterResults(responses.flatMap((response) => response.color_matched || []));
+    getSafetyResults(user).then(({ results }) => {
+      if (active) setFilterResults(results);
     });
     return () => {
       active = false;
@@ -132,7 +126,7 @@ export function FavoritesPage() {
         browse: true,
         product: {
           product_id: null, product_name: shade.product, brand: shade.brand, hex_color: shade.hex, price: shade.price,
-          price_currency: shade.currency, image_url: "", verdict: null,
+          price_currency: shade.currency, image_url: "", verdict: null, shade_name: shade.shade,
         },
       };
     }
@@ -163,7 +157,7 @@ export function FavoritesPage() {
     });
   };
   const tryOnAllowed = (item, product, isBrowse) =>
-    isBrowse ? TRY_ON_GROUPS.includes(groupOfRegion(item.region)) : canTryOn(product);
+    isBrowse ? isTryOnRegion(item.region) : canTryOn(product);
 
   const products = favorites.filter((f) => f.type === "product");
   const looks = favorites.filter((f) => f.type === "look");
@@ -211,10 +205,12 @@ export function FavoritesPage() {
                     <p className="py-2 text-center text-[11px] text-gray">Not available in try-on</p>
                   )}
                 </FavoriteProductCard>
+              ) : itemStatus === "loading" ? (
+                <FavoriteCardSkeleton />
               ) : (
                 <div className="flex h-full min-h-40 flex-col justify-between rounded-2xl border border-dashed border-primary-lighter bg-white p-4">
-                  <p className="text-sm text-gray">{itemStatus === "loading" ? "Loading..." : "No longer available"}</p>
-                  {itemStatus === "missing" && <RemoveButton onClick={() => removeFavorite(favorite.id)} />}
+                  <p className="text-sm text-gray">No longer available</p>
+                  <RemoveButton onClick={() => removeFavorite(favorite.id)} />
                 </div>
               )}
             </li>
@@ -232,7 +228,16 @@ export function FavoritesPage() {
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {looks.map((look) => (
           <li key={look.id}>
-            <LookCard look={look} resolve={resolve} onRename={renameLook} onDelete={removeFavorite}>
+            <LookCard
+              look={look}
+              resolve={resolve}
+              onRename={renameLook}
+              onDelete={removeFavorite}
+              onOpenProduct={(product, opener) => {
+                openerRef.current = opener;
+                setDetail(product);
+              }}
+            >
               <TryOnButton onClick={() => tryOn(look)} />
             </LookCard>
           </li>
@@ -303,10 +308,7 @@ export function FavoritesPage() {
         )}
 
         {status === "loading" || status === "idle" ? (
-          <div role="status" className="flex flex-col items-center gap-3 py-20 text-sm text-gray">
-            <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-primary" />
-            Loading your favorites...
-          </div>
+          <ProductGridSkeleton count={6} label="Loading your favorites..." />
         ) : status === "error" ? (
           <EmptyState title="We couldn't load your favorites" text="Check your connection and reload the page." />
         ) : tab === "products" ? (

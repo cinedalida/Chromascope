@@ -1,49 +1,72 @@
+import { Suspense, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
+// Only the first pages a visitor sees are in the main file; the rest load on first visit (see lazyPages.js).
 import { SplashPage } from "../pages/SplashPage.jsx";
-import { UserManualPage } from "../pages/UserManualPage.jsx";
-import { TermsOfServicePage } from "../pages/TermsOfServicePage.jsx";
-import { PrivacyPolicyPage } from "../pages/PrivacyPolicyPage.jsx";
 import { AuthPage } from "../pages/AuthPage.jsx";
-import { HomePage } from "../pages/HomePage.jsx";
-import { OnboardingPage } from "../pages/OnboardingPage.jsx";
-import { ARTryOnPage } from "../pages/ARTryOnPage.jsx";
-import { ColorAnalysisPage } from "../pages/ColorAnalysisPage.jsx";
-import { ColorAnalysisProcessingPage } from "../pages/ColorAnalysisProcessingPage.jsx";
-import { ColorAnalysisSubtypePage } from "../pages/ColorAnalysisSubtypePage.jsx";
-// HIDDEN — re-enable with the /palette-product route below
-// import { PaletteGuideProductPage } from "../pages/PaletteGuideProductPage.jsx";
-import { ProfilePage } from "../pages/ProfilePage.jsx";
-import { CatalogPage } from "../pages/CatalogPage.jsx";
-import { FavoritesPage } from "../pages/FavoritesPage.jsx";
-import { AdminDatabasePage } from "../pages/AdminDatabasePage.jsx";
+import {
+  UserManualPage,
+  TermsOfServicePage,
+  PrivacyPolicyPage,
+  HomePage,
+  OnboardingPage,
+  ARTryOnPage,
+  ColorAnalysisPage,
+  ColorAnalysisProcessingPage,
+  ColorAnalysisSubtypePage,
+  // HIDDEN — re-enable with the /palette-product route below
+  // PaletteGuideProductPage,
+  ProfilePage,
+  CatalogPage,
+  FavoritesPage,
+  AdminDatabasePage,
+  // DEV only: camera lab for tuning looks. null in production builds.
+  ARLabPage,
+  prefetchPages,
+} from "./lazyPages.js";
 import { MainLayout } from "../layouts/MainLayout";
 import { RequireAuth } from "./RequireAuth.jsx";
-// DEV only: camera lab for tuning looks. import.meta.env.DEV is false in production builds.
-import { ARLabPage } from "../pages/ARLabPage.jsx";
+import { RouteFallback } from "../components/common/RouteFallback.jsx";
+import { RouteErrorBoundary } from "../components/common/RouteErrorBoundary.jsx";
+
+// One page's area: a spinner while its code downloads, and a message with a Reload button if that fails. Used INSIDE the
+// layout, so the sidebar and navbar stay on screen.
+function Lazy({ children }) {
+  return (
+    <RouteErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </RouteErrorBoundary>
+  );
+}
 
 export default function AppRouter() {
+  // Home is where sign-in lands: fetch it while the login page is still on screen.
+  useEffect(() => {
+    const id = typeof requestIdleCallback === "function" ? requestIdleCallback(() => prefetchPages(["home"])) : setTimeout(() => prefetchPages(["home"]), 1500);
+    return () => (typeof cancelIdleCallback === "function" && typeof id === "number" ? cancelIdleCallback(id) : clearTimeout(id));
+  }, []);
+
   return (
     <Router>
       <Routes>
         {/* Splash & Auth Flow */}
         <Route path="/" element={<SplashPage />} />
-        <Route path="/user-manual" element={<UserManualPage />} />
-        <Route path="/terms" element={<TermsOfServicePage />} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/user-manual" element={<Lazy><UserManualPage /></Lazy>} />
+        <Route path="/terms" element={<Lazy><TermsOfServicePage /></Lazy>} />
+        <Route path="/privacy" element={<Lazy><PrivacyPolicyPage /></Lazy>} />
         <Route path="/auth" element={<AuthPage />} />
-        {import.meta.env.DEV && <Route path="/dev/ar-lab" element={<ARLabPage />} />}
+        {import.meta.env.DEV && <Route path="/dev/ar-lab" element={<Lazy><ARLabPage /></Lazy>} />}
         {/* DEV only: the real AR page without the sign-in wrapper, for browser testing of the panel. */}
         {import.meta.env.DEV && (
-          <Route path="/dev/ar-page" element={<MainLayout><ARTryOnPage /></MainLayout>} />
+          <Route path="/dev/ar-page" element={<MainLayout><Lazy><ARTryOnPage /></Lazy></MainLayout>} />
         )}
-        
+
         {/* Onboarding (Contains Skin Type, Concerns, Ingredients, & Ethics Flow) */}
-        <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
+        <Route path="/onboarding" element={<RequireAuth><Lazy><OnboardingPage /></Lazy></RequireAuth>} />
 
         {/* Main App Pages (With Sidebar/MainLayout) */}
         <Route
@@ -51,56 +74,66 @@ export default function AppRouter() {
           element={
             <RequireAuth>
               <MainLayout>
-                <HomePage />
+                <Lazy>
+                  <HomePage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         <Route
           path="/ar-tryon"
           element={
             <RequireAuth>
               <MainLayout>
-                <ARTryOnPage />
+                <Lazy>
+                  <ARTryOnPage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         <Route
           path="/color-analysis"
           element={
             <RequireAuth>
               <MainLayout>
-                <ColorAnalysisPage />
+                <Lazy>
+                  <ColorAnalysisPage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         <Route
           path="/color-analysis/processing"
           element={
             <RequireAuth>
               <MainLayout>
-                <ColorAnalysisProcessingPage />
+                <Lazy>
+                  <ColorAnalysisProcessingPage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         <Route
           path="/color-analysis/subtype"
           element={
             <RequireAuth>
               <MainLayout>
-                <ColorAnalysisSubtypePage />
+                <Lazy>
+                  <ColorAnalysisSubtypePage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         {/* HIDDEN — re-enable when Palette Guide is ready
         <Route
           path="/palette-product"
@@ -112,20 +145,22 @@ export default function AppRouter() {
         />
         */}
 
-        {/* Old ingredient filter route: now the Safe for me view of the merged catalog (keeps bookmarks working). */}
+        {/* Old ingredient filter route: now the Compatible with me view of the merged catalog (keeps bookmarks working). */}
         <Route path="/ingredient-filter" element={<Navigate to="/catalog?view=safe" replace />} />
-        
+
         <Route
           path="/profile"
           element={
             <RequireAuth>
               <MainLayout>
-                <ProfilePage />
+                <Lazy>
+                  <ProfilePage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         {/* Old product catalog route: now the Full catalog view of the merged catalog. */}
         <Route path="/product-catalog" element={<Navigate to="/catalog?view=all" replace />} />
 
@@ -135,7 +170,9 @@ export default function AppRouter() {
           element={
             <RequireAuth>
               <MainLayout>
-                <CatalogPage />
+                <Lazy>
+                  <CatalogPage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
@@ -147,16 +184,18 @@ export default function AppRouter() {
           element={
             <RequireAuth>
               <MainLayout>
-                <FavoritesPage />
+                <Lazy>
+                  <FavoritesPage />
+                </Lazy>
               </MainLayout>
             </RequireAuth>
           }
         />
-        
+
         {/* Admin/Database Section */}
         {/* Signed-in only for now; wrap with an <AdminRoute> role check once roles exist */}
-        <Route path="/admin" element={<RequireAuth><AdminDatabasePage /></RequireAuth>} />
-        
+        <Route path="/admin" element={<RequireAuth><Lazy><AdminDatabasePage /></Lazy></RequireAuth>} />
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
