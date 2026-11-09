@@ -338,6 +338,15 @@ def season_scores(lab, region, norms=None):
     return scores_from_axes(t, v, c, weights)
 
 
+def shade_season_codes(lab, region, norms=None):
+    """The seasons one shade belongs to, best first: every season scoring at least TAG_MIN_SCORE and within
+    TAG_REL_MARGIN of the shade's own best score (the same rule product tagging uses). A shade can belong to
+    several neighbouring seasons; this is what the app shows for the shade itself, not for the whole product."""
+    scores = season_scores(lab, region, norms)
+    top = max(scores.values())
+    return sorted((c for c, s in scores.items() if s >= TAG_MIN_SCORE and s >= top - TAG_REL_MARGIN), key=lambda c: -scores[c])
+
+
 def rank_shades(product, season_code, norms=None):
     """Harmony product: its shades with their fit for one season, best first. [(score, shade_dict), ...]"""
     region = product_region(product)
