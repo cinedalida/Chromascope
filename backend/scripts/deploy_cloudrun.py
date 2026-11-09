@@ -14,6 +14,7 @@ Usage (from backend/):
 Prerequisites: `gcloud auth login` as someone with Owner/Editor on the project, and billing enabled on it.
 """
 import argparse
+import json
 import os
 import secrets
 import shutil
@@ -118,18 +119,23 @@ def main():
             "ALLOWED_ORIGINS": ALLOWED_ORIGINS, "PRODUCTS_COLLECTION": "products_v2", "PRODUCTS_CACHE_SECONDS": "21600",
             "ANALYSIS_RESULT_SECRET": kept["ANALYSIS_RESULT_SECRET"], "CRON_SECRET": kept["CRON_SECRET"],
         }
-        # "^@^" makes @ the separator, because ALLOWED_ORIGINS itself contains commas.
-        env_arg = "^@^" + "@".join(f"{k}={v}" for k, v in env_vars.items())
+        # A temporary file, not --set-env-vars: ALLOWED_ORIGINS contains commas, and gcloud's escape syntax for that uses
+        # "^", which Windows' cmd.exe swallows. The file holds secrets, so it is outside the staged folder and deleted after.
+        env_file = os.path.join(tempfile.gettempdir(), f"chromascope-cloudrun-env-{secrets.token_hex(4)}.yaml")
+        with open(env_file, "w", encoding="utf-8") as fh:
+            fh.writelines(f"{k}: {json.dumps(v)}\n" for k, v in env_vars.items())
         run("run", "deploy", SERVICE, "--source", folder, "--project", args.project, "--region", args.region,
             "--service-account", sa, "--allow-unauthenticated", "--cpu", "2", "--memory", "4Gi", "--cpu-boost",
             "--concurrency", "8", "--timeout", "300", "--min-instances", str(args.min_instances),
-            "--max-instances", str(args.max_instances), "--set-env-vars", env_arg, "--quiet")
+            "--max-instances", str(args.max_instances), "--env-vars-file", env_file, "--quiet")
         if not args.dry_run:
             url = subprocess.run([gcloud, "run", "services", "describe", SERVICE, "--project", args.project, "--region", args.region,
                                   "--format", "value(status.url)"], text=True, capture_output=True).stdout.strip()
             print(f"\nDeployed. Service URL: {url}\nSet VITE_API_URL={url}/api in the Vercel project, then redeploy the frontend.")
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+        if 'env_file' in locals() and os.path.exists(env_file):
+            os.remove(env_file)
 
 
 if __name__ == "__main__":
