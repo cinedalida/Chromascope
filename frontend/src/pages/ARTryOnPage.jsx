@@ -15,8 +15,6 @@ import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
-// Every region hidden: what the overlay gets while Compare is held.
-const ALL_HIDDEN = Object.fromEntries(ALL_REGIONS.map((region) => [region, false]));
 
 // DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
 // Profile, App Settings, "AR blend tuning (dev)" is on.
@@ -141,13 +139,12 @@ export function ARTryOnPage() {
   const clearShades = () => setSelectedShades(NO_SHADES);
   const hasShades = Object.values(selectedShades).some(Boolean);
 
-  // Compare: while held, the overlay hides all makeup so the user sees their bare face. Nothing is saved.
-  const [comparing, setComparing] = useState(false);
+  // Split compare is available once shades are applied on a live camera.
   const canCompare = hasShades && isReady && !isMock;
 
   // Split compare: a divider that follows the mouse (or a finger); makeup to its left, the bare face to its right.
   // Its position (a fraction of the width, null = off) lives in a ref the overlay reads every frame, so moving it
-  // never re-renders this page. A second way to compare next to the hold-to-compare button.
+  // never re-renders this page.
   const splitRef = useRef(null);
   const [splitOn, setSplitOn] = useState(false);
   const splitActive = splitOn && canCompare; // also ends by itself when the shades are cleared or the camera stops
@@ -315,7 +312,7 @@ export function ARTryOnPage() {
               videoRef={cameraRef}
               isReady={isReady}
               isMock={isMock}
-              toggles={comparing && canCompare ? ALL_HIDDEN : regionToggles}
+              toggles={regionToggles}
               colors={colors}
               finishes={finishes}
               render={tunerEnabled ? tuning : undefined}
@@ -412,7 +409,7 @@ export function ARTryOnPage() {
             )}
           </div>
 
-          {/* CONTROLS: makeup toggles, then Compare / capture / Reset.
+          {/* CONTROLS: makeup toggles, then Split / capture / Reset.
               Card view: white bar under the camera. Expanded: white controls over a soft dark fade at the
               bottom of the feed, grouped in a centered column and clear of the iPhone home bar. */}
           <div
@@ -424,9 +421,8 @@ export function ARTryOnPage() {
           >
             <div className={`mx-auto flex w-full flex-col gap-2 sm:gap-3 ${isExpanded ? "pointer-events-auto max-w-115" : ""}`}>
               <ARControlBar light={isExpanded} toggles={toggles} onToggle={handleToggleRegion} />
-              {/* Same 5 columns as the toggle row: Compare sits under Lips, capture under Eyes, Reset under Full Face. */}
+              {/* Same 5 columns as the toggle row: Split sits under Lips, capture under Eyes, Reset under Full Face. */}
               <div className="grid grid-cols-5 items-center">
-                <CompareButton light={isExpanded} pressed={comparing && canCompare} disabled={!canCompare} onChange={setComparing} />
                 <SplitButton light={isExpanded} pressed={splitActive} disabled={!canCompare} onChange={setSplitOn} />
                 <div className="col-start-3 justify-self-center">
                   <CaptureButton light={isExpanded} onClick={handleCapture} disabled={!isReady || isMock} />
@@ -658,7 +654,7 @@ function CaptureButton({ onClick, disabled, light = false }) {
   );
 }
 
-// Split compare: a text button like Compare. Toggles the divider on and off.
+// Split compare: a text button styled like Reset. Toggles the divider on and off.
 function SplitButton({ pressed, disabled, onChange, light = false }) {
   return (
     <button
@@ -667,7 +663,7 @@ function SplitButton({ pressed, disabled, onChange, light = false }) {
       aria-pressed={pressed}
       title="Move the divider: makeup on the left, your bare face on the right"
       onClick={() => onChange(!pressed)}
-      className={`col-start-2 select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
+      className={`col-start-1 select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
         light
           ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
           : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`
@@ -714,45 +710,6 @@ function SplitLayer({ splitRef }) {
       }}
       className="absolute inset-0 z-5 cursor-ew-resize touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
     />
-  );
-}
-
-// Press and hold to see the face without makeup; release to bring it back.
-// Pointer capture keeps the release firing even if the finger slides off the button.
-function CompareButton({ pressed, disabled, onChange, light = false }) {
-  const start = (e) => {
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    onChange(true);
-  };
-  const stop = () => onChange(false);
-  const onKey = (down) => (e) => {
-    if (e.key !== " " && e.key !== "Enter") return;
-    e.preventDefault();
-    onChange(down);
-  };
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-pressed={pressed}
-      title="Hold to compare without makeup"
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      onLostPointerCapture={stop}
-      onKeyDown={onKey(true)}
-      onKeyUp={onKey(false)}
-      onBlur={stop}
-      onContextMenu={(e) => e.preventDefault()}
-      // Text only, styled like Reset; the color deepens while held.
-      className={`touch-none select-none justify-self-center rounded-lg px-2 py-1 text-xs font-medium sm:text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed ${
-        light
-          ? `drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] disabled:text-white/40 ${pressed ? "text-primary-light" : "text-white hover:text-white/80"}`
-          : `disabled:text-gray-lighter ${pressed ? "text-primary-dark" : "text-secondary hover:text-secondary-dark"}`
-      }`}
-    >
-      Compare
-    </button>
   );
 }
 
