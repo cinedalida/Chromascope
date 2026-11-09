@@ -69,3 +69,78 @@ class FilterBatchSchema(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---- compression and photo caching, through a real (tiny) ASGI app ----
+import os
+import tempfile
+
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
+from starlette.testclient import TestClient
+
+from app.api.http_cache import ApiGZipMiddleware, CachedStaticFiles, PHOTOS_CACHE_CONTROL
+
+
+class CompressionAndPhotoCaching(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.TemporaryDirectory()
+        cls.photo_bytes = os.urandom(20000)  # incompressible, like a JPEG
+        with open(os.path.join(cls.dir.name, "photo.jpg"), "wb") as fh:
+            fh.write(cls.photo_bytes)
+        big = [{"id": i, "name": "A product name " * 5} for i in range(200)]
+        app = Starlette(routes=[
+            Route("/api/products", lambda request: JSONResponse(big)),
+            Route("/api/tiny", lambda request: JSONResponse({"ok": True})),
+            Route("/other/big", lambda request: JSONResponse(big)),
+            Mount("/catalog-images", app=CachedStaticFiles(directory=cls.dir.name)),
+        ])
+        app.add_middleware(ApiGZipMiddleware, minimum_size=1000)
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def get(self, path, **headers):
+        return self.client.get(path, headers={"Accept-Encoding": "gzip", **headers})
+
+    def test_api_json_is_gzipped_when_the_client_accepts_it(self):
+        r = self.get("/api/products")
+        self.assertEqual(r.headers.get("content-encoding"), "gzip")
+        self.assertEqual(len(r.json()), 200)  # the client decompressed it
+
+    def test_api_json_is_not_gzipped_for_clients_that_do_not_accept_it(self):
+        r = self.client.get("/api/products", headers={"Accept-Encoding": "identity"})
+        self.assertIsNone(r.headers.get("content-encoding"))
+
+    def test_small_api_answers_are_left_alone(self):
+        self.assertIsNone(self.get("/api/tiny").headers.get("content-encoding"))
+
+    def test_only_api_paths_are_compressed(self):
+        self.assertIsNone(self.get("/other/big").headers.get("content-encoding"))
+
+    def test_photos_are_never_gzipped_and_are_served_whole(self):
+        r = self.get("/catalog-images/photo.jpg")
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.headers.get("content-encoding"))
+        self.assertEqual(r.content, self.photo_bytes)
+
+    def test_photos_carry_the_long_cache_header(self):
+        r = self.get("/catalog-images/photo.jpg")
+        self.assertEqual(r.headers.get("cache-control"), PHOTOS_CACHE_CONTROL)
+        self.assertNotIn("immutable", r.headers["cache-control"])  # names are reused when a photo is replaced
+
+    def test_a_not_modified_answer_keeps_the_cache_header(self):
+        first = self.get("/catalog-images/photo.jpg")
+        again = self.get("/catalog-images/photo.jpg", **{"If-None-Match": first.headers["etag"]})
+        self.assertEqual(again.status_code, 304)
+        self.assertEqual(again.headers.get("cache-control"), PHOTOS_CACHE_CONTROL)
+
+    def test_missing_files_and_the_folder_itself_are_not_served_or_cached(self):
+        for path in ("/catalog-images/nope.jpg", "/catalog-images/", "/catalog-images"):
+            r = self.client.get(path, follow_redirects=False)
+            self.assertIn(r.status_code, (404, 307), path)
+            self.assertNotEqual(r.headers.get("cache-control"), PHOTOS_CACHE_CONTROL, path)

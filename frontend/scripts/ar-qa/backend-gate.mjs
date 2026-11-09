@@ -161,6 +161,21 @@ check("21 mixed parallel calls (run-filter, batch, products): every answer ident
 const after = await call("GET", "/api/products", { headers: auth });
 check("the product list is unchanged after all of that (no shared cache was modified)", JSON.stringify(after.json) === JSON.stringify(plain.json));
 
+// ---- 6. product photos (only when the backend runs with CATALOG_IMAGES_DIR holding IMAGE_FILE)
+if (process.env.IMAGE_FILE) {
+  const url = `/catalog-images/${process.env.IMAGE_FILE}`;
+  const photo = await call("GET", url, { gzip: true });
+  check("photo: served", photo.status === 200 && photo.size > 1000, `${photo.status}, ${kb(photo.size)}`);
+  check("photo: not gzipped (already compressed) even when the client accepts gzip", !photo.headers["content-encoding"]);
+  check("photo: long Cache-Control (a week, not immutable)", /max-age=604800/.test(photo.headers["cache-control"] ?? "") && !/immutable/.test(photo.headers["cache-control"] ?? ""), photo.headers["cache-control"]);
+  const again = photo.headers.etag ? await call("GET", url, { headers: { "if-none-match": photo.headers.etag }, gzip: true }) : null;
+  check("photo: a repeat check gets 304 with the same Cache-Control", again?.status === 304 && /max-age=604800/.test(again.headers["cache-control"] ?? ""), `${again?.status}`);
+  const listing = await call("GET", "/catalog-images/", { gzip: true });
+  check("photo folder: no directory listing", listing.status === 404 || listing.status === 307, `${listing.status}`);
+  const apiAgain = await call("GET", "/api/products", { headers: auth, gzip: true });
+  check("the API is still gzipped next to the photos", apiAgain.headers["content-encoding"] === "gzip");
+}
+
 fs.writeFileSync(path.join(outDir, `backend_gate_${label}.json`), JSON.stringify({ metrics, checks }, null, 1));
 console.log(`\n${checks.filter((c) => c.ok).length}/${checks.length} checks passed  [${label}]`);
 process.exit(checks.every((c) => c.ok) ? 0 : 1);

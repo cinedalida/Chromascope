@@ -1,8 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from starlette.middleware.gzip import GZipMiddleware
 import hashlib
 import io
 import json
@@ -14,7 +12,7 @@ from firebase_admin import auth as fb_auth, firestore
 from .auth_utils import get_current_user
 from .limits import ALLOWED_FORMATS, MAX_IMAGE_SIDE, MAX_UPLOAD_BYTES, analysis_limiter
 from . import result_receipt
-from .http_cache import PRODUCTS_CACHE_CONTROL, etag_matches
+from .http_cache import ApiGZipMiddleware, CachedStaticFiles, PRODUCTS_CACHE_CONTROL, etag_matches
 from .schemas import AnalysisResultSave, FilterBatchRequest, FilterRequest, ProfileUpdate, avoid_key, concern_key, normalize_label
 from ..core.engine import ChromascopeSafetyEngine
 from ..core import bayes_engine
@@ -43,19 +41,6 @@ app.add_middleware(
 )
 
 
-class ApiGZipMiddleware:
-    """gzip for /api JSON only (the catalog and filter results shrink about 10x). Product photos are already compressed,
-    so they are passed through untouched instead of burning the free server's CPU."""
-
-    def __init__(self, app, minimum_size: int = 1000):
-        self.app = app
-        self.gzip = GZipMiddleware(app, minimum_size=minimum_size)
-
-    async def __call__(self, scope, receive, send):
-        use_gzip = scope["type"] == "http" and scope["path"].startswith("/api")
-        await (self.gzip if use_gzip else self.app)(scope, receive, send)
-
-
 app.add_middleware(ApiGZipMiddleware, minimum_size=1000)
 
 # Product photos (scripts/fetch_catalog_images.py), served read-only at /catalog-images/<file>: free hosting
@@ -63,7 +48,7 @@ app.add_middleware(ApiGZipMiddleware, minimum_size=1000)
 CATALOG_IMAGES_DIR = os.environ.get("CATALOG_IMAGES_DIR") or os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "catalog_images")
 if os.path.isdir(CATALOG_IMAGES_DIR):
-    app.mount("/catalog-images", StaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
+    app.mount("/catalog-images", CachedStaticFiles(directory=CATALOG_IMAGES_DIR), name="catalog-images")
     log.info("Serving product photos from %s", CATALOG_IMAGES_DIR)
 
 # Pillow refuses images above this many pixels (decompression-bomb guard), before any analysis runs.
