@@ -1,5 +1,5 @@
 const OPTIONS = [
-  { value: "safe", label: "Safe for me" },
+  { value: "safe", label: "Compatible with me" },
   { value: "all", label: "Full catalog" },
 ];
 

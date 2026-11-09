@@ -131,3 +131,39 @@ test("foundation ranking puts the closest shade to the user's skin first", () =>
   const dArr = items.slice(0, 40).map(d);
   assert.ok(Math.max(...dArr.slice(0, 5)) < mean(items.slice(-200).map(d)), "top shades are closer than the tail");
 });
+
+test("seasonsForShade: the seasons within 0.10 of the shade's best score, and at least 0.60", async () => {
+  const { seasonsForShade } = await import("./arFit.js");
+  assert.deepEqual(seasonsForShade([66, 44, 26, 35, 15, 43, 86, 66, 45, 15, 5, 10]), ["au-soft"]);
+  assert.deepEqual(seasonsForShade([0, 0, 0, 0, 0, 0, 80, 75, 50, 0, 0, 0]), ["au-soft", "au-true"]);
+  assert.deepEqual(seasonsForShade([50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50]), []); // nothing reaches 0.60
+  assert.deepEqual(seasonsForShade(null), []);
+  assert.deepEqual(seasonsForShade([1, 2, 3]), []);
+});
+
+test("fitsUser hides only products with a real fit below 0.55", async () => {
+  const { fitsUser, seasonsForUser } = await import("./arFit.js");
+  assert.equal(fitsUser(0.54), false);
+  assert.equal(fitsUser(0.55), true);
+  assert.equal(fitsUser(0.9), true);
+  assert.equal(fitsUser(null), true); // nothing to match: brows, mascara, no season yet
+  assert.equal(fitsUser(undefined), true);
+  // a shade that fits the user's season but whose closest season is another: the user's season is listed first
+  assert.deepEqual(seasonsForUser(["su-soft"], 0.6, "au-soft"), ["au-soft", "su-soft"]);
+  assert.deepEqual(seasonsForUser(["su-soft", "au-soft"], 0.9, "au-soft"), ["au-soft", "su-soft"]);
+  assert.deepEqual(seasonsForUser(["su-soft"], 0.3, "au-soft"), ["su-soft"]); // does not fit: nothing added
+  assert.deepEqual(seasonsForUser(["su-soft"], 0.9, null), ["su-soft"]);
+  assert.equal(seasonsForUser(null, 0.9, "au-soft"), null);
+});
+
+test("fitsUser: skin-matched products are never hidden, season-matched ones keep the cutoff", async () => {
+  const { fitsUser } = await import("./arFit.js");
+  assert.equal(fitsUser(0.02, "skin"), true); // a foundation far from the skin is still listed, ranked last, with its percentage
+  assert.equal(fitsUser(0.0, "skin"), true);
+  assert.equal(fitsUser(0.02, "harmony"), false);
+  assert.equal(fitsUser(0.54, "harmony"), false);
+  assert.equal(fitsUser(0.55, "harmony"), true);
+  assert.equal(fitsUser(0.02), false); // no basis given: the strict rule
+  assert.equal(fitsUser(null, "harmony"), true); // nothing to match
+  assert.equal(fitsUser(undefined, "neutral"), true);
+});

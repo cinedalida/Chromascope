@@ -104,7 +104,10 @@ def main():
             api.add_space_secret(repo, name, value)
         api.add_space_variable(repo, "ALLOWED_ORIGINS", ALLOWED_ORIGINS)
         api.add_space_variable(repo, "PRODUCTS_COLLECTION", "products_v2")
-        print("secrets set: FIREBASE_KEY_JSON, HF_MODELS_TOKEN, ANALYSIS_RESULT_SECRET, CRON_SECRET; variables: ALLOWED_ORIGINS, PRODUCTS_COLLECTION")
+        # The server keeps the catalog in memory this long before re-reading it from Firestore (about 1,000 reads each
+        # time). 6 hours keeps an always-busy server well inside the free plan's daily reads; a restart reloads it at once.
+        api.add_space_variable(repo, "PRODUCTS_CACHE_SECONDS", "21600")
+        print("secrets set: FIREBASE_KEY_JSON, HF_MODELS_TOKEN, ANALYSIS_RESULT_SECRET, CRON_SECRET; variables: ALLOWED_ORIGINS, PRODUCTS_COLLECTION, PRODUCTS_CACHE_SECONDS")
     api.upload_folder(repo_id=repo, repo_type="space", folder_path=folder, commit_message="Deploy Chromascope backend",
                       delete_patterns=["app/**", "catalog_images/**", "fetch_models.py"])
     shutil.rmtree(folder, ignore_errors=True)

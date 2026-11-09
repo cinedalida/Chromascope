@@ -1,9 +1,69 @@
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { FadeImage } from "../common/FadeImage.jsx";
+import { TextSkeleton } from "../common/Skeletons.jsx";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { assetUrl } from "../../config";
 import { REGION_LABEL } from "../../utils/arGroups";
+import { pesoPrice, productImageSrc } from "../../utils/productDisplay";
+import { SafetyBadge } from "../catalog/SafetyBadge.jsx";
 
 const MAX_NAME = 40;
+
+// The shade the look actually saved. A catalog product lists all its shades, so the saved one is found by id; a Browse
+// shade IS the product here. Falls back to the product's own colour and no shade name.
+function savedShadeOf({ item, product }) {
+  const saved = item.shade_id ? (product.shades || []).find((s) => s.shade_id === item.shade_id) : null;
+  return { name: saved?.name ?? product.shade_name ?? null, hex: saved?.hex ?? product.hex_color ?? null };
+}
+
+/* What is behind one shade of a look: the product's picture, brand, name, the saved shade, price and safety, and a
+   way to open the product's full details (catalog products; Browse shades have no page of their own). */
+function ShadeDetails({ id, entry, onOpenProduct }) {
+  const { product } = entry;
+  const isBrowse = !product.product_id;
+  const shade = savedShadeOf(entry);
+  const src = productImageSrc(product.image_url);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const price = pesoPrice(product.price);
+  return (
+    <div id={id} className="mt-1 mb-2 flex gap-3 rounded-xl bg-gray-lightest/50 p-3">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
+        {src && failedSrc !== src ? (
+          <FadeImage src={src} alt={product.product_name} loading="lazy" onError={() => setFailedSrc(src)} className="h-full w-full object-contain p-1" />
+        ) : (
+          <span aria-hidden="true" className="h-8 w-8 rounded-full ring-1 ring-black/10" style={shade.hex ? { backgroundColor: shade.hex } : undefined} />
+        )}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {product.brand && <p className="truncate text-[10px] font-bold uppercase tracking-wider text-gray-light">{product.brand}</p>}
+        <p className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{product.product_name}</p>
+        {shade.name && (
+          <p className="flex items-center gap-1.5 text-xs text-gray">
+            <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10" style={shade.hex ? { backgroundColor: shade.hex } : undefined} />
+            <span className="min-w-0 truncate">{shade.name}</span>
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {price && <span className="text-xs font-semibold text-black">{price}</span>}
+          {isBrowse ? (
+            <span className="text-[11px] text-gray-light">From Browse, not safety-checked</span>
+          ) : (
+            <SafetyBadge verdict={product.verdict} />
+          )}
+        </div>
+        {!isBrowse && onOpenProduct && (
+          <button
+            type="button"
+            onClick={(e) => onOpenProduct(product, e.currentTarget)}
+            className="mt-1 self-start text-[11px] font-bold uppercase tracking-[0.12em] text-primary hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            View full details
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /**
  * LookCard: one saved look (Part B, Phase F3). The look name is the title (plain text, never HTML); each shade shows
@@ -11,7 +71,8 @@ const MAX_NAME = 40;
  * shown or stored (F-R2). Rename in place (trimmed, 1 to 40 characters; blank keeps the old name) and delete with a
  * confirm step. `resolve(item)` returns { status: "ok" | "missing" | "loading", product }.
  */
-export function LookCard({ look, resolve, onRename, onDelete, children }) {
+export function LookCard({ look, resolve, onRename, onDelete, onOpenProduct, children }) {
+  const [openKey, setOpenKey] = useState(null); // the shade row that is open, if any
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(look.name);
   const [confirming, setConfirming] = useState(false);
@@ -24,7 +85,8 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
     setEditing(false);
   };
 
-  const hexOf = ({ status, product }) => (status === "ok" && product.hex_color ? product.hex_color : null);
+  // The saved shade's colour (the look is about the shades saved), else the product's own colour.
+  const hexOf = (entry) => (entry.status === "ok" ? savedShadeOf(entry).hex || null : null);
   const nameOf = ({ status, product }) =>
     status === "ok" ? product.product_name : status === "loading" ? "Loading..." : "No longer available";
 
@@ -100,23 +162,51 @@ export function LookCard({ look, resolve, onRename, onDelete, children }) {
         </div>
       )}
 
-      <ul className="space-y-2" aria-label="Shades in this look">
-        {items.map((entry) => (
-          <li key={`${entry.item.region}-${entry.item.product_id}-${entry.item.shade_id}`} className="flex items-center gap-2.5 text-sm">
-            <span
-              aria-hidden="true"
-              className="h-6 w-6 shrink-0 rounded-full bg-gray-lightest ring-1 ring-black/10"
-              style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
-            />
-            {/* Phones: the region as a small label above the product name. From sm: side by side. */}
-            <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-light sm:w-20 sm:shrink-0 sm:text-xs sm:font-semibold sm:normal-case sm:tracking-normal sm:text-gray">
-                {REGION_LABEL[entry.item.region] ?? entry.item.region}
-              </span>
-              <span className="min-w-0 truncate text-black">{nameOf(entry)}</span>
-            </span>
-          </li>
-        ))}
+      {/* Each shade is a row; tap it to look through the product behind it (one open at a time). */}
+      <ul className="space-y-1" aria-label="Shades in this look">
+        {items.map((entry) => {
+          const key = `${entry.item.region}-${entry.item.product_id}-${entry.item.shade_id}`;
+          const open = openKey === key;
+          const canOpen = entry.status === "ok";
+          return (
+            <li key={key} className="rounded-xl text-sm">
+              <button
+                type="button"
+                disabled={!canOpen}
+                aria-expanded={canOpen ? open : undefined}
+                aria-controls={`look-${look.id}-${key}`}
+                onClick={() => setOpenKey(open ? null : key)}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary enabled:hover:bg-gray-lightest/70 ${
+                  open ? "bg-gray-lightest/70" : ""
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-6 w-6 shrink-0 rounded-full bg-gray-lightest ring-1 ring-black/10"
+                  style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
+                />
+                {/* Phones: the region as a small label above the product name. From sm: side by side. */}
+                <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-light sm:w-20 sm:shrink-0 sm:text-xs sm:font-semibold sm:normal-case sm:tracking-normal sm:text-gray">
+                    {REGION_LABEL[entry.item.region] ?? entry.item.region}
+                  </span>
+                  {entry.status === "loading" ? (
+                    <TextSkeleton className="h-3.5 w-32" />
+                  ) : (
+                    <span className="min-w-0 truncate text-black">{nameOf(entry)}</span>
+                  )}
+                </span>
+                {canOpen && (
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`h-4 w-4 shrink-0 text-gray-light transition-transform ${open ? "rotate-180" : ""}`}
+                  />
+                )}
+              </button>
+              {open && canOpen && <ShadeDetails id={`look-${look.id}-${key}`} entry={entry} onOpenProduct={onOpenProduct} />}
+            </li>
+          );
+        })}
       </ul>
 
       {thumbnails.length > 0 && (

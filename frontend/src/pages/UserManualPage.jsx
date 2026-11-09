@@ -23,7 +23,7 @@ const sections = [
   {
     icon: FlaskConical,
     title: "4. Filter for safety",
-    body: "Open the Catalog and choose Safe for me to see products checked against your restrictions and skin concerns. Flagged ingredients are called out so you can make an informed choice.",
+    body: "Open the Catalog and choose Compatible with me to see products checked against your restrictions and skin concerns, and matched to your colors. Flagged ingredients are called out so you can make an informed choice.",
   },
   {
     icon: ShoppingBag,

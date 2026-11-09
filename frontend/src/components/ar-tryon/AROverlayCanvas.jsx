@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { getFaceLandmarker } from "../../services/faceLandmarkerService";
 import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
 import { REGION_RENDER, drawLooks, sampleSkin, toCanvasSpace } from "../../utils/arRenderer.js";
 
@@ -44,6 +44,40 @@ function drawMirroredFrame(ctx, video, canvasW, canvasH) {
   ctx.save();
   ctx.scale(-1, 1);
   ctx.drawImage(video, -(x + w), y, w, h);
+  ctx.restore();
+}
+
+// Split compare: a vertical divider with a small round handle, drawn on the canvas so a saved photo shows it too.
+// The makeup is drawn only to the left of it (see the render loop); the right side is the bare camera frame.
+function drawSplitDivider(ctx, x, canvasW, canvasH) {
+  const line = Math.max(2, canvasW / 300);
+  const r = Math.max(12, canvasW * 0.035);
+  // Handle sits low (over the shoulders) so it doesn't cover the face; the thin line is all that crosses it.
+  const cy = canvasH * 0.88;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = line * 3;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x - line / 2, 0, line, canvasH);
+  ctx.beginPath();
+  ctx.arc(x, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "#6B4FC8"; // the app's primary purple
+  ctx.lineWidth = Math.max(2, r * 0.14);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const a = r * 0.42; // arrow size: one pointing each way
+  ctx.beginPath();
+  ctx.moveTo(x - a * 0.35, cy - a);
+  ctx.lineTo(x - a * 1.35, cy);
+  ctx.lineTo(x - a * 0.35, cy + a);
+  ctx.moveTo(x + a * 0.35, cy - a);
+  ctx.lineTo(x + a * 1.35, cy);
+  ctx.lineTo(x + a * 0.35, cy + a);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -98,6 +132,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   render = REGION_RENDER,
   debugLandmarks = false,
   landmarksRef,
+  splitRef,
   onFrame,
 }, ref) {
   const canvasRef = useRef(null);
@@ -132,29 +167,14 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     },
   }), [isMock]);
 
-  // Load the FaceLandmarker model once on mount.
+  // Get the FaceLandmarker on mount. It is shared across visits (faceLandmarkerService.js), so it is not closed here.
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
-        );
-        const landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numFaces: 1,
-        });
-
-        if (cancelled) {
-          landmarker.close();
-          return;
-        }
+        const landmarker = await getFaceLandmarker();
+        if (cancelled) return;
         landmarkerRef.current = landmarker;
         setStatus("ready");
       } catch (err) {
@@ -168,10 +188,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (landmarkerRef.current) {
-        landmarkerRef.current.close();
-        landmarkerRef.current = null;
-      }
+      landmarkerRef.current = null;
     };
   }, []);
 
@@ -217,6 +234,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         drawMirroredFrame(ctx, video, canvas.width, canvas.height);
         hasFrameRef.current = true;
 
+        // Read each frame from a ref, so moving the divider never restarts this loop or re-renders the page.
+        const split = typeof splitRef?.current === "number" ? splitRef.current : null;
         const hasFace = result.faceLandmarks?.length > 0;
         // The skin estimate is smoothed over time, so after the face has been gone for a while (another person may
         // appear) it is thrown away and measured again instead of slowly drifting from the old face's color.
@@ -240,9 +259,18 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
             const k = skinRef.current;
             skinRef.current = k === null ? m : { L: k.L * 0.8 + m.L * 0.2, a: k.a * 0.8 + m.a * 0.2, b: k.b * 0.8 + m.b * 0.2 };
           }
+          // Split compare: makeup only to the left of the divider (a fraction of the width; null = no split).
+          if (split !== null) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width * split, canvas.height);
+            ctx.clip();
+          }
           drawLooks(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, { colors, toggles, finishes, render, skin: skinRef.current, video });
           if (debugLandmarks) drawLandmarkNumbers(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, Array.isArray(debugLandmarks) ? debugLandmarks : null);
+          if (split !== null) ctx.restore();
         }
+        if (split !== null) drawSplitDivider(ctx, canvas.width * split, canvas.width, canvas.height);
 
         onFrameRef.current?.(performance.now() - frameStart, hasFace);
       }
@@ -255,11 +283,12 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, finishes, render, debugLandmarks, landmarksRef]);
+  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, finishes, render, debugLandmarks, landmarksRef, splitRef]);
 
   return (
     <canvas
       ref={canvasRef}
+      data-ar-status={status}
       className="pointer-events-none absolute inset-0 h-full w-full"
     />
   );
