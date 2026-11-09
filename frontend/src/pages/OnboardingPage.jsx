@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2, AlertCircle } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -25,11 +26,24 @@ const dataCards = [
   },
 ];
 
+// Keyboard focus ring (focus-visible only, so mouse and touch clicks show no outline).
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2";
+
+// Steps slide in from the side they come from: forward from the right, back from the left.
+const stepMotion = (reduceMotion) => ({
+  enter: (direction) => (reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 * direction }),
+  center: { opacity: 1, x: 0 },
+  exit: (direction) => (reduceMotion ? { opacity: 0 } : { opacity: 0, x: -24 * direction }),
+});
+
 export function OnboardingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const updateStoreProfile = useUserStore((state) => state.updateProfile);
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
+  const prefersReducedMotion = useReducedMotion();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -50,8 +64,24 @@ export function OnboardingPage() {
     }
   };
 
+  // Each step starts at the top, even after scrolling down a long list on the previous one.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+  }, [step, prefersReducedMotion]);
+
+  // Escape closes the "Complete your profile?" dialog.
+  useEffect(() => {
+    if (!showConfirmModal) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setShowConfirmModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showConfirmModal]);
+
   const handleNext = async () => {
     if (step < 4) {
+      setDirection(1);
       setStep(step + 1);
     } else if (!showConfirmModal) {
       setShowConfirmModal(true);
@@ -95,6 +125,7 @@ export function OnboardingPage() {
   // Logic to handle going back (even on Step 1)
   const handleBack = () => {
     if (step > 1) {
+      setDirection(-1);
       setStep(step - 1);
     } else {
       // Step 1: back to the Auth/Login screen. With no earlier page in this session (the installed
@@ -113,7 +144,7 @@ export function OnboardingPage() {
 
   return (
     // Added [-webkit-tap-highlight-color:transparent] globally to the main wrapper
-    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden bg-primary-lightest p-6 font-body text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
+    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden bg-primary-lightest px-4 py-6 font-body sm:p-6 text-[#374151] md:p-12 [-webkit-tap-highlight-color:transparent]">
       
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-light/60 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#DBB7FF]/30 blur-[120px] pointer-events-none" />
@@ -128,7 +159,15 @@ export function OnboardingPage() {
               {stepTitles[step]}
             </h2>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-light/80">
+          <div
+            role="progressbar"
+            aria-label="Setup progress"
+            aria-valuemin={1}
+            aria-valuemax={4}
+            aria-valuenow={step}
+            aria-valuetext={`Step ${step} of 4: ${stepTitles[step]}`}
+            className="h-2 w-full overflow-hidden rounded-full bg-secondary-light/80"
+          >
             <div 
               className="h-full rounded-full bg-gradient-to-r from-[#9D4EDD] to-[#5A009D] transition-all duration-500 ease-out"
               style={{ width: `${(step / 4) * 100}%` }}
@@ -137,20 +176,34 @@ export function OnboardingPage() {
         </div>
 
         {/* Main Card */}
-        <div className="rounded-[32px] border border-secondary-light bg-white/80 p-8 shadow-sm backdrop-blur-xl sm:p-10 md:p-12">
-          
+        <div className="rounded-3xl border border-secondary-light bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[32px] sm:p-10 md:p-12">
+
+          <AnimatePresence mode="wait" initial={false} custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={stepMotion(prefersReducedMotion)}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+
           {/* STEP 1: Skin Type */}
           {step === 1 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
               <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">What is your skin type?</h1>
               <p className="mb-8 text-[15px] text-[#4B5563]">Select the one that best describes your skin on a daily basis.</p>
               
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div role="radiogroup" aria-label="Skin type" className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 {SKIN_TYPES.map((type) => (
                   <button
                     key={type}
+                    type="button"
+                    role="radio"
+                    aria-checked={skinType === type}
                     onClick={() => setSkinType(type)}
-                    className={`group flex items-center justify-between rounded-2xl border-2 p-4 text-left transition-all focus:outline-none ${
+                    className={`group flex items-center justify-between rounded-2xl border-2 p-4 text-left transition-all ${FOCUS_RING} ${
                       skinType === type 
                         ? "border-primary bg-primary-lightest text-[#4A0082] shadow-sm" 
                         : "border-gray-100 bg-white text-[#4B5563] hover:border-[#D1D5DB] hover:bg-gray-50"
@@ -168,9 +221,9 @@ export function OnboardingPage() {
 
           {/* STEP 2: Skin Concerns */}
           {step === 2 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
               <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Any specific concerns?</h1>
-              <p className="mb-2 text-[15px] text-[#4B5563]">Select all that apply. This helps our AI filter out harsh formulas.</p>
+              <p className="mb-2 text-[15px] text-[#4B5563]">Select all that apply. This helps the safety filter flag products that may not suit your skin.</p>
               <p className="mb-8 text-[13px] text-[#6B7280]" data-testid="concerns-note">
                 {CONCERNS_WITHOUT_FILTER_RULE.join(", ")} are saved to your profile but don&apos;t change the safety verdict yet.
               </p>
@@ -181,8 +234,10 @@ export function OnboardingPage() {
                   return (
                     <button
                       key={concern}
+                      type="button"
+                      aria-pressed={isSelected}
                       onClick={() => toggleSelection(concern, concerns, setConcerns)}
-                      className={`rounded-full border px-5 py-3 text-[14px] font-medium transition-all active:scale-95 focus:outline-none ${
+                      className={`rounded-full border px-5 py-3 text-[14px] font-medium transition-all active:scale-95 ${FOCUS_RING} ${
                         isSelected 
                           ? "border-primary bg-primary text-white shadow-md shadow-purple-600/20" 
                           : "border-gray-200 bg-white text-[#4B5563] hover:border-gray-300 hover:bg-gray-50"
@@ -198,7 +253,7 @@ export function OnboardingPage() {
 
           {/* STEP 3: Avoid Ingredients */}
           {step === 3 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div>
               <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Ingredients to avoid</h1>
               <p className="mb-8 text-[15px] text-[#4B5563]">Select any specific ingredients or allergens you want to exclude.</p>
               
@@ -208,8 +263,10 @@ export function OnboardingPage() {
                   return (
                     <button
                       key={ingredient}
+                      type="button"
+                      aria-pressed={isSelected}
                       onClick={() => toggleSelection(ingredient, avoidIngredients, setAvoidIngredients)}
-                      className={`rounded-full border px-4 py-2.5 text-[14px] font-medium transition-all active:scale-95 focus:outline-none ${
+                      className={`rounded-full border px-4 py-2.5 text-[14px] font-medium transition-all active:scale-95 ${FOCUS_RING} ${
                         isSelected 
                           ? "border-rose-500 bg-rose-500 text-white shadow-md shadow-rose-500/20" 
                           : "border-gray-200 bg-white text-[#4B5563] hover:border-gray-300 hover:bg-gray-50"
@@ -225,9 +282,9 @@ export function OnboardingPage() {
 
           {/* STEP 4: Data Ethics */}
           {step === 4 && (
-             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+             <div>
                 <h1 className="mb-2 font-heading text-3xl font-semibold text-[#111827]">Commitment to Transparency</h1>
-                <p className="mb-8 text-[15px] text-[#4B5563]">Review how your biological data informs our AI and how we protect your privacy.</p>
+                <p className="mb-8 text-[15px] text-[#4B5563]">Review how your skin profile is used and how we protect your privacy.</p>
                 
                 <div className="grid gap-4 sm:grid-cols-3 mb-8">
                   {dataCards.map((card) => (
@@ -255,7 +312,7 @@ export function OnboardingPage() {
                         type="checkbox"
                         checked={agreedToTerms}
                         onChange={(event) => setAgreedToTerms(event.target.checked)}
-                        className="peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-primary checked:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                        className={`peer appearance-none h-5 w-5 border border-[#D1D5DB] rounded bg-white checked:bg-primary checked:border-primary transition-all cursor-pointer ${FOCUS_RING}`}
                       />
                       <svg
                         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
@@ -269,14 +326,17 @@ export function OnboardingPage() {
                     </div>
                     <span className="text-sm leading-relaxed text-[#4B5563] group-hover:text-[#374151] transition-colors">
                       I agree to the{" "}
-                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline focus:outline-none">Terms of Service</a>
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className={`rounded font-semibold text-primary hover:underline ${FOCUS_RING}`}>Terms of Service</a>
                       {" "}and{" "}
-                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline focus:outline-none">Privacy Policy</a>.
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className={`rounded font-semibold text-primary hover:underline ${FOCUS_RING}`}>Privacy Policy</a>.
                     </span>
                   </label>
                 </div>
              </div>
           )}
+
+          </motion.div>
+          </AnimatePresence>
 
           {saveError && (
             <p className="mt-8 flex items-center gap-1.5 text-[14px] text-rose-500">
@@ -285,37 +345,40 @@ export function OnboardingPage() {
           )}
 
           {/* Navigation Controls */}
-          <div className="mt-10flex items-center justify-between border-t border-secondary-light pt-6">
-            
-            {/* Back button is now active on Step 1 */}
+          {/* Phones: full-width Continue on top, Back and Skip in a row under it.
+              Desktop: Back on the left, Skip and Continue on the right. */}
+          <div className="mt-8 grid grid-cols-2 items-center gap-3 border-t border-secondary-light pt-6 sm:mt-10 sm:flex sm:gap-4">
+
+            {/* Back works on Step 1 too (returns to sign-in). */}
             <button
+              type="button"
               onClick={handleBack}
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-2 py-2 font-medium text-[#6B7280] transition-colors hover:text-[#111827] focus:outline-none"
+              className={`order-2 flex items-center gap-2 justify-self-start rounded-lg px-2 py-2 font-medium text-[#6B7280] transition-colors hover:text-[#111827] sm:order-1 sm:mr-auto ${FOCUS_RING}`}
             >
               <ArrowLeft size={18} /> Back
             </button>
 
-            <div className="flex items-center gap-4">
-              {(step === 2 || step === 3) && (
-                <button
-                  onClick={handleNext}
-                  disabled={isSubmitting}
-                  className="px-2 py-2 font-medium text-[#6B7280] transition-colors hover:text-[#111827] focus:outline-none"
-                >
-                  Skip for now
-                </button>
-              )}
+            {(step === 2 || step === 3) && (
               <button
+                type="button"
                 onClick={handleNext}
-                disabled={(step === 1 && !skinType) || (step === 2 && concerns.length === 0) || (step === 3 && avoidIngredients.length === 0) || (step === 4 && !agreedToTerms) || isSubmitting}
-                className="flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-primary-dark hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 focus:outline-none"
+                disabled={isSubmitting}
+                className={`order-3 justify-self-end rounded-lg px-2 py-2 font-medium text-[#6B7280] transition-colors hover:text-[#111827] sm:order-2 ${FOCUS_RING}`}
               >
-                {isSubmitting ? "Saving..." : (step === 4 ? "Confirm & Complete" : "Continue")}
-                {!isSubmitting && step !== 4 && <ArrowRight size={18} />}
-                {!isSubmitting && step === 4 && <Check size={18} />}
+                Skip for now
               </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={(step === 1 && !skinType) || (step === 2 && concerns.length === 0) || (step === 3 && avoidIngredients.length === 0) || (step === 4 && !agreedToTerms) || isSubmitting}
+              className={`order-1 col-span-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-medium text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-primary-dark hover:shadow-purple-600/30 active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:active:scale-100 sm:order-3 sm:w-auto ${FOCUS_RING}`}
+            >
+              {isSubmitting ? "Saving..." : (step === 4 ? "Confirm & Complete" : "Continue")}
+              {!isSubmitting && step !== 4 && <ArrowRight size={18} />}
+              {!isSubmitting && step === 4 && <Check size={18} />}
+            </button>
           </div>
 
         </div>
@@ -323,11 +386,16 @@ export function OnboardingPage() {
 
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 rounded-3xl bg-white p-8 text-center shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onboarding-confirm-title"
+            className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl"
+          >
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-lighter">
               <Check size={28} className="text-primary" />
             </div>
-            <h3 className="mb-2 font-heading text-lg font-semibold text-[#111827]">Complete your profile?</h3>
+            <h3 id="onboarding-confirm-title" className="mb-2 font-heading text-lg font-semibold text-[#111827]">Complete your profile?</h3>
             <p className="mb-6 text-[14px] leading-relaxed text-[#4B5563]">
               You're about to save your skin profile and finish setup. You can always update these preferences later from your profile.
             </p>
@@ -335,14 +403,14 @@ export function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="w-full rounded-2xl border border-gray-200 py-3 font-medium text-[#4B5563] transition-colors hover:bg-gray-50 focus:outline-none"
+                className={`w-full rounded-2xl border border-gray-200 py-3 font-medium text-[#4B5563] transition-colors hover:bg-gray-50 ${FOCUS_RING}`}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleNext}
-                className="w-full rounded-2xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-dark focus:outline-none"
+                className={`w-full rounded-2xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-dark ${FOCUS_RING}`}
               >
                 Confirm
               </button>
