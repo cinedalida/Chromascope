@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { useUserStore } from "../../store/userStore";
-import { LogOut, X, Menu } from "lucide-react";
+import { ChevronDown, Loader2, LogOut, User, X, Menu } from "lucide-react";
 import chroLogoViolet from "../../assets/logos/chro-logo-violet.png";
 
 const navItems = [
@@ -71,6 +71,9 @@ export function Navbar({ onMenuToggle }) {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const activeItem = navItems.find((item) => item.path === location.pathname)?.label ?? "Home";
 
@@ -108,15 +111,39 @@ export function Navbar({ onMenuToggle }) {
   };
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       await signOut(auth);
       navigate("/");
     } catch (error) {
       console.error("Logout Error:", error);
     } finally {
+      setLoggingOut(false);
       setShowLogoutConfirm(false);
     }
   };
+
+  // The account menu closes on an outside click or Escape; Escape also closes the confirm (unless signing out).
+  useEffect(() => {
+    if (!menuOpen && !showLogoutConfirm) return undefined;
+    const onPointerDown = (e) => {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (showLogoutConfirm) {
+        if (!loggingOut) setShowLogoutConfirm(false);
+      } else {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen, showLogoutConfirm, loggingOut]);
 
   const handleHamburger = () => {
     // On mobile: toggle mobile nav drawer
@@ -167,15 +194,60 @@ export function Navbar({ onMenuToggle }) {
             </div>
           </div>
 
-          <div className="shrink-0 flex items-center gap-3">
+          <div ref={menuRef} className="relative shrink-0">
             <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="flex h-10 items-center gap-2 rounded-full bg-red-50 px-4 text-sm font-bold text-red-600 transition-all duration-300 hover:bg-red-100 active:scale-95"
-              aria-label="Log out"
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Account menu"
+              className="flex h-10 items-center gap-2 rounded-full border border-primary-lighter bg-white py-1 pl-1 pr-2 text-sm font-semibold text-black shadow-sm transition hover:bg-primary-lightest focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:pr-3"
             >
-              <LogOut size={18} strokeWidth={2.5} />
-              <span className="hidden sm:inline">Log Out</span>
+              <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                {accountInitial}
+              </span>
+              <span className="hidden max-w-[120px] truncate sm:inline">{accountLabel}</span>
+              <ChevronDown aria-hidden="true" size={16} className={`text-gray-light transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`} />
             </button>
+
+            {menuOpen && (
+              <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-primary-lighter bg-white p-1.5 shadow-xl">
+                <div className="flex items-center gap-3 px-3 py-3">
+                  <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                    {accountInitial}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-black">{accountLabel}</p>
+                    <p className="truncate text-xs text-gray-light">{accountSubtitle}</p>
+                  </div>
+                </div>
+                <div className="my-1 h-px bg-gray-lightest" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate("/profile");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black transition hover:bg-primary-lightest focus:outline-none focus-visible:bg-primary-lightest"
+                >
+                  <User aria-hidden="true" size={16} className="text-gray" />
+                  Profile &amp; settings
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:bg-red-50 focus-visible:text-red-600"
+                >
+                  <LogOut aria-hidden="true" size={16} />
+                  Log out
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -240,24 +312,29 @@ export function Navbar({ onMenuToggle }) {
 
       {/* Logout confirmation */}
       {showLogoutConfirm && (
-        <div className="modal-backdrop" onClick={() => setShowLogoutConfirm(false)}>
+        <div className="modal-backdrop" onClick={() => !loggingOut && setShowLogoutConfirm(false)}>
           <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="logout-title"
             className="modal max-w-sm"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
               <LogOut size={22} strokeWidth={2.5} />
             </div>
-            <h3 className="mb-2 font-heading text-lg font-semibold text-black">
+            <h3 id="logout-title" className="mb-2 font-heading text-lg font-semibold text-black">
               Log out?
             </h3>
             <p className="mb-6 text-sm text-gray-light">
-              You'll need to sign back in to access your account.
+              You'll need to sign back in to see your profile, favorites and saved looks.
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
+                disabled={loggingOut}
+                autoFocus
                 className="flex-1 rounded-full border border-gray-lighter px-4 py-2.5 text-sm font-bold text-gray transition hover:bg-gray-lightest"
               >
                 Cancel
@@ -265,9 +342,11 @@ export function Navbar({ onMenuToggle }) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex-1 rounded-full bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
+                disabled={loggingOut}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-70"
               >
-                Log Out
+                {loggingOut && <Loader2 aria-hidden="true" size={16} className="animate-spin" />}
+                {loggingOut ? "Logging out..." : "Log out"}
               </button>
             </div>
           </div>

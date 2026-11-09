@@ -6,9 +6,9 @@ import chroLogoViolet from "../../assets/logos/chro-logo-violet.png";
 const sidebarItems = [
   { label: "Home", icon: "home", path: "/home" },
   { label: "Profile", icon: "profile", path: "/profile" },
+  { label: "Color Analysis", icon: "color", path: "/color-analysis" },
   { label: "Try-On", icon: "tryon", path: "/ar-tryon" },
   // { label: "Palette Guide", icon: "palette", path: "/palette-product" }, // HIDDEN — re-enable when ready
-  { label: "Color Analysis", icon: "color", path: "/color-analysis" },
   // One merged catalog (catalog plan Part A), in the old Ingredient Filter slot; Favorites (Part B) in the old
   // Product Catalog slot.
   { label: "Catalog", icon: "catalog", path: "/catalog" },

@@ -105,7 +105,6 @@ export function ProfilePage() {
   
   // Color Analysis Data State
   const [seasonalLabel, setSeasonalLabel] = useState(null);
-  const [confidence, setConfidence] = useState(null);
   const [skinHex, setSkinHex] = useState(null);
 
   // Direct Firestore Fetch
@@ -129,7 +128,6 @@ export function ProfilePage() {
 
         // Map Analysis Results directly from DB
         setSeasonalLabel(data.seasonal_label || null);
-        setConfidence(data.season_confidence_level || null);
         
         if (data.user_lab && data.user_lab.length >= 3) {
           setSkinHex(labToHex(data.user_lab[0], data.user_lab[1], data.user_lab[2]));
@@ -513,19 +511,6 @@ export function ProfilePage() {
                   </h3>
 
                   <div className="space-y-6">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-400 font-medium">Engine Confidence</span>
-                        <span className="font-bold">{confidence ? `${Number(confidence).toFixed(1)}%` : "N/A"}</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-[#C084FC] to-white rounded-full"
-                          style={{ width: confidence ? `${confidence}%` : '0%' }}
-                        />
-                      </div>
-                    </div>
-
                     <div>
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-3">Signature Palette</span>
                       <div className="flex flex-wrap gap-2">
