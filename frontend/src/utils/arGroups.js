@@ -13,7 +13,7 @@ export const AR_GROUPS = [
 export const ALL_REGIONS = AR_GROUPS.flatMap((group) => group.regions);
 
 export const REGION_LABEL = {
-  lips: "Lips",
+  lips: "Lipstick",
   lipLiner: "Lip liner",
   cheeks: "Blush",
   bronzer: "Bronzer",

@@ -47,6 +47,9 @@ const TOKEN_REGION = {
   "mascara": "mascara",
   // base
   "foundation": "foundation",
+  "liquid foundation": "foundation",
+  "powder foundation": "foundation",
+  "tinted moisturiser": "foundation",
   "bb & cc cream": "foundation",
   "concealer": "concealer",
   "under eye concealer": "concealer",

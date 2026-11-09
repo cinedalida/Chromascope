@@ -20,6 +20,9 @@ export function groupByProduct(items) {
         currency: item.currency,
         finish: item.finish,
         url: item.url,
+        imageUrl: item.imageUrl ?? null,
+        kind: item.kind ?? null,
+        kinds: item.kinds ?? null,
         verdict: item.verdict,
         seasonMatch: item.seasonMatch,
         fit: item.fit ?? null,
@@ -61,4 +64,22 @@ export function searchProducts(groups, query) {
   return groups.filter(
     (group) => has(group.brand) || has(group.product) || group.shades.some((shade) => has(shade.shade)),
   );
+}
+
+// A product name without its pack size: "Satin Creme Lipstick • 4g" -> "Satin Creme Lipstick". Only a trailing
+// "• 4g" / "- 30ml" / "| 0.5 oz" style size is cut; the full name stays in the product modal.
+const TRAILING_SIZE = /\s*[•·|–-]\s*\d+(?:[.,]\d+)?\s*(?:ml|g|gr|oz|fl\.?\s*oz|l|mg)\b.*$/i;
+export function cleanProductName(name) {
+  const full = String(name ?? "").trim();
+  return full.replace(TRAILING_SIZE, "").trim() || full;
+}
+
+// Basic is the everyday makeup only: in Lips that is lipstick, not gloss, balm, stain, plumper or oil. Recommended products
+// know their exact types (a composite such as "Lip gloss;Lipstick" counts as a lipstick). Browse shades have no type in the
+// data, so they are told apart by the product name, which is approximate. Other regions are already one type each.
+const NOT_LIPSTICK_NAME = /\b(gloss|glaze|balm|plump\w*|stain|tint(?:ed)?|oil|butter|treatment|mask)\b/i;
+export function isEverydayProduct(group) {
+  if (group.region !== "lips") return true;
+  if (group.source === "recommended" && Array.isArray(group.kinds)) return group.kinds.includes("Lipstick");
+  return !NOT_LIPSTICK_NAME.test(group.product ?? "");
 }
