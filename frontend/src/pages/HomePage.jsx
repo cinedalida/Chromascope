@@ -80,7 +80,7 @@ const quickActions = [
   },
   {
     title: "Open Try-On",
-    description: "Hyper-realistic AR visualization of clinical makeup suggestions.",
+    description: "AR simulation of makeup shades on your face.",
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2a9 9 0 0 1 9 9v3a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5v-3a9 9 0 0 1 9-9Z" />
