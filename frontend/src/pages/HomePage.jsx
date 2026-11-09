@@ -64,21 +64,6 @@ const quickActions = [
     path: "/color-analysis"
   },
   {
-    title: "Ingredient Filter",
-    description: "Filter products safely based on your molecular breakdown and allergens.",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 3h10" />
-        <path d="M12 3v18" />
-        <path d="M6 7h12" />
-        <path d="M8 11h8" />
-        <path d="M10 15h4" />
-      </svg>
-    ),
-    accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/catalog?view=safe"
-  },
-  {
     title: "Open Try-On",
     description: "AR simulation of makeup shades on your face.",
     icon: (
@@ -92,7 +77,7 @@ const quickActions = [
   },
   {
     title: "Product Catalog",
-    description: "Browse clinical-grade products matching your unique profile.",
+    description: "See the full product catalog or view only the products that are safe for your skin.",
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 11h16" />
@@ -101,7 +86,18 @@ const quickActions = [
       </svg>
     ),
     accent: "bg-primary shadow-md shadow-primary/30",
-    path: "/catalog?view=all"
+    path: "/catalog"
+  },
+  {
+    title: "Favorites",
+    description: "Save your preferred products and your favorite sets of looks in one place.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+      </svg>
+    ),
+    accent: "bg-primary shadow-md shadow-primary/30",
+    path: "/favorites"
   },
 ];
 
