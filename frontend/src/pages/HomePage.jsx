@@ -153,8 +153,8 @@ export function HomePage() {
   ];
 
   return (
-    <main className="page-shell min-h-dvh bg-primary-lightest p-6 text-black">
-      <div className="mx-auto max-w-7xl pt-20">
+    <main className="page-shell bg-primary-lightest text-black">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-8">
           <h1 className="text-4xl font-heading font-semibold tracking-tight text-black sm:text-5xl">
             Clinical beauty at your fingertips
