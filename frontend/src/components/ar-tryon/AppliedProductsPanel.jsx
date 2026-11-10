@@ -560,15 +560,23 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
         </div>
 
         {source === "browse" && searchOpen && (
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search brand, product, or shade"
-            aria-label="Search Browse shades"
-            autoFocus
-            className="w-full rounded-xl border border-gray-lighter bg-white px-3.5 py-2 text-[13px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
-          />
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              size={15}
+              strokeWidth={2}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-light"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search brand, product, or shade"
+              aria-label="Search Browse shades"
+              autoFocus
+              className="w-full rounded-xl border border-gray-lighter bg-white py-2 pr-3.5 pl-9 text-[13px] text-black placeholder:text-gray-light focus:border-primary-light focus:outline-none"
+            />
+          </div>
         )}
         {/* Advanced only: product type inside the tab, with how many products each has, in one sideways row */}
         {!isBasic && !loading && typeOptions.length > 1 && (

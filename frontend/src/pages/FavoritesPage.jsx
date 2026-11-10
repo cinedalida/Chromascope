@@ -9,6 +9,7 @@ import { canTryOn, favoriteToTryOn, isTryOnRegion, useFavorites } from "../hooks
 import { FavoriteProductCard } from "../components/favorites/FavoriteProductCard.jsx";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { LookCard } from "../components/favorites/LookCard.jsx";
+import { SearchInput } from "../components/common/SearchInput.jsx";
 
 // Same safety filter results as the catalog page, so every badge is the current verdict, never a saved one (F-R1).
 const TABS = [
@@ -167,6 +168,41 @@ export function FavoritesPage() {
       return params;
     });
 
+  // Search (?q=), shared by both tabs. Like the catalog, typing replaces the history entry instead of adding one.
+  // Items still loading or no longer available have nothing to match, so they are hidden while searching.
+  const query = searchParams.get("q") ?? "";
+  const q = query.trim().toLowerCase();
+  const setQuery = (next) =>
+    setSearchParams(
+      (params) => {
+        if (next) params.set("q", next);
+        else params.delete("q");
+        return params;
+      },
+      { replace: true },
+    );
+  const has = (text) => String(text ?? "").toLowerCase().includes(q);
+  const itemMatches = (item) => {
+    const { status: itemStatus, product } = resolve(item);
+    return itemStatus === "ok" && (has(product.product_name) || has(product.brand) || has(product.shade_name));
+  };
+  const shownProducts = q ? products.filter((favorite) => itemMatches(favorite.items[0])) : products;
+  const shownLooks = q ? looks.filter((look) => has(look.name) || look.items.some(itemMatches)) : looks;
+  const noMatches = (
+    <div className="mx-auto max-w-md rounded-3xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-primary-lighter">
+      <h2 className="font-heading text-lg font-semibold">No favorites match your search</h2>
+      <p className="mt-2 text-sm text-gray">Try another name, brand or shade.</p>
+      <button
+        type="button"
+        onClick={() => setQuery("")}
+        className="mt-5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+      >
+        Clear search
+      </button>
+    </div>
+  );
+  const tabHasFavorites = (tab === "products" ? products : looks).length > 0;
+
   // Detail view for a catalog favorite; focus goes back to its card on close.
   const [detail, setDetail] = useState(null);
   const openerRef = useRef(null);
@@ -179,9 +215,10 @@ export function FavoritesPage() {
     if (products.length === 0) {
       return <EmptyState title="No favorite products yet" text="Tap the heart on a product in the catalog to keep it here." />;
     }
+    if (shownProducts.length === 0) return noMatches;
     return (
       <ul className={GRID}>
-        {products.map((favorite) => {
+        {shownProducts.map((favorite) => {
           const { status: itemStatus, product, browse: isBrowse } = resolve(favorite.items[0]);
           return (
             <li key={favorite.id}>
@@ -224,9 +261,10 @@ export function FavoritesPage() {
     if (looks.length === 0) {
       return <EmptyState title="No saved looks yet" text="Put shades on in Try-On, then tap Save look to keep the combination here." />;
     }
+    if (shownLooks.length === 0) return noMatches;
     return (
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {looks.map((look) => (
+        {shownLooks.map((look) => (
           <li key={look.id}>
             <LookCard
               look={look}
@@ -253,24 +291,36 @@ export function FavoritesPage() {
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Favorites</h1>
         </header>
 
-        <div role="group" aria-label="Favorites type" className="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-primary-lighter">
-          {TABS.map(({ key, label }) => {
-            const active = tab === key;
-            const count = key === "products" ? products.length : looks.length;
-            return (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => !active && setTab(key)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors sm:px-5 ${
-                  active ? "bg-primary text-white shadow-sm" : "text-gray hover:text-primary"
-                }`}
-              >
-                {label} ({count})
-              </button>
-            );
-          })}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+          <div role="group" aria-label="Favorites type" className="inline-flex self-start sm:self-auto rounded-full bg-white p-1 shadow-sm ring-1 ring-primary-lighter">
+            {TABS.map(({ key, label }) => {
+              const active = tab === key;
+              const count = key === "products" ? products.length : looks.length;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => !active && setTab(key)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors sm:px-5 ${
+                    active ? "bg-primary text-white shadow-sm" : "text-gray hover:text-primary"
+                  }`}
+                >
+                  {label} ({count})
+                </button>
+              );
+            })}
+          </div>
+          {status === "ready" && tabHasFavorites && (
+            <div className="sm:min-w-64 sm:flex-1 lg:max-w-112">
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder={tab === "products" ? "Search name, brand or shade" : "Search look, product or brand"}
+                ariaLabel={tab === "products" ? "Search favorite products" : "Search saved looks"}
+              />
+            </div>
+          )}
         </div>
 
         {error && (
