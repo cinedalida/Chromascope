@@ -196,16 +196,14 @@ export function HomePage() {
           </div>
         </section>
 
+        {/* ── Bento: 2x2 grid on xl so cards in the same row share edges ── */}
         <div className="grid gap-6 xl:grid-cols-[1.75fr_0.95fr]">
-          {/* ── Left Column ── */}
-          <div className="space-y-6">
-            
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid h-full gap-6 sm:grid-cols-2 xl:col-start-1 xl:row-start-1">
               {quickActions.map((action) => (
                 <article
                   key={action.title}
                   onClick={() => navigate(action.path)}
-                  className="rounded-xl bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer group border border-transparent hover:border-primary/20"
+                  className="rounded-2xl bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer group border border-transparent hover:border-primary/20"
                 >
                   <div
                     className={`mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 ${action.accent}`}
@@ -223,8 +221,8 @@ export function HomePage() {
             </div>
 
             {/* Session History (Now pulls from actual User Data) */}
-            <section className="rounded-xl bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+            <section className="h-full rounded-2xl bg-white p-5 shadow-sm xl:col-start-1 xl:row-start-2">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-black">
                     Recent session history
@@ -292,7 +290,7 @@ export function HomePage() {
                     {dynamicSessions.map((session) => (
                       <div
                         key={session.type}
-                        className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] gap-3 px-4 py-3"
+                        className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] items-center gap-3 px-4 py-3"
                       >
                         <div className="flex items-center gap-2 text-sm text-black">
                           <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary-lighter text-primary">
@@ -328,13 +326,9 @@ export function HomePage() {
                 </div>
               </div>
             </section>
-          </div>
 
-          {/* ── Right Sidebar ── */}
-          <aside className="space-y-5">
-            
             {/* Dynamic Color Profile */}
-            <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#111827] to-[#1F2937] p-6 shadow-lg text-white">
+            <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#111827] to-[#1F2937] p-6 shadow-lg text-white xl:col-start-2 xl:row-start-1">
               <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-primary/40 blur-[80px] pointer-events-none" />
               
               <div className="relative z-10 flex flex-col items-center gap-4 text-center">
@@ -417,8 +411,8 @@ export function HomePage() {
             </section>
 
             {/* Dynamic Skin Profile */}
-            <section className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-              <div className="mb-4 flex items-center justify-between">
+            <section className="flex h-full flex-col rounded-2xl bg-white p-5 shadow-sm xl:col-start-2 xl:row-start-2">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-black">
                     Skin Profile
@@ -447,7 +441,7 @@ export function HomePage() {
                 </div>
               )}
 
-              <div>
+              <div className="mb-5">
                 <p className="mb-2 text-xs font-semibold text-gray">
                   Restricted Ingredients
                 </p>
@@ -468,7 +462,7 @@ export function HomePage() {
 
               <button 
                 onClick={() => navigate("/profile")}
-                className="group flex items-center justify-center gap-2 mt-5 w-full text-sm font-bold text-white bg-[#2D1B4E] hover:bg-[#1A0F2E] py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-[0_8px_20px_rgba(45,27,78,0.25)] hover:-translate-y-0.5"
+                className="group mt-auto flex items-center justify-center gap-2 w-full text-sm font-bold text-white bg-[#2D1B4E] hover:bg-[#1A0F2E] py-3 rounded-xl transition-all duration-300 shadow-md hover:shadow-[0_8px_20px_rgba(45,27,78,0.25)] hover:-translate-y-0.5"
               >
                 Update Profile Data
                 <svg viewBox="0 0 24 24" className="h-4 w-4 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -477,7 +471,6 @@ export function HomePage() {
                 </svg>
               </button>
             </section>
-          </aside>
         </div>
       </div>
     </main>
