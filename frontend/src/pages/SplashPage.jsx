@@ -10,12 +10,19 @@ import {
 } from "framer-motion";
 import {
   ArrowRight,
+  FlaskConical,
   LayoutGrid,
+  Palette,
   Percent,
   Play,
   ScanFace,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
+  SwatchBook,
+  TriangleAlert,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { SplashNavbar } from "../components/common/SplashNavbar.jsx";
 import { SplashFooter } from "../components/common/SplashFooter.jsx";
@@ -137,6 +144,94 @@ function Reveal({ variants = revealContainer, amount = 0.25, children, ...rest }
   );
 }
 
+// ── Section background texture ──
+// Fine purple grain (an inline SVG noise tile, no image download) plus a soft dot grid that
+// fades out from one edge. Decorative only; sections using it need `relative isolate`.
+const GRAIN_TEXTURE =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.43 0 0 0 0 0.31 0 0 0 0 0.78 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+const DOT_MASKS = {
+  top: "radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%)",
+  bottom: "radial-gradient(ellipse 80% 60% at 50% 100%, black, transparent 75%)",
+  left: "radial-gradient(ellipse 60% 80% at 0% 50%, black, transparent 75%)",
+  right: "radial-gradient(ellipse 60% 80% at 100% 50%, black, transparent 75%)",
+};
+
+function SectionTexture({ dots = "top" }) {
+  const mask = DOT_MASKS[dots];
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+      <div
+        className="absolute inset-0 opacity-35 mix-blend-multiply"
+        style={{ backgroundImage: GRAIN_TEXTURE, backgroundSize: "180px 180px" }}
+      />
+      {mask && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(color-mix(in srgb, var(--color-primary) 22%, transparent) 1px, transparent 1.5px)",
+            backgroundSize: "22px 22px",
+            WebkitMaskImage: mask,
+            maskImage: mask,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Decorative butterfly ──
+// The Chromascope logo butterfly, using the shapes and colors of assets/logos/chro-logo-animate.svg
+// (inlined so each side's wings can flap from the center line). The head piece stays still,
+// the whole butterfly drifts and tilts gently, and everything holds still for reduced motion.
+function Butterfly({ className = "", flapSeconds = 1.6, driftSeconds = 6, reduceMotion }) {
+  const flap = reduceMotion ? undefined : { scaleX: [1, 0.3, 1] };
+  const flapTransition = { duration: flapSeconds, repeat: Infinity, ease: "easeInOut" };
+
+  return (
+    <div aria-hidden="true" className={`pointer-events-none absolute -z-10 ${className}`}>
+      <motion.svg
+        viewBox="0 0 990 990"
+        fill="none"
+        className="h-auto w-full"
+        animate={reduceMotion ? undefined : { y: [0, -12, 0], rotate: [-5, 4, -5] }}
+        transition={{ duration: driftSeconds, repeat: Infinity, ease: "easeInOut" }}
+      >
+        {/* Left wings */}
+        <motion.g style={{ originX: 1, originY: 0.5 }} animate={flap} transition={flapTransition}>
+          <path
+            d="M58.631 147.78C56.0606 100.021 105.912 67.202 148.766 88.4404L431.163 228.397C451.229 238.342 464.438 258.266 465.785 280.621L487.405 639.467L115.939 504.691C92.3787 496.142 76.2066 474.342 74.8596 449.315L58.631 147.78Z"
+            fill="#BEAEEE"
+          />
+          <path
+            opacity="0.78"
+            d="M165.605 868.562C168.755 915.456 220.605 942.212 260.65 917.61L463.607 792.924C483.253 780.854 494.655 758.944 493.268 735.928L476.856 463.705L187.247 601.318C164.089 612.322 150.004 636.358 151.723 661.94L165.605 868.562Z"
+            fill="#8672BE"
+          />
+        </motion.g>
+        {/* Right wings */}
+        <motion.g style={{ originX: 0, originY: 0.5 }} animate={flap} transition={flapTransition}>
+          <path
+            d="M931.408 147.841C933.979 100.069 884.102 67.2489 841.246 88.5143L559.302 228.417C539.25 238.367 526.053 258.284 524.707 280.628L503.086 639.495L874.124 504.7C897.672 496.145 913.833 474.351 915.179 449.334L931.408 147.841Z"
+            fill="#BEAEEE"
+          />
+          <path
+            opacity="0.78"
+            d="M825.009 868.857C821.858 915.751 770.009 942.507 729.963 917.905L527.007 793.219C507.36 781.149 495.958 759.239 497.345 736.223L513.757 464L803.366 601.613C826.524 612.617 840.609 636.653 838.89 662.235L825.009 868.857Z"
+            fill="#8672BE"
+          />
+        </motion.g>
+        {/* Head piece */}
+        <path
+          d="M328.142 51.4541L450.397 187.293C475.217 214.871 518.459 214.871 543.279 187.293L665.534 51.4541C628.046 92.0662 531.202 176.414 496.838 176.414C464.252 176.414 371.878 94.1488 328.142 51.4541Z"
+          fill="#C3B0FA"
+        />
+      </motion.svg>
+    </div>
+  );
+}
+
 const heroFeatures = [
   {
     title: "Clinical Integrity",
@@ -200,6 +295,95 @@ const tryOnSlides = [
     badge: { icon: Percent, text: "86% match" },
     caption:
       "The catalog shows products that are safe for your skin and match your season's colors.",
+  },
+];
+
+// Every season color in one row, used as the "spectrum" accent line on the new sections.
+const spectrumGradient = `linear-gradient(90deg, ${seasonGroups
+  .flatMap((group) => group.colors)
+  .join(", ")})`;
+
+// ── Problem statement ──
+const problemPoints = [
+  {
+    icon: Palette,
+    title: "Shades that don't match",
+    description:
+      "Most people pick makeup by guesswork. Shades that clash with their undertone get used once and left in a drawer.",
+    accent: "from-[#E6334B] to-[#FFB813]",
+  },
+  {
+    icon: TriangleAlert,
+    title: "Hidden ingredient risks",
+    description:
+      "Long, technical labels make it hard to spot irritants and allergens until the skin has already reacted.",
+    accent: "from-[#C80678] to-[#362781]",
+  },
+  {
+    icon: ShoppingBag,
+    title: "No way to try before buying",
+    description:
+      "Shared testers raise hygiene concerns and online shopping offers no try-on, so every purchase is a gamble.",
+    accent: "from-[#1F8CAB] to-[#82CADD]",
+  },
+];
+
+// UN Sustainable Development Goals the project supports, in their official goal colors.
+const sdgGoals = [
+  {
+    number: 3,
+    title: "Good Health and Well-being",
+    description:
+      "Flags ingredients that clash with your skin profile, so the products you choose are safer to use.",
+    color: "#4C9F38",
+  },
+  {
+    number: 10,
+    title: "Reduced Inequalities",
+    description:
+      "Color analysis and shade matching built for every skin tone, not only the ones beauty ads favor.",
+    color: "#DD1367",
+  },
+  {
+    number: 12,
+    title: "Responsible Consumption and Production",
+    description:
+      "Matching shades before you buy means fewer wrong purchases and less product thrown away.",
+    color: "#BF8B2E",
+  },
+];
+
+// ── Benefits (the first one is the featured bento card) ──
+const benefits = [
+  {
+    icon: ShieldCheck,
+    title: "Ingredient safety you can trust",
+    description:
+      "Every product is checked against your skin profile and the ingredients you want to avoid.",
+  },
+  {
+    icon: ScanFace,
+    title: "Try before you buy",
+    description:
+      "See lipstick and blush on your own face in real time, with no shared testers.",
+  },
+  {
+    icon: Wallet,
+    title: "Spend less, waste less",
+    description:
+      "Fewer mismatched purchases means more money saved and less product thrown out.",
+  },
+  {
+    icon: Users,
+    title: "Made for every skin tone",
+    description:
+      "The 12-season framework reads undertone, contrast, and depth across all complexions.",
+  },
+  {
+    icon: SwatchBook,
+    title: "Know your season inside out",
+    description:
+      "Learn your subtype, your sister season for safe alternatives, and the contrast season to avoid.",
   },
 ];
 
@@ -390,7 +574,8 @@ export function SplashPage() {
         </section>
 
         {/* ── Get to know your palette ── */}
-        <section className="relative bg-primary-lighter pb-20 pt-8 sm:pt-56 lg:pt-64">
+        <section className="relative isolate bg-primary-lighter pb-20 pt-8 sm:pt-56 lg:pt-64">
+          <SectionTexture dots="right" />
           {/* Feature cards float on the seam between the hero above and this section — centered on
               the boundary via translateY(-50%) so half sits in each section, whatever their height. */}
           <div className="relative z-20 mx-auto max-w-5xl px-4 sm:absolute sm:inset-x-0 sm:top-0 sm:-translate-y-1/2 sm:px-8 lg:px-12">
@@ -495,7 +680,8 @@ export function SplashPage() {
         </section>
 
         {/* ── Virtual Try-on and Safety Filter ── */}
-        <section className="relative overflow-hidden bg-primary-lightest py-20 sm:py-24">
+        <section className="relative isolate overflow-hidden bg-primary-lightest py-20 sm:py-24">
+          <SectionTexture dots="top" />
           <Reveal className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
             <motion.div
               variants={revealItemVariants}
@@ -731,8 +917,248 @@ export function SplashPage() {
           </Reveal>
         </section>
 
+        {/* ── Problem Statement and SDGs ── */}
+        <section
+          id="problem"
+          className="relative isolate overflow-hidden bg-linear-to-b from-primary-lighter to-primary-lightest py-20 sm:py-28"
+        >
+          {/* Season spectrum along the top edge, texture, and two faint butterflies in opposite corners. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1"
+            style={{ backgroundImage: spectrumGradient }}
+          />
+          <SectionTexture dots="left" />
+          <Butterfly
+            reduceMotion={prefersReducedMotion}
+            className="left-2 top-8 w-20 -rotate-12 opacity-35 sm:left-8 sm:top-12 sm:w-32 lg:w-40"
+          />
+          <Butterfly
+            reduceMotion={prefersReducedMotion}
+            flapSeconds={2}
+            driftSeconds={7.5}
+            className="bottom-6 right-2 w-20 rotate-12 opacity-30 sm:bottom-10 sm:right-8 sm:w-32 lg:w-40"
+          />
+
+          <Reveal amount={0.15} className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
+            <motion.div
+              variants={revealItemVariants}
+              className="mx-auto mb-12 flex max-w-3xl flex-col items-center text-center sm:mb-16"
+            >
+              <h2 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
+                Beauty wasn&apos;t made with{" "}
+                <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  every skin
+                </span>{" "}
+                in mind
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-gray">
+                Choosing cosmetics still comes down to guesswork. The wrong shade
+                wastes money, and the wrong ingredient can harm your skin.
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={revealContainer}
+              className="grid gap-5 md:grid-cols-3"
+            >
+              {problemPoints.map((point, i) => {
+                const Icon = point.icon;
+                return (
+                  <motion.article
+                    key={point.title}
+                    variants={revealItemVariants}
+                    className="group relative overflow-hidden rounded-2xl border border-white bg-white/70 p-6 shadow-[0_8px_30px_color-mix(in_srgb,var(--color-primary)_10%,transparent)] backdrop-blur-xl transition-[box-shadow,border-color] duration-300 hover:border-primary-light/60 hover:shadow-[0_16px_40px_color-mix(in_srgb,var(--color-primary)_20%,transparent)] sm:p-7"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${point.accent}`}
+                    />
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-lighter text-primary transition-all duration-300 group-hover:-rotate-6 group-hover:bg-primary group-hover:text-white">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="font-heading text-4xl font-semibold leading-none text-primary-light/60"
+                      >
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <h3 className="mt-5 font-heading text-lg font-semibold text-black">
+                      {point.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray">
+                      {point.description}
+                    </p>
+                  </motion.article>
+                );
+              })}
+            </motion.div>
+
+            {/* SDGs laid out like a palette: one swatch per goal, in its official color. */}
+            <motion.div variants={revealItemVariants} className="mt-16 sm:mt-20">
+              <div className="mb-6 flex flex-col items-center gap-1 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
+                <h3 className="font-heading text-2xl font-semibold text-black sm:text-3xl">
+                  The goals we support
+                </h3>
+                <p className="text-sm uppercase tracking-[0.2em] text-gray-light">
+                  UN Sustainable Development Goals
+                </p>
+              </div>
+
+              <ul className="flex flex-col gap-3 lg:h-80 lg:flex-row">
+                {sdgGoals.map((goal) => (
+                  <li
+                    key={goal.number}
+                    className="group relative isolate flex min-h-44 overflow-hidden rounded-2xl text-white shadow-[0_20px_50px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] transition-[flex-grow] duration-500 ease-out lg:min-h-0 lg:flex-1 lg:hover:grow-[1.6]"
+                    style={{ backgroundColor: goal.color }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 -z-10 bg-linear-to-t from-black/55 via-black/15 to-transparent"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-3 -top-4 -z-10 font-heading text-[8rem] font-bold leading-none text-white/15 transition-transform duration-500 group-hover:-translate-x-2 group-hover:scale-105 sm:text-[10rem]"
+                    >
+                      {goal.number}
+                    </span>
+                    <div className="flex w-full flex-col justify-end p-6">
+                      <span className="inline-flex w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] backdrop-blur-sm">
+                        SDG {goal.number}
+                      </span>
+                      <h4 className="mt-3 font-heading text-xl font-semibold leading-snug">
+                        {goal.title}
+                      </h4>
+                      <p className="mt-2 max-w-md text-sm leading-relaxed text-white/90">
+                        {goal.description}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </Reveal>
+        </section>
+
+        {/* ── Purpose and Benefits ── */}
+        <section
+          id="purpose"
+          className="relative isolate overflow-hidden bg-primary-lightest py-20 sm:py-28"
+        >
+          <SectionTexture dots="top" />
+          <Reveal amount={0.15} className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
+            <motion.div
+              variants={revealItemVariants}
+              className="mx-auto mb-12 flex max-w-4xl flex-col items-center text-center sm:mb-16"
+            >
+              <h2 className="font-heading text-3xl font-semibold leading-tight tracking-tight text-black sm:text-4xl lg:text-5xl">
+                Helping you choose cosmetics that{" "}
+                <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  suit your colors
+                </span>{" "}
+                and are{" "}
+                <span className="bg-linear-to-r from-secondary to-primary-dark bg-clip-text text-transparent">
+                  safe for your skin
+                </span>
+              </h2>
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray">
+                Chromascope brings AI color analysis, ingredient screening, and AR
+                try-on together, so every beauty decision starts from your own
+                profile.
+              </p>
+            </motion.div>
+
+            {/* Bento: featured card spans 2x2 on desktop, full width on tablets. */}
+            <motion.ul
+              variants={revealContainer}
+              className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {/* Featured: one profile behind every decision. */}
+              <motion.li
+                variants={revealItemVariants}
+                className="relative overflow-hidden rounded-3xl bg-linear-to-br from-primary to-primary-darker p-6 text-white shadow-[0_24px_60px_color-mix(in_srgb,var(--color-primary)_30%,transparent)] sm:col-span-2 sm:p-8 lg:row-span-2"
+              >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-secondary-light/30 blur-3xl"
+                />
+                <div className="relative flex h-full flex-col gap-8 lg:justify-between">
+                  <div className="max-w-md">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
+                      <FlaskConical className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <h3 className="mt-5 font-heading text-2xl font-semibold sm:text-3xl">
+                      One profile, every decision
+                    </h3>
+                    <p className="mt-3 text-base leading-relaxed text-white/80">
+                      Your season palette and your skin profile work together, so
+                      every product you see is matched to your colors and screened
+                      for your skin.
+                    </p>
+                  </div>
+
+                  {/* Mini preview: the season palette feeding a safe, matched result. */}
+                  <div
+                    aria-hidden="true"
+                    className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-md sm:p-5"
+                  >
+                    <div className="flex h-10 overflow-hidden rounded-xl">
+                      {seasonGroups.flatMap((group) => group.colors).map((hex, i) => (
+                        <span
+                          key={`${hex}-${i}`}
+                          className="flex-1 transition-[flex-grow] duration-300 hover:grow-[2.5]"
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-success">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Safe for your skin
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                        <Percent className="h-3.5 w-3.5" />
+                        Season match
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.li>
+
+              {benefits.map((benefit) => {
+                const Icon = benefit.icon;
+                return (
+                  <motion.li
+                    key={benefit.title}
+                    variants={revealItemVariants}
+                    className="group relative overflow-hidden rounded-3xl border border-white bg-white/70 p-6 shadow-[0_8px_30px_color-mix(in_srgb,var(--color-primary)_10%,transparent)] backdrop-blur-xl transition-[box-shadow,border-color] duration-300 last:sm:col-span-2 last:lg:col-span-1 hover:border-primary-light/60 hover:shadow-[0_16px_40px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-0 top-0 h-1 origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100"
+                      style={{ backgroundImage: spectrumGradient }}
+                    />
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-lighter text-primary transition-all duration-300 group-hover:-rotate-6 group-hover:bg-primary group-hover:text-white">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <h3 className="mt-4 font-heading text-lg font-semibold text-black">
+                      {benefit.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray">
+                      {benefit.description}
+                    </p>
+                  </motion.li>
+                );
+              })}
+            </motion.ul>
+          </Reveal>
+        </section>
+
         {/* ── How does Chromascope work? ── */}
-        <section id="demo" className="bg-primary-lighter py-20">
+        <section id="demo" className="relative isolate overflow-hidden bg-primary-lighter py-20">
+          <SectionTexture dots="bottom" />
           <Reveal className="mx-auto max-w-5xl px-4 sm:px-8 lg:px-12">
             <motion.div variants={revealItemVariants} className="mb-10 text-center">
               <h2 className="font-heading text-4xl font-semibold tracking-tight text-black sm:text-5xl">
