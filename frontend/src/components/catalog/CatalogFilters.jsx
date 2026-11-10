@@ -1,3 +1,5 @@
+import { SearchInput } from "../common/SearchInput.jsx";
+
 // The six manuscript categories (plan rule C5). `value` is what the URL holds; the page maps it to the data's
 // category ("Multiuse" is stored as "Multi-Use").
 const CATEGORY_OPTIONS = [
@@ -16,8 +18,15 @@ const VERDICT_OPTIONS = [
   { value: "excluded", label: "Excluded" },
 ];
 
+// Price ranges in pesos. `value` is what the URL holds (?price=1000-2000,over-2000); the page maps it to its bounds.
+const PRICE_OPTIONS = [
+  { value: "under-1000", label: "Under ₱1,000" },
+  { value: "1000-2000", label: "₱1,000 to ₱2,000" },
+  { value: "over-2000", label: "Over ₱2,000" },
+];
+
 /* One boxed group of checkboxes with a small uppercase heading. More than one option can be checked. */
-function FilterGroup({ id, title, options, selected, onToggle }) {
+function FilterGroup({ id, title, options, selected, onToggle, children }) {
   return (
     <div role="group" aria-labelledby={id} className="rounded-2xl bg-white p-4 ring-1 ring-primary-lighter">
       <h3 id={id} className="mb-3 text-[11px] font-bold uppercase tracking-widest text-gray">
@@ -38,6 +47,48 @@ function FilterGroup({ id, title, options, selected, onToggle }) {
           </li>
         ))}
       </ul>
+      {children}
+    </div>
+  );
+}
+
+/* Min and max price the user types in. Digits only; either can be left empty. */
+function PriceAmount({ id, amount, invalid, onChange }) {
+  const field = (key, label) => (
+    <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-gray">
+      {label}
+      <span className="flex items-center rounded-lg border border-primary-lighter bg-white px-2 focus-within:border-primary">
+        <span aria-hidden="true" className="text-sm text-gray-light">
+          ₱
+        </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={amount[key]}
+          onChange={(e) => onChange(key, e.target.value)}
+          placeholder={key === "pmin" ? "0" : "Any"}
+          aria-describedby={invalid ? `${id}-hint` : undefined}
+          aria-invalid={invalid || undefined}
+          className="w-full min-w-0 bg-transparent px-1 py-1.5 text-sm text-black placeholder:text-gray-light focus:outline-none"
+        />
+      </span>
+    </label>
+  );
+  return (
+    <div className="mt-3 border-t border-primary-lighter pt-3">
+      <p className="mb-2 text-xs font-semibold text-black">Or enter an amount</p>
+      <div className="flex items-end gap-2">
+        {field("pmin", "Min")}
+        <span aria-hidden="true" className="pb-2 text-gray-light">
+          -
+        </span>
+        {field("pmax", "Max")}
+      </div>
+      {invalid && (
+        <p id={`${id}-hint`} className="mt-2 text-xs text-danger">
+          Min is higher than max.
+        </p>
+      )}
     </div>
   );
 }
@@ -80,14 +131,7 @@ function PillGroup({ id, title, options, selected, onSelect, allLabel }) {
 /** Search on product name and brand (no ingredient search: plan decision 4). */
 export function CatalogSearch({ value, onChange }) {
   return (
-    <input
-      type="search"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search name or brand"
-      aria-label="Search by product name or brand"
-      className="w-full rounded-full border border-primary-lighter bg-white px-4 py-2.5 text-sm sm:px-5 text-black shadow-sm placeholder:text-gray-light focus:border-primary focus:outline-none"
-    />
+    <SearchInput value={value} onChange={onChange} placeholder="Search name or brand" ariaLabel="Search by product name or brand" />
   );
 }
 
@@ -95,7 +139,23 @@ export function CatalogSearch({ value, onChange }) {
  * CatalogFilters: the filter panel (a sidebar on desktop, a sheet on phones). Owns no state: the page keeps every
  * filter in the URL next to the view, and filters the data it already loaded.
  */
-export function CatalogFilters({ idPrefix, view, categories, subOptions, sub, verdicts, onSelectCategory, onSelectSub, onToggle, onClear, active }) {
+export function CatalogFilters({
+  idPrefix,
+  view,
+  categories,
+  subOptions,
+  sub,
+  verdicts,
+  prices,
+  amount,
+  amountInvalid,
+  onSelectCategory,
+  onSelectSub,
+  onToggle,
+  onAmount,
+  onClear,
+  active,
+}) {
   const verdictOptions = VERDICT_OPTIONS.filter((option) => option.value !== "excluded"); // Excluded products are never listed
   // idPrefix keeps the heading ids unique: the sidebar stays in the page while the phone sheet is open.
   return (
@@ -130,6 +190,15 @@ export function CatalogFilters({ idPrefix, view, categories, subOptions, sub, ve
           onToggle={(value) => onToggle("verdict", value)}
         />
       )}
+      <FilterGroup
+        id={`${idPrefix}-price`}
+        title="Price"
+        options={PRICE_OPTIONS}
+        selected={prices}
+        onToggle={(value) => onToggle("price", value)}
+      >
+        <PriceAmount id={`${idPrefix}-amount`} amount={amount} invalid={amountInvalid} onChange={onAmount} />
+      </FilterGroup>
       {active && (
         <button
           type="button"

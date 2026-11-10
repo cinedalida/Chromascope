@@ -19,12 +19,21 @@ const PAGE_SIZE = 20;
 const VIEWS = ["safe", "all"];
 // Category filter value (URL) -> category as stored in the data (build_catalog.py, api.py category_map).
 const CATEGORY_DATA = { cheek: "Cheek", concealer: "Concealer", eye: "Eye", face: "Face", lip: "Lip", multiuse: "Multi-Use" };
+// Price filter value (URL) -> [min, max) in pesos. Same values as PRICE_OPTIONS in CatalogFilters.jsx.
+const PRICE_RANGES = {
+  "under-1000": [0, 1000],
+  "1000-2000": [1000, 2000],
+  "over-2000": [2000, Infinity],
+};
 
 const byCategoryThenName = (a, b) =>
   String(a.category ?? "").localeCompare(String(b.category ?? "")) ||
   String(a.product_name ?? "").localeCompare(String(b.product_name ?? ""));
 
 const verdictOf = (item) => String(item?.verdict ?? "").toLowerCase();
+
+// "800" -> 800; empty or anything that is not a whole number -> null.
+const parseAmount = (value) => (/^\d+$/.test(String(value ?? "")) ? Number(value) : null);
 
 // "lip,cheek" -> ["lip", "cheek"], keeping only known values, in a stable order.
 const parseList = (value, allowed) => allowed.filter((option) => String(value ?? "").split(",").includes(option));
@@ -187,21 +196,32 @@ export function CatalogPage() {
   const urlCategories = searchParams.get("category") ?? "";
   const urlVerdicts = searchParams.get("verdict") ?? "";
   const urlSub = searchParams.get("sub") ?? "";
-  const [ticked, setTicked] = useState({ category: urlCategories, verdict: urlVerdicts, sub: urlSub });
-  const [tickedFrom, setTickedFrom] = useState(`${urlCategories}|${urlVerdicts}|${urlSub}`);
-  if (tickedFrom !== `${urlCategories}|${urlVerdicts}|${urlSub}`) {
-    setTickedFrom(`${urlCategories}|${urlVerdicts}|${urlSub}`);
-    setTicked({ category: urlCategories, verdict: urlVerdicts, sub: urlSub });
+  const urlPrices = searchParams.get("price") ?? "";
+  const urlPmin = searchParams.get("pmin") ?? "";
+  const urlPmax = searchParams.get("pmax") ?? "";
+  const urlKey = `${urlCategories}|${urlVerdicts}|${urlSub}|${urlPrices}|${urlPmin}|${urlPmax}`;
+  const fromUrl = () => ({ category: urlCategories, verdict: urlVerdicts, sub: urlSub, price: urlPrices, pmin: urlPmin, pmax: urlPmax });
+  const [ticked, setTicked] = useState(fromUrl);
+  const [tickedFrom, setTickedFrom] = useState(urlKey);
+  if (tickedFrom !== urlKey) {
+    setTickedFrom(urlKey);
+    setTicked(fromUrl());
   }
   const categories = parseList(ticked.category, Object.keys(CATEGORY_DATA));
   const verdicts = view === "all" ? [] : parseList(ticked.verdict, ["safe", "caution"]);
+  const prices = parseList(ticked.price, Object.keys(PRICE_RANGES));
+  // Typed price amount (whole pesos, both ends included). Min above max is shown as a hint and not applied.
+  const pmin = parseAmount(ticked.pmin);
+  const pmax = parseAmount(ticked.pmax);
+  const amountInvalid = pmin !== null && pmax !== null && pmin > pmax;
+  const amountActive = !amountInvalid && (pmin !== null || pmax !== null);
   // The sub-category (Lipstick, Lip liner ...) only applies while exactly one category is chosen.
   const sub = categories.length === 1 ? ticked.sub : "";
   const query = searchParams.get("q") ?? "";
   // Filtering the grid can lag one keystroke behind typing, so the input itself never waits for it.
   const deferredQuery = useDeferredValue(query);
-  const filterCount = categories.length + verdicts.length + (sub ? 1 : 0);
-  const filtersActive = Boolean(filterCount || query.trim());
+  const filterCount = categories.length + verdicts.length + prices.length + (amountActive ? 1 : 0) + (sub ? 1 : 0);
+  const filtersActive = Boolean(filterCount || query.trim() || ticked.pmin || ticked.pmax);
   const setFilters = (patch) =>
     setSearchParams(
       (params) => {
@@ -215,10 +235,18 @@ export function CatalogPage() {
       { replace: true },
     );
   const toggleFilter = (key, value) => {
-    const current = key === "category" ? categories : verdicts;
+    const current = { category: categories, verdict: verdicts, price: prices }[key];
     const next = (current.includes(value) ? current.filter((v) => v !== value) : [...current, value]).join(",");
-    setTicked((t) => ({ ...t, [key]: next }));
-    setFilters({ [key]: next });
+    // Price ranges and a typed amount replace each other, so ticking a range clears the amount.
+    const patch = key === "price" ? { price: next, pmin: "", pmax: "" } : { [key]: next };
+    setTicked((t) => ({ ...t, ...patch }));
+    setFilters(patch);
+  };
+  // Typing an amount keeps digits only (up to 6) and unticks the price ranges.
+  const setAmount = (key, value) => {
+    const patch = { [key]: String(value).replace(/\D/g, "").slice(0, 6), price: "" };
+    setTicked((t) => ({ ...t, ...patch }));
+    setFilters(patch);
   };
   // Category pills: one category at a time; it replaces any others and resets the sub-category.
   const selectCategory = (value) => {
@@ -230,10 +258,20 @@ export function CatalogPage() {
     setFilters({ sub: value });
   };
   const clearFilters = () => {
-    setTicked({ category: "", verdict: "", sub: "" });
-    setFilters({ category: "", verdict: "", sub: "", q: "" });
+    setTicked({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "" });
+    setFilters({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "", q: "" });
   };
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Phones: once the Filters button at the top scrolls out of view, a floating copy appears at the bottom.
+  const filterButtonRef = useRef(null);
+  const [filterButtonOut, setFilterButtonOut] = useState(false);
+  useEffect(() => {
+    const button = filterButtonRef.current;
+    if (!button || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(([entry]) => setFilterButtonOut(!entry.isIntersecting));
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, []);
 
   // Page numbers: ?page=. A page change is a new history entry,
   // so the back button returns to the previous page, and the list scrolls back to its top.
@@ -360,21 +398,33 @@ export function CatalogPage() {
   // Filtering happens on data already loaded: no new requests. Within a group, any ticked option matches.
   const categoriesKey = categories.join(",");
   const verdictsKey = verdicts.join(",");
+  const pricesKey = prices.join(",");
+  const amountMin = amountActive ? pmin : null;
+  const amountMax = amountActive ? pmax : null;
   const { filteredSafe, filteredMain } = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     const has = (text) => String(text ?? "").toLowerCase().includes(q);
     const wantedCategories = categoriesKey ? categoriesKey.split(",").map((c) => CATEGORY_DATA[c]) : [];
     const wantedVerdicts = verdictsKey ? verdictsKey.split(",") : [];
+    const wantedPrices = pricesKey ? pricesKey.split(",").map((p) => PRICE_RANGES[p]) : [];
+    // A product without a numeric price cannot be placed in a range, so it is left out while a price is ticked.
+    const isPrice = (price) => typeof price === "number" && Number.isFinite(price);
+    const inPrice = (price) => isPrice(price) && wantedPrices.some(([min, max]) => price >= min && price < max);
+    const hasAmount = amountMin !== null || amountMax !== null;
+    const inAmount = (price) =>
+      isPrice(price) && (amountMin === null || price >= amountMin) && (amountMax === null || price <= amountMax);
     const matches = (item) =>
       (!wantedCategories.length || wantedCategories.includes(item.category)) &&
       (!sub || subcategoryLabels(item).includes(sub)) &&
       (!wantedVerdicts.length || wantedVerdicts.includes(verdictOf(item))) &&
+      (!wantedPrices.length || inPrice(item.price)) &&
+      (!hasAmount || inAmount(item.price)) &&
       (!q || has(item.product_name) || has(item.brand));
     return {
       filteredSafe: safeItems.filter(matches),
       filteredMain: mainItems.filter(matches),
     };
-  }, [safeItems, mainItems, categoriesKey, verdictsKey, sub, deferredQuery]);
+  }, [safeItems, mainItems, categoriesKey, verdictsKey, pricesKey, amountMin, amountMax, sub, deferredQuery]);
 
   // Sub-categories of the chosen category, with how many products each has in the current view.
   const subOptions = useMemo(() => {
@@ -407,7 +457,7 @@ export function CatalogPage() {
   const noMatches = (
     <MessageState
       title="No products match these filters"
-      text="Try another category or search."
+      text="Try another category, price or search."
       actionLabel="Clear filters"
       onAction={clearFilters}
     />
@@ -493,10 +543,14 @@ export function CatalogPage() {
       subOptions={subOptions}
       sub={sub}
       verdicts={verdicts}
+      prices={prices}
+      amount={{ pmin: ticked.pmin, pmax: ticked.pmax }}
+      amountInvalid={amountInvalid}
       active={filtersActive}
       onSelectCategory={selectCategory}
       onSelectSub={selectSub}
       onToggle={toggleFilter}
+      onAmount={setAmount}
       onClear={clearFilters}
     />
   );
@@ -515,6 +569,7 @@ export function CatalogPage() {
             <CatalogSearch value={query} onChange={(q) => setFilters({ q })} />
             {/* Phones: a round icon button (named "Filters" for screen readers). From sm: the full pill. */}
             <button
+              ref={filterButtonRef}
               type="button"
               onClick={() => setSheetOpen(true)}
               className="relative flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-primary-lighter bg-white text-sm font-semibold text-black shadow-sm sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 lg:hidden"
@@ -535,7 +590,13 @@ export function CatalogPage() {
         <OfflineNote>The catalog needs internet. Connect and reload this page to see products.</OfflineNote>
 
         <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-6">
-          <aside aria-label="Filters" className="hidden lg:sticky lg:top-24 lg:block">
+          {/* Stays in view while the products scroll. Capped at the window height, so a long panel scrolls inside
+              itself (scrollbar hidden) instead of running off the bottom. The small padding keeps the cards' rings
+              from being clipped. */}
+          <aside
+            aria-label="Filters"
+            className="hidden lg:sticky lg:top-24 lg:-m-1 lg:block lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overscroll-contain lg:p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {filterPanel("sidebar")}
           </aside>
           <div ref={resultsRef} className="min-w-0 scroll-mt-24 space-y-6">
@@ -546,6 +607,17 @@ export function CatalogPage() {
           </div>
         </div>
 
+        {filterButtonOut && !sheetOpen && !detailItem && (
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:hidden"
+          >
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+            Filters
+            {filterCount > 0 && <span className="rounded-full bg-white px-1.5 text-xs text-primary">{filterCount}</span>}
+          </button>
+        )}
         {sheetOpen && (
           <FilterSheet resultCount={resultCount} onClose={() => setSheetOpen(false)}>
             {filterPanel("sheet")}
