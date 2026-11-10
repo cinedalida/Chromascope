@@ -170,17 +170,44 @@ export function FavoritesPage() {
 
   // Search (?q=), shared by both tabs. Like the catalog, typing replaces the history entry instead of adding one.
   // Items still loading or no longer available have nothing to match, so they are hidden while searching.
-  const query = searchParams.get("q") ?? "";
-  const q = query.trim().toLowerCase();
-  const setQuery = (next) =>
+  // The box shows local state, updated on every key; the URL follows 250ms after the last key, so a late URL update
+  // cannot overwrite letters typed after it. The box only re-reads the URL when it changes to something this page did
+  // not write (back button, shared link).
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQueryText] = useState(urlQuery);
+  const [sentQuery, setSentQuery] = useState(urlQuery); // the last text written to the URL
+  const [queryFrom, setQueryFrom] = useState(urlQuery);
+  if (queryFrom !== urlQuery) {
+    setQueryFrom(urlQuery);
+    if (urlQuery !== sentQuery) {
+      setSentQuery(urlQuery);
+      setQueryText(urlQuery);
+    }
+  }
+  const queryTimer = useRef(null);
+  useEffect(() => {
+    const timer = queryTimer;
+    return () => clearTimeout(timer.current);
+  }, []);
+  const writeQuery = (text) => {
+    setSentQuery(text);
     setSearchParams(
       (params) => {
-        if (next) params.set("q", next);
+        if (text) params.set("q", text);
         else params.delete("q");
         return params;
       },
       { replace: true },
     );
+  };
+  const setQuery = (text) => {
+    setQueryText(text);
+    clearTimeout(queryTimer.current);
+    // Clearing is written at once; typing waits for a pause.
+    if (!text) writeQuery("");
+    else queryTimer.current = setTimeout(() => writeQuery(text), 250);
+  };
+  const q = query.trim().toLowerCase();
   const has = (text) => String(text ?? "").toLowerCase().includes(q);
   const itemMatches = (item) => {
     const { status: itemStatus, product } = resolve(item);

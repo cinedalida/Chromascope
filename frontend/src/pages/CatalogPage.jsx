@@ -217,7 +217,25 @@ export function CatalogPage() {
   const amountActive = !amountInvalid && (pmin !== null || pmax !== null);
   // The sub-category (Lipstick, Lip liner ...) only applies while exactly one category is chosen.
   const sub = categories.length === 1 ? ticked.sub : "";
-  const query = searchParams.get("q") ?? "";
+  // Search text: the box shows local state, updated on every key, and the URL (?q=) follows 250ms after the last key.
+  // Writing the URL on every key let a late URL update overwrite letters typed after it. The box only re-reads the
+  // URL when it changes to something this page did not write (back button, shared link).
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  const [sentQuery, setSentQuery] = useState(urlQuery); // the last text written to the URL
+  const [queryFrom, setQueryFrom] = useState(urlQuery);
+  if (queryFrom !== urlQuery) {
+    setQueryFrom(urlQuery);
+    if (urlQuery !== sentQuery) {
+      setSentQuery(urlQuery);
+      setQuery(urlQuery);
+    }
+  }
+  const queryTimer = useRef(null);
+  useEffect(() => {
+    const timer = queryTimer;
+    return () => clearTimeout(timer.current);
+  }, []);
   // Filtering the grid can lag one keystroke behind typing, so the input itself never waits for it.
   const deferredQuery = useDeferredValue(query);
   const filterCount = categories.length + verdicts.length + prices.length + (amountActive ? 1 : 0) + (sub ? 1 : 0);
@@ -257,7 +275,18 @@ export function CatalogPage() {
     setTicked((t) => ({ ...t, sub: value }));
     setFilters({ sub: value });
   };
+  const typeQuery = (text) => {
+    setQuery(text);
+    clearTimeout(queryTimer.current);
+    queryTimer.current = setTimeout(() => {
+      setSentQuery(text);
+      setFilters({ q: text });
+    }, 250);
+  };
   const clearFilters = () => {
+    clearTimeout(queryTimer.current);
+    setQuery("");
+    setSentQuery("");
     setTicked({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "" });
     setFilters({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "", q: "" });
   };
@@ -566,7 +595,7 @@ export function CatalogPage() {
           <CatalogViewToggle value={view} onChange={setView} />
           {/* 28rem cap: max-w-md is 768px here (variables.css redefines --container-md). */}
           <div className="flex items-center gap-2 sm:min-w-64 sm:flex-1 lg:max-w-112">
-            <CatalogSearch value={query} onChange={(q) => setFilters({ q })} />
+            <CatalogSearch value={query} onChange={typeQuery} />
             {/* Phones: a round icon button (named "Filters" for screen readers). From sm: the full pill. */}
             <button
               ref={filterButtonRef}
