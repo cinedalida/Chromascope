@@ -55,6 +55,10 @@ class FaceProcessor:
             if 'rects' not in faces or faces['rects'].numel() == 0:
                 raise ValueError("No face detected in the image.")
 
+            # Only the first (highest-scoring) face is ever used, so the parser must not spend time on extra detections
+            # (large photos often return a few small false ones, and the network cost grows with every face).
+            faces = {key: (value[:1] if key in ('rects', 'points', 'scores', 'image_ids') else value)
+                     for key, value in faces.items()}
             faces = self.face_parser(image_tensor, faces)
 
             # argmax of the logits equals argmax of their softmax (monotonic), so the softmax over every pixel is skipped
