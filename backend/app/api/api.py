@@ -170,6 +170,24 @@ def server_error(where: str) -> HTTPException:
     log.exception("Unhandled error in %s", where)
     return HTTPException(status_code=500, detail="Something went wrong on our side. Please try again.")
 
+@app.get("/api/warm")
+async def warm_analyzer():
+    """
+    Loads the color-analysis models if they are not loaded yet and answers when they are ready (instantly when they are).
+
+    The frontend calls this when someone signs in. On Cloud Run a container only gets CPU while a request is open, so
+    holding a request open is what lets a freshly started instance finish loading its models while the person browses,
+    instead of making their first photo wait for it. Public on purpose: it only ever loads the models once.
+    """
+    try:
+        await asyncio.to_thread(get_analyzer)
+        return {"ready": True}
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Analyzer warm-up request failed")
+        return {"ready": False}
+
 @app.get("/")
 async def root():
     return {"status": "Chromascope Safety API is running"}
