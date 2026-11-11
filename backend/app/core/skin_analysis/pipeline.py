@@ -91,6 +91,28 @@ class AnalyzerPipeline:
         model.eval() # Set to evaluation mode
         return model
 
+    def warm_up(self):
+        """
+        Runs each network on a dummy input so the first real photo doesn't pay the one-off setup cost (the TorchScript
+        parser optimises itself over its first calls). Output is unaffected. Safe to skip.
+        """
+        with torch.inference_mode():
+            noise = torch.from_numpy(np.random.RandomState(0).randint(0, 255, (3, 448, 448), dtype=np.uint8))
+            for _ in range(3):  # TorchScript optimises itself after its first two calls
+                self.facer.face_detector(noise.unsqueeze(0).to(DEVICE))
+                self.facer.face_parser.forward_warped(torch.zeros(1, 3, 448, 448, device=DEVICE), return_preds=False)
+                self.model(torch.zeros(1, 3, 224, 224, device=DEVICE))
+
+        # the colour step's libraries (scikit-learn, scikit-image, OpenCV) also do their one-off setup on first use
+        rng = np.random.RandomState(0)
+        tile = Image.fromarray(rng.randint(0, 255, (64, 64, 3), dtype=np.uint8))
+        mask = np.ones((64, 64), dtype=np.uint8)
+        get_dominant_lab_color(tile, mask)
+        try:
+            check_photo_quality(tile, mask)
+        except PhotoQualityError:
+            pass
+
     def analyze(self, image_source):
         """
         Processes an image and returns the season, confidence, and skin shade.
