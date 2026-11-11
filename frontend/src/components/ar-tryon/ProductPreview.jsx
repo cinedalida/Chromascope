@@ -3,6 +3,7 @@ import { ExternalLink, X } from "lucide-react";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { SafetyBadge } from "../catalog/SafetyBadge.jsx";
 import { SeasonTags } from "../common/SeasonTags.jsx";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 import { pesoPrice, productImageSrc } from "../../utils/productDisplay";
 import { seasonsForUser } from "../../utils/arFit";
 import { shortShadeName } from "../../utils/shadeGroups";
@@ -125,10 +126,10 @@ export function ProductPreview({ group, selectedShades, userSeason, isShadeSelec
                         active ? "bg-primary-lightest" : "hover:bg-gray-lightest/70"
                       }`}
                     >
-                      <span
+                      <ShadeDot
                         aria-hidden="true"
+                        hex={shade.hex}
                         className={`mt-0.5 h-6 w-6 shrink-0 rounded-full ring-offset-1 ${active ? "ring-2 ring-primary" : "ring-1 ring-black/10"}`}
-                        style={{ backgroundColor: shade.hex }}
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13px] font-semibold leading-snug text-black">

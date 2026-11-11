@@ -5,6 +5,7 @@ import { assetUrl } from "../../config";
 import placeholderImg from "../../assets/images/placeholder.svg";
 import { FavoriteButton } from "../catalog/ProductCard.jsx";
 import { SafetyBadge } from "../catalog/SafetyBadge.jsx";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 
 // Same rules as ProductCard (a component file cannot share plain helpers under the fast-refresh lint rule).
 function imageSrc(url) {
@@ -56,7 +57,7 @@ export function FavoriteProductCard({ product, isBrowse = false, onSelect, onRem
           </span>
         )}
         {product.hex_color && (
-          <span aria-hidden="true" className="block h-4 w-4 rounded-full ring-1 ring-black/10" style={{ backgroundColor: product.hex_color }} />
+          <ShadeDot aria-hidden="true" hex={product.hex_color} className="h-4 w-4 rounded-full ring-1 ring-black/10" />
         )}
         {isBrowse && <span className="text-[10px] leading-snug text-gray-light sm:text-[11px]">From Browse, not safety-checked.</span>}
       </span>

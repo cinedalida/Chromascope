@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { REGION_LABEL } from "../../utils/arGroups";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 
 const MAX_NAME = 40;
 
@@ -63,7 +64,7 @@ export function SaveLookDialog({ shades, defaultName, activeLook, changed, onSav
         <ul aria-label="Shades in this look" className="max-h-56 space-y-2 overflow-y-auto">
           {shades.map(([region, shade]) => (
             <li key={region} className="flex items-center gap-2.5 text-sm">
-              <span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+              <ShadeDot aria-hidden="true" hex={shade.hex} className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/10" />
               <span className="w-20 shrink-0 text-xs font-semibold text-gray">{REGION_LABEL[region] ?? region}</span>
               <span className="min-w-0 truncate">
                 {shade.product}
