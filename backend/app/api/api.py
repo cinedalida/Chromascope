@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import hashlib
 import io
 import json
@@ -130,6 +131,7 @@ def _use_closest_shade(products: list, user_lab) -> None:
 # not on this machine (e.g. local testing) the analysis endpoint answers 503 and everything else still runs.
 _analyzer = None
 _analyzer_lock = threading.Lock()
+_analysis_slots = asyncio.Semaphore(int(os.getenv("MAX_CONCURRENT_ANALYSES", "1")))
 
 def get_analyzer():
     global _analyzer
@@ -338,7 +340,10 @@ async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get
         )
 
     try:
-        result = get_analyzer().analyze(image)
+        # The analysis is seconds of CPU work: run it in a worker thread so the server keeps answering other requests,
+        # and one at a time (memory, and two analyses on the same cores would only each take twice as long).
+        async with _analysis_slots:
+            result = await asyncio.to_thread(lambda: get_analyzer().analyze(image))
     except HTTPException:
         raise
     except Exception:
