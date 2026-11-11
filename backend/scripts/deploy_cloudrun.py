@@ -3,13 +3,14 @@ r"""Deploy the backend to Google Cloud Run in your own Google Cloud / Firebase p
 What it does, in order (each step is safe to repeat):
   1. enables the Google APIs Cloud Run needs (Cloud Run, Cloud Build, Artifact Registry);
   2. creates a service account for the backend and gives it ONLY the Firestore and Firebase Auth roles it needs;
-  3. stages the backend (code, product photos, the two trained models; no keys, no tests, no personal photos) and lets
+  3. stages the backend (code, product photos, the ConvNeXt-L checkpoints of the chosen classifier mode; no keys, no tests, no personal photos) and lets
      Cloud Build build the image from backend/cloudrun/Dockerfile;
   4. deploys it as a Cloud Run service that scales to zero, with a cap on instances so a traffic spike cannot run up a bill.
 
 Usage (from backend/):
   venv\Scripts\python -m scripts.deploy_cloudrun --project chromascope-new --images-dir <catalog_images> [--dry-run]
-      [--region us-central1] [--min-instances 0] [--max-instances 3] [--secrets-file <path outside the repo>]
+      [--region us-central1] [--min-instances 0] [--max-instances 3] [--memory 8Gi] [--classifier-mode hard|soft|ensemble]
+      [--secrets-file <path outside the repo>]
 
 Prerequisites: `gcloud auth login` as someone with Owner/Editor on the project, and billing enabled on it.
 """
@@ -30,11 +31,18 @@ SERVICE = "chromascope-api"
 ACCOUNT_ID = "chromascope-api"
 APIS = ["run.googleapis.com", "cloudbuild.googleapis.com", "artifactregistry.googleapis.com"]
 ROLES = ["roles/datastore.user", "roles/firebaseauth.admin"]  # Firestore read/write, and deleting a user's login
-MODELS = ("final_model.pth", "final_sub_class_model.pth")
+# The ConvNeXt-L checkpoints (ml/weights/convnext/, about 375 MB each) that each classifier mode needs. Only these are put in the
+# image. Keep in sync with SEASON_FILES and SUB_FILE in app/core/skin_analysis/ml/convnext_classifier.py.
+_SUB = ["spring_v2.pt", "summer_v2.pt", "autumn_v2.pt", "winter_v2.pt"]
+CLASSIFIER_FILES = {
+    "hard": ["season_v2.pt"] + _SUB,
+    "soft": ["season_v2.pt"] + _SUB,
+    "ensemble": ["season_v1.pt", "season_v2.pt", "season_v3.pt"] + _SUB,
+}
 WEIGHTS_REL = os.path.join("app", "core", "skin_analysis", "ml", "weights")
 
 
-def stage(images_dir: str) -> str:
+def stage(images_dir: str, classifier_mode: str) -> str:
     out = tempfile.mkdtemp(prefix="chromascope-cloudrun-")
     shutil.copy(os.path.join(BACKEND, "cloudrun", "Dockerfile"), out)
     shutil.copy(os.path.join(BACKEND, "requirements.txt"), out)
@@ -46,13 +54,15 @@ def stage(images_dir: str) -> str:
             dst = os.path.join(out, os.path.relpath(os.path.join(root, f), BACKEND))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copy2(os.path.join(root, f), dst)
-    # The two trained models go into the (private) image. The FaRL backbone is downloaded by the Dockerfile instead.
-    os.makedirs(os.path.join(out, WEIGHTS_REL), exist_ok=True)
-    for name in MODELS:
-        src = os.path.join(BACKEND, WEIGHTS_REL, name)
+    # The ConvNeXt-L checkpoints of the chosen mode go into the (private) image; the segmentation models are downloaded by the
+    # Dockerfile.
+    weights_out = os.path.join(out, WEIGHTS_REL, "convnext")
+    os.makedirs(weights_out, exist_ok=True)
+    for name in CLASSIFIER_FILES[classifier_mode]:
+        src = os.path.join(BACKEND, WEIGHTS_REL, "convnext", name)
         if not os.path.exists(src):
             sys.exit(f"Missing model file: {src}")
-        shutil.copy2(src, os.path.join(out, WEIGHTS_REL, name))
+        shutil.copy2(src, os.path.join(weights_out, name))
     shutil.copytree(images_dir, os.path.join(out, "catalog_images"))
     # Safety net, like the Hugging Face deploy: no key material, no images outside catalog_images, no big weights.
     for root, _dirs, files in os.walk(out):
@@ -61,7 +71,7 @@ def stage(images_dir: str) -> str:
             rel = os.path.relpath(path, out)
             if not rel.startswith("catalog_images") and f.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".heic")):
                 sys.exit(f"Refusing: image outside catalog_images staged: {rel}")
-            if f.lower().endswith(".pth") and f not in MODELS:
+            if f.lower().endswith(".pth") or (f.lower().endswith(".pt") and f not in CLASSIFIER_FILES[classifier_mode]):
                 sys.exit(f"Refusing: unexpected model weights staged: {rel}")
             if f.endswith((".json", ".txt", ".py")) and "PRIVATE KEY" in open(path, encoding="utf-8", errors="ignore").read():
                 sys.exit(f"Refusing: private key material in {rel}")
@@ -75,10 +85,18 @@ def main():
     ap.add_argument("--region", default="us-central1", help="next to Firestore (nam5 = US) keeps the backend's database calls fast")
     ap.add_argument("--min-instances", type=int, default=0, help="0 = scales to zero (nothing billed while idle; the first visit after a pause loads the models in the background once the app calls /api/warm at sign-in); 1 = always warm (roughly $50-60/month idle at 4 vCPU / 4-8 GiB, no cold start for anyone)")
     ap.add_argument("--memory", default="8Gi", help="memory per instance. 4Gi fits the old FaRL64 head; the ConvNeXt-L models need more: about 0.73 GiB each in fp32, so the full ensemble + flip (7 models, 5.1 GiB) plus the face parser needs 8Gi. Memory is the cheap part of Cloud Run pricing (the vCPU-seconds are what cost money)")
+    ap.add_argument("--classifier-mode", choices=sorted(CLASSIFIER_FILES), default="hard", help="which ConvNeXt-L classifier the server runs. hard = season model then one sub-type model (2 passes, offline test accuracy 31.0%%); soft = all four sub-type models (31.7%%); ensemble = 3 season models + the mirrored photo (33.6%%, needs 8Gi and is the slowest)")
     ap.add_argument("--max-instances", type=int, default=3, help="a cap on cost: more traffic than this waits instead of spending more")
     ap.add_argument("--secrets-file", default=os.path.abspath(os.path.join(BACKEND, "..", "..", "cloudrun_secrets.txt")))
     ap.add_argument("--dry-run", action="store_true", help="stage and print the commands, change nothing in Google Cloud")
     args = ap.parse_args()
+    if args.classifier_mode == "ensemble":
+        try:
+            gib = int(args.memory.lower().rstrip("gi"))
+        except ValueError:
+            gib = 0
+        if gib < 8:
+            sys.exit("Refusing: the ensemble keeps 7 ConvNeXt-L models in memory (about 5.1 GiB) plus the face parser; use --memory 8Gi or more.")
 
     repo_root = os.path.abspath(os.path.join(BACKEND, ".."))
     if os.path.abspath(args.secrets_file).startswith(repo_root + os.sep):
@@ -104,7 +122,7 @@ def main():
             sys.exit(f"gcloud failed ({result.returncode}): {shown}")
         return result
 
-    folder = stage(args.images_dir)
+    folder = stage(args.images_dir, args.classifier_mode)
     print(f"staged in {folder}")
     try:
         run("services", "enable", *APIS, "--project", args.project)
@@ -119,6 +137,7 @@ def main():
         env_vars = {
             "ALLOWED_ORIGINS": ALLOWED_ORIGINS, "PRODUCTS_COLLECTION": "products_v2", "PRODUCTS_CACHE_SECONDS": "21600",
             "ANALYSIS_RESULT_SECRET": kept["ANALYSIS_RESULT_SECRET"], "CRON_SECRET": kept["CRON_SECRET"],
+            "CLASSIFIER_MODE": args.classifier_mode,
         }
         # A temporary file, not --set-env-vars: ALLOWED_ORIGINS contains commas, and gcloud's escape syntax for that uses
         # "^", which Windows' cmd.exe swallows. The file holds secrets, so it is outside the staged folder and deleted after.

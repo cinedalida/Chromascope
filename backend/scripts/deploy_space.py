@@ -28,7 +28,7 @@ import tempfile
 BACKEND = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SKIP_DIRS = {"__pycache__", "test", "tests", "test_images", "test_output"}
 SKIP_FILES = ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.heic", "*.bmp", "*.env", ".env*", "*serviceAccount*",
-              "*adminsdk*", "*.pyc", "desktop.ini", "*.pth"]
+              "*adminsdk*", "*.pyc", "desktop.ini", "*.pth", "*.pt"]
 ALLOWED_ORIGINS = "https://chromascope-app.vercel.app,http://localhost:5173,http://127.0.0.1:5173"
 
 
