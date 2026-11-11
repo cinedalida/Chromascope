@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../config";
+import { API_BASE_URL, apiUrl } from "../config";
 import { createServerWake, isAwakeBody, loadAfterWake } from "../utils/serverWake";
 
 // The free-hosted backend sleeps when nobody visits and takes a minute or more to start. Pinging it the moment the app
@@ -35,4 +35,16 @@ export function whenServerAwake(timeoutMs) {
 /** Runs a data load after the backend is up; one retry after a failure (see loadAfterWake). */
 export function loadWhenServerAwake(load, isFailure, options) {
   return wake ? loadAfterWake(wake, load, isFailure, options) : load();
+}
+
+// The color-analysis models take a minute or two to load on a freshly started server. Asking for /warm when someone
+// signs in holds a request open while they load (the server only gets CPU during a request), so by the time the person
+// reaches the photo step they are usually ready. Once per page load; a failure is ignored (analysis loads them anyway).
+const WARM_TIMEOUT_MS = 180000;
+let analyzerWarmRequested = false;
+
+export function warmAnalyzer() {
+  if (!API_BASE_URL || analyzerWarmRequested) return;
+  analyzerWarmRequested = true;
+  fetch(apiUrl("/warm"), { cache: "no-store", signal: AbortSignal.timeout(WARM_TIMEOUT_MS) }).catch(() => {});
 }

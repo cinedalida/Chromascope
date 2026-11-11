@@ -7,7 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
 import { startARPrefetch } from "./services/arPrefetch";
-import { startServerWake } from "./services/serverWake";
+import { startServerWake, warmAnalyzer } from "./services/serverWake";
 import { clearRecommendedCache } from "./services/arRecommendedService";
 import { clearCatalogCache } from "./services/catalogDataService";
 import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
@@ -29,6 +29,7 @@ export function App() {
       // Sign-in state is known before the profile loads, so a slow profile fetch never locks a user out.
       setAuthStatus(firebaseUser ? "signedIn" : "signedOut");
       if (firebaseUser) {
+        warmAnalyzer(); // start loading the color-analysis models now, while the person browses
         // Records activity for the 30-day face-data retention (also covers users who only use AR try-on).
         firebaseUser.getIdToken()
           .then((token) => fetch(apiUrl("/user/active"), { method: "POST", headers: { Authorization: `Bearer ${token}` } }))
