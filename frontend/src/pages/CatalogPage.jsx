@@ -8,6 +8,8 @@ import { ProductCard } from "../components/catalog/ProductCard.jsx";
 import { CatalogViewToggle } from "../components/catalog/CatalogViewToggle.jsx";
 import { SeasonContextBanner } from "../components/catalog/SeasonContextBanner.jsx";
 import { CatalogFilters, CatalogSearch } from "../components/catalog/CatalogFilters.jsx";
+import { CatalogSort } from "../components/catalog/CatalogSort.jsx";
+import { parseSort, sortByPrice } from "../utils/catalogSort.js";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { subcategoryCounts, subcategoryLabels } from "../utils/catalogSubcategories.js";
@@ -199,8 +201,9 @@ export function CatalogPage() {
   const urlPrices = searchParams.get("price") ?? "";
   const urlPmin = searchParams.get("pmin") ?? "";
   const urlPmax = searchParams.get("pmax") ?? "";
-  const urlKey = `${urlCategories}|${urlVerdicts}|${urlSub}|${urlPrices}|${urlPmin}|${urlPmax}`;
-  const fromUrl = () => ({ category: urlCategories, verdict: urlVerdicts, sub: urlSub, price: urlPrices, pmin: urlPmin, pmax: urlPmax });
+  const urlSort = parseSort(searchParams.get("sort") ?? "");
+  const urlKey = `${urlCategories}|${urlVerdicts}|${urlSub}|${urlPrices}|${urlPmin}|${urlPmax}|${urlSort}`;
+  const fromUrl = () => ({ category: urlCategories, verdict: urlVerdicts, sub: urlSub, price: urlPrices, pmin: urlPmin, pmax: urlPmax, sort: urlSort });
   const [ticked, setTicked] = useState(fromUrl);
   const [tickedFrom, setTickedFrom] = useState(urlKey);
   if (tickedFrom !== urlKey) {
@@ -210,6 +213,8 @@ export function CatalogPage() {
   const categories = parseList(ticked.category, Object.keys(CATEGORY_DATA));
   const verdicts = view === "all" ? [] : parseList(ticked.verdict, ["safe", "caution"]);
   const prices = parseList(ticked.price, Object.keys(PRICE_RANGES));
+  // Order of the products (not a filter: it is left out of filterCount and filtersActive).
+  const sort = parseSort(ticked.sort);
   // Typed price amount (whole pesos, both ends included). Min above max is shown as a hint and not applied.
   const pmin = parseAmount(ticked.pmin);
   const pmax = parseAmount(ticked.pmax);
@@ -275,6 +280,10 @@ export function CatalogPage() {
     setTicked((t) => ({ ...t, sub: value }));
     setFilters({ sub: value });
   };
+  const selectSort = (value) => {
+    setTicked((t) => ({ ...t, sort: value }));
+    setFilters({ sort: value });
+  };
   const typeQuery = (text) => {
     setQuery(text);
     clearTimeout(queryTimer.current);
@@ -287,8 +296,8 @@ export function CatalogPage() {
     clearTimeout(queryTimer.current);
     setQuery("");
     setSentQuery("");
-    setTicked({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "" });
-    setFilters({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "", q: "" });
+    setTicked({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "", sort: "" });
+    setFilters({ category: "", verdict: "", sub: "", price: "", pmin: "", pmax: "", sort: "", q: "" });
   };
   const [sheetOpen, setSheetOpen] = useState(false);
   // Phones: once the Filters button at the top scrolls out of view, a floating copy appears at the bottom.
@@ -449,11 +458,13 @@ export function CatalogPage() {
       (!wantedPrices.length || inPrice(item.price)) &&
       (!hasAmount || inAmount(item.price)) &&
       (!q || has(item.product_name) || has(item.brand));
+    // "Recommended" keeps each view's own order. A price sort keeps Safe products ahead of Caution ones in the
+    // "Compatible with me" view, and sorts by price inside each group.
     return {
-      filteredSafe: safeItems.filter(matches),
-      filteredMain: mainItems.filter(matches),
+      filteredSafe: sortByPrice(safeItems.filter(matches), sort, (item) => (verdictOf(item) === "safe" ? 0 : 1)),
+      filteredMain: sortByPrice(mainItems.filter(matches), sort),
     };
-  }, [safeItems, mainItems, categoriesKey, verdictsKey, pricesKey, amountMin, amountMax, sub, deferredQuery]);
+  }, [safeItems, mainItems, categoriesKey, verdictsKey, pricesKey, amountMin, amountMax, sub, deferredQuery, sort]);
 
   // Sub-categories of the chosen category, with how many products each has in the current view.
   const subOptions = useMemo(() => {
@@ -610,6 +621,7 @@ export function CatalogPage() {
               )}
             </button>
           </div>
+          <CatalogSort value={sort} onChange={selectSort} />
           <p aria-live="polite" className="pt-1 text-sm text-gray sm:ml-auto sm:pt-0">
             {countText}
           </p>
