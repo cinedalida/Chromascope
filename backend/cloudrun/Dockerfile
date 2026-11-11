@@ -17,6 +17,10 @@ COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --user torch==2.15.0 torchvision==0.29.2 --index-url https://download.pytorch.org/whl/cpu \
  && pip install --no-cache-dir --user -r requirements.txt
 
+# face detector + face parser weights: facer downloads them from GitHub on first use, which would make the first photo
+# after every cold start wait for that download. Fetch them while building the image instead.
+RUN python -c "import facer; facer.face_detector('retinaface/mobilenet', device='cpu'); facer.face_parser('farl/celebm/448', device='cpu')"
+
 # The code, with the two trained models already inside app/core/skin_analysis/ml/weights (staged by the deploy script).
 COPY --chown=user app ./app
 COPY --chown=user catalog_images ./catalog_images

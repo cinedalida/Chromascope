@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from scipy.ndimage import gaussian_filter
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 
 # Add the parent directory to the Python path
 BASE_DIR = Path(__file__).resolve().parent
@@ -50,13 +51,16 @@ def gray_edge_white_balance(pil_image, sigma=1):
     Robust when the face dominates the frame — avoids the green skin problem.
     """
     img = np.array(pil_image).astype(np.float32)
-    edge_means = []
 
-    for c in range(3):
+    def channel_edge_mean(c):
         smoothed = gaussian_filter(img[:, :, c], sigma=sigma)
         dx = np.abs(np.gradient(smoothed, axis=1))
         dy = np.abs(np.gradient(smoothed, axis=0))
-        edge_means.append(np.mean(dx + dy))
+        return np.mean(dx + dy)
+
+    # the three channels are independent (and scipy/numpy release the GIL), so they run side by side; same numbers
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        edge_means = list(pool.map(channel_edge_mean, range(3)))
 
     mean_gray = np.mean(edge_means)
 
@@ -91,6 +95,28 @@ class AnalyzerPipeline:
         model.eval() # Set to evaluation mode
         return model
 
+    def warm_up(self):
+        """
+        Runs each network on a dummy input so the first real photo doesn't pay the one-off setup cost (the TorchScript
+        parser optimises itself over its first calls). Output is unaffected. Safe to skip.
+        """
+        with torch.inference_mode():
+            noise = torch.from_numpy(np.random.RandomState(0).randint(0, 255, (3, 448, 448), dtype=np.uint8))
+            for _ in range(3):  # TorchScript optimises itself after its first two calls
+                self.facer.face_detector(noise.unsqueeze(0).to(DEVICE))
+                self.facer.face_parser.forward_warped(torch.zeros(1, 3, 448, 448, device=DEVICE), return_preds=False)
+                self.model(torch.zeros(1, 3, 224, 224, device=DEVICE))
+
+        # the colour step's libraries (scikit-learn, scikit-image, OpenCV) also do their one-off setup on first use
+        rng = np.random.RandomState(0)
+        tile = Image.fromarray(rng.randint(0, 255, (64, 64, 3), dtype=np.uint8))
+        mask = np.ones((64, 64), dtype=np.uint8)
+        get_dominant_lab_color(tile, mask)
+        try:
+            check_photo_quality(tile, mask)
+        except PhotoQualityError:
+            pass
+
     def analyze(self, image_source):
         """
         Processes an image and returns the season, confidence, and skin shade.
@@ -109,11 +135,14 @@ class AnalyzerPipeline:
         # Apply gray edge white balance
         balanced_image = gray_edge_white_balance(image)
 
-        # 2. Segment Face for Skin Color Extraction (Skin Only)
+        # 2. Detect + parse the face once; both masks below come from this single parse
         try:
-            skin_data = self.facer.generate_rgb_m(balanced_image, target='face_skin')
+            parsed = self.facer.parse(balanced_image)
         except ValueError as e:
             return {"error": str(e), "error_code": "no_face"}
+
+        # Segment Face for Skin Color Extraction (Skin Only)
+        skin_data = self.facer.apply_mask(parsed, target='face_skin')
 
         # 3. Reject blurry / too dark / too bright photos before predicting
         try:
@@ -122,7 +151,7 @@ class AnalyzerPipeline:
             return {"error": e.message, "error_code": e.code}
 
         # 4. Segment Face for Season Model (General Head: Hair, Eyes, Lips, etc.)
-        head_data = self.facer.generate_rgb_m(balanced_image, target='general_head')
+        head_data = self.facer.apply_mask(parsed, target='general_head')
 
         # 5. Extract Dominant Skin Color (LAB space) using the skin mask
         try:
