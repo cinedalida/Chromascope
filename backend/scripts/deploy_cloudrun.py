@@ -9,7 +9,7 @@ What it does, in order (each step is safe to repeat):
 
 Usage (from backend/):
   venv\Scripts\python -m scripts.deploy_cloudrun --project chromascope-new --images-dir <catalog_images> [--dry-run]
-      [--region us-central1] [--min-instances 0] [--max-instances 3] [--secrets-file <path outside the repo>]
+      [--region us-central1] [--min-instances 1] [--max-instances 3] [--secrets-file <path outside the repo>]
 
 Prerequisites: `gcloud auth login` as someone with Owner/Editor on the project, and billing enabled on it.
 """
@@ -73,7 +73,7 @@ def main():
     ap.add_argument("--project", required=True)
     ap.add_argument("--images-dir", required=True)
     ap.add_argument("--region", default="us-central1", help="next to Firestore (nam5 = US) keeps the backend's database calls fast")
-    ap.add_argument("--min-instances", type=int, default=0, help="0 = scales to zero (cheapest, first request after idle is slow); 1 = always warm (about $40/month)")
+    ap.add_argument("--min-instances", type=int, default=1, help="1 = always warm (the color-analysis model stays loaded; roughly $50/month idle at 4 vCPU / 4 GiB); 0 = scales to zero (cheapest, but the first photo after idle waits 1-2 minutes for the models to load)")
     ap.add_argument("--max-instances", type=int, default=3, help="a cap on cost: more traffic than this waits instead of spending more")
     ap.add_argument("--secrets-file", default=os.path.abspath(os.path.join(BACKEND, "..", "..", "cloudrun_secrets.txt")))
     ap.add_argument("--dry-run", action="store_true", help="stage and print the commands, change nothing in Google Cloud")
@@ -125,7 +125,7 @@ def main():
         with open(env_file, "w", encoding="utf-8") as fh:
             fh.writelines(f"{k}: {json.dumps(v)}\n" for k, v in env_vars.items())
         run("run", "deploy", SERVICE, "--source", folder, "--project", args.project, "--region", args.region,
-            "--service-account", sa, "--allow-unauthenticated", "--cpu", "2", "--memory", "4Gi", "--cpu-boost",
+            "--service-account", sa, "--allow-unauthenticated", "--cpu", "4", "--memory", "4Gi", "--cpu-boost",
             "--concurrency", "8", "--timeout", "300", "--min-instances", str(args.min_instances),
             "--max-instances", str(args.max_instances), "--env-vars-file", env_file, "--quiet")
         if not args.dry_run:
