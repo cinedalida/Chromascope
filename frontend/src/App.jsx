@@ -7,7 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
 import { startARPrefetch } from "./services/arPrefetch";
-import { startServerWake, warmAnalyzer } from "./services/serverWake";
+import { startServerWake, keepAnalyzerWarm } from "./services/serverWake";
 import { clearRecommendedCache } from "./services/arRecommendedService";
 import { clearCatalogCache } from "./services/catalogDataService";
 import { PwaUpdatePrompt } from "./components/common/PwaUpdatePrompt.jsx";
@@ -21,6 +21,9 @@ export function App() {
   // Wake a sleeping free-hosted backend right away, so its start-up overlaps with sign-in.
   useEffect(() => startServerWake(), []);
 
+  // Load the color-analysis models as soon as the app opens (signed in or not) and keep them loaded while the tab is in use.
+  useEffect(() => keepAnalyzerWarm(), []);
+
   // Warm the AR data in the background (and again after a color analysis or profile edit), so opening Try-On is instant.
   useEffect(() => startARPrefetch(), []);
 
@@ -29,7 +32,6 @@ export function App() {
       // Sign-in state is known before the profile loads, so a slow profile fetch never locks a user out.
       setAuthStatus(firebaseUser ? "signedIn" : "signedOut");
       if (firebaseUser) {
-        warmAnalyzer(); // start loading the color-analysis models now, while the person browses
         // Records activity for the 30-day face-data retention (also covers users who only use AR try-on).
         firebaseUser.getIdToken()
           .then((token) => fetch(apiUrl("/user/active"), { method: "POST", headers: { Authorization: `Bearer ${token}` } }))
