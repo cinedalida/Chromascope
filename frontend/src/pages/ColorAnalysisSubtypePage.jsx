@@ -8,7 +8,8 @@ import {
   ArrowRight,
   ScanFace,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  RotateCcw
 } from "lucide-react";
 import { getColorName, getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
@@ -125,6 +126,15 @@ export function ColorAnalysisSubtypePage() {
                 Shop Curated Products <ArrowRight size={14} />
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/color-analysis")}
+              className="w-full py-4 border-2 border-primary/20 bg-white/50 backdrop-blur-sm text-primary rounded-full font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 shadow-sm"
+            >
+              <RotateCcw size={18} />
+              Retake Photo
+            </button>
           </aside>
 
           <div className={`col-span-1 lg:col-span-8 space-y-6 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
