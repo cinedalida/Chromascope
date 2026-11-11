@@ -109,11 +109,14 @@ class AnalyzerPipeline:
         # Apply gray edge white balance
         balanced_image = gray_edge_white_balance(image)
 
-        # 2. Segment Face for Skin Color Extraction (Skin Only)
+        # 2. Detect + parse the face once; both masks below come from this single parse
         try:
-            skin_data = self.facer.generate_rgb_m(balanced_image, target='face_skin')
+            parsed = self.facer.parse(balanced_image)
         except ValueError as e:
             return {"error": str(e), "error_code": "no_face"}
+
+        # Segment Face for Skin Color Extraction (Skin Only)
+        skin_data = self.facer.apply_mask(parsed, target='face_skin')
 
         # 3. Reject blurry / too dark / too bright photos before predicting
         try:
@@ -122,7 +125,7 @@ class AnalyzerPipeline:
             return {"error": e.message, "error_code": e.code}
 
         # 4. Segment Face for Season Model (General Head: Hair, Eyes, Lips, etc.)
-        head_data = self.facer.generate_rgb_m(balanced_image, target='general_head')
+        head_data = self.facer.apply_mask(parsed, target='general_head')
 
         # 5. Extract Dominant Skin Color (LAB space) using the skin mask
         try:
