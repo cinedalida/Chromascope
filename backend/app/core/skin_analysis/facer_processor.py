@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import facer
 import numpy as np
 import os
@@ -59,17 +60,42 @@ class FaceProcessor:
             # (large photos often return a few small false ones, and the network cost grows with every face).
             faces = {key: (value[:1] if key in ('rects', 'points', 'scores', 'image_ids') else value)
                      for key, value in faces.items()}
-            faces = self.face_parser(image_tensor, faces)
-
-            # argmax of the logits equals argmax of their softmax (monotonic), so the softmax over every pixel is skipped
-            predicted_labels = faces['seg']['logits'].argmax(dim=1)  # [1, H, W]
+            labels = self._parse_labels(image_tensor, faces)  # [H, W] class ids
 
         return {
             'image_tensor': image_tensor[0],            # [3, H, W] uint8
-            'labels': predicted_labels[0],              # [H, W]
-            'label_names': faces['seg']['label_names'],
+            'labels': labels,                           # [H, W] uint8 class ids
+            'label_names': self.face_parser.label_names,
             'base_name': base_name,
         }
+
+    def _parse_labels(self, image_tensor, faces):
+        """
+        Same result as face_parser(image_tensor, faces)['seg']['logits'].argmax(dim=1)[0], but cheaper on big photos.
+
+        The parser sees a warped crop of the face and its logits are warped back onto the full photo. Outside that crop the
+        warp-back samples padding, so the logits there are exactly 0 and argmax gives class 0 (background). Only the
+        rectangle the crop covers is therefore sampled; everything else is left as background. The full-size logits tensor
+        (19 channels x every pixel, ~1 GB for a 12 MP photo) is never built.
+        """
+        parser = self.face_parser
+        warped, _, inv_grid = parser.warp_images(image_tensor, faces)
+        warped_logits = parser.forward_warped(warped, return_preds=False)  # [1, C, 448, 448]
+
+        height, width = image_tensor.shape[-2:]
+        labels = torch.zeros((height, width), dtype=torch.uint8, device=image_tensor.device)
+        # bilinear sampling with zero padding only reaches a pixel when its source coordinate is within 1 + 1/448 of the
+        # crop; 1.01 is a safe superset
+        inside = (inv_grid[0, ..., 0].abs() <= 1.01) & (inv_grid[0, ..., 1].abs() <= 1.01)
+        rows = torch.nonzero(inside.any(dim=1))
+        cols = torch.nonzero(inside.any(dim=0))
+        if rows.numel() == 0:
+            return labels
+        y0, y1 = int(rows[0]), int(rows[-1]) + 1
+        x0, x1 = int(cols[0]), int(cols[-1]) + 1
+        logits = F.grid_sample(warped_logits, inv_grid[:, y0:y1, x0:x1], mode='bilinear', align_corners=False)
+        labels[y0:y1, x0:x1] = logits.argmax(dim=1)[0].to(torch.uint8)
+        return labels
 
     def apply_mask(self, parsed, target='face_skin', save_debug=False, debug_dir="test_output"):
         """
@@ -89,7 +115,7 @@ class FaceProcessor:
             lookup_tensor[i] = label_mapping.get(name, 0)
 
         # Apply mask
-        mapped_labels = lookup_tensor[parsed['labels']]  # [H, W]
+        mapped_labels = lookup_tensor[parsed['labels'].long()]  # [H, W]
 
         # Multiply original image by mask
         # Expand mask to [3, H, W] so it matches the RGB image
