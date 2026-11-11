@@ -153,13 +153,13 @@ export const REGION_RENDER = {
     feather: 0.03,
     reach: 1.03, // face outline grown by this factor (more at the top), so the tint blends into the hairline
     reachTop: 0.06,
-    coverage: 0.62,
-    maxShift: 14, // largest colour change (CIELAB dE) a mismatched shade may cause: visibly off, but never a mask
-    tint: [{ blend: "source-over", opacity: 0.05 }],
+    coverage: 0.35, // sheer, like a skin tint: the shade evens the tone, the face keeps its own light and shadow
+    maxShift: 6, // largest colour change (CIELAB dE) a mismatched shade may cause: visibly off, but never a mask
+    tint: [{ blend: "source-over", opacity: 0.02 }],
     layers: [
-      { blend: "color", opacity: 0.32 },
-      { blend: "source-over", opacity: 0.08 },
-      { blend: "soft-light", opacity: 0.1 },
+      { blend: "color", opacity: 0.22 },
+      { blend: "source-over", opacity: 0.05 },
+      { blend: "soft-light", opacity: 0.07 },
     ],
   },
   concealer: {
@@ -356,6 +356,12 @@ function hexToRgb(hex) {
 // How far the face moves is `coverage`, capped so the change never exceeds `maxShift` (CIELAB dE): a shade far from the
 // user's skin still looks wrong, but does not turn the face into a mask. Returns the layers and the skin color the face
 // has afterwards, so the next base product corrects from that instead of stacking on top of the original skin.
+// Largest per-channel gain a base product may apply, and its inverse as the largest darkening. A shade far from the skin
+// (a light shade on a face the camera sees dark, for example in dim light) used to ask for up to 2x, and the color-dodge
+// layer then pushed every pixel towards white, so the nose, cheeks and shading disappeared and the face looked like a flat
+// mask. 1.3 keeps the shade visible but leaves the face's own light and shadow in place.
+const BASE_GAIN_CAP = 1.3;
+
 export function baseCorrection(skin, shadeHex, { coverage, maxShift = Infinity, tint = [] }) {
   const encode = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
   const toSrgb = ({ L, a, b }) => {
@@ -372,7 +378,7 @@ export function baseCorrection(skin, shadeHex, { coverage, maxShift = Infinity, 
   const eff = gap > 0 ? Math.min(coverage, maxShift / gap) : coverage;
   const from = toSrgb(skin);
   const to = toSrgb(shade);
-  const gain = to.map((t, i) => Math.min(2, Math.max(0.5, t / Math.max(from[i], 0.02))));
+  const gain = to.map((t, i) => Math.min(BASE_GAIN_CAP, Math.max(1 / BASE_GAIN_CAP, t / Math.max(from[i], 0.02))));
   const css = (values) => `rgb(${values.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)).join(",")})`;
   const tinted = tint.reduce((left, layer) => left * (1 - layer.opacity), 1 - eff); // share of the old skin that is left
   const k = 1 - tinted;
