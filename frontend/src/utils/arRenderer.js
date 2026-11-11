@@ -78,10 +78,10 @@ export const REGION_RENDER = {
     feather: 0.012,
     bloom: 1.35, // ellipse size relative to the landmark spread
     // "color" gives the blush its saturation, and on deep skin that reads far stronger than on light skin.
-    skinScale: [{ blend: "color", deep: 0.4, light: 1 }],
+    skinScale: [{ blend: "color", deep: 0.6, light: 1 }], // deep skin keeps about its earlier strength
     layers: [
-      { blend: "soft-light", opacity: 0.35 },
-      { blend: "color", opacity: 0.4 },
+      { blend: "soft-light", opacity: 0.22 },
+      { blend: "color", opacity: 0.22 },
     ],
   },
   // Warmth at the temples and down the sides of the jaw (the "3" shape), not a band around the whole face. "soft-light"
@@ -116,11 +116,11 @@ export const REGION_RENDER = {
   eyeshadow: {
     feather: 0.015,
     bloom: 1.45,
-    profile: [[0, 0.95], [0.6, 0.8], [1, 0]], // stays strong across the lid, fades only at the edge
+    profile: [[0, 0.8], [0.6, 0.65], [1, 0]], // fairly even across the lid, fades at the edge (not a solid patch)
     skinScale: [{ blend: "color", deep: 0.65, light: 1 }],
     layers: [
-      { blend: "multiply", opacity: 0.6 },
-      { blend: "color", opacity: 0.45 },
+      { blend: "multiply", opacity: 0.4 },
+      { blend: "color", opacity: 0.3 },
     ],
   },
   brows: {
