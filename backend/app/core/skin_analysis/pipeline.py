@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from scipy.ndimage import gaussian_filter
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 
 # Add the parent directory to the Python path
 BASE_DIR = Path(__file__).resolve().parent
@@ -50,13 +51,16 @@ def gray_edge_white_balance(pil_image, sigma=1):
     Robust when the face dominates the frame — avoids the green skin problem.
     """
     img = np.array(pil_image).astype(np.float32)
-    edge_means = []
 
-    for c in range(3):
+    def channel_edge_mean(c):
         smoothed = gaussian_filter(img[:, :, c], sigma=sigma)
         dx = np.abs(np.gradient(smoothed, axis=1))
         dy = np.abs(np.gradient(smoothed, axis=0))
-        edge_means.append(np.mean(dx + dy))
+        return np.mean(dx + dy)
+
+    # the three channels are independent (and scipy/numpy release the GIL), so they run side by side; same numbers
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        edge_means = list(pool.map(channel_edge_mean, range(3)))
 
     mean_gray = np.mean(edge_means)
 
