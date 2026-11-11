@@ -20,7 +20,7 @@ from ..core import bayes_engine
 from ..core.retention import purge_inactive_face_data
 import hmac
 from fastapi import Header
-from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
+from ..core.skin_analysis.pipeline import AnalyzerPipeline, classifier_weights_missing
 from ..core.color_matching import delta_e_ciede2000, run_color_matching
 import threading
 import copy
@@ -138,7 +138,7 @@ def get_analyzer():
     if _analyzer is None:
         with _analyzer_lock:  # one load at a time: a request arriving mid-preload waits for it instead of loading twice
             if _analyzer is None:
-                missing = [os.path.basename(p) for p in (FARL_PATH, CKPT_PATH) if not os.path.exists(p)]
+                missing = classifier_weights_missing()
                 if missing:
                     log.warning("Color analysis unavailable, missing model weights: %s", missing)
                     raise HTTPException(

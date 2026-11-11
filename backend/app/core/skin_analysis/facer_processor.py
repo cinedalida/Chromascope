@@ -24,6 +24,13 @@ class FaceProcessor:
                 'nose': 1, 'imouth': 1, 'llip': 1, 'ulip': 1, 
                 'hair': 1, 'eyeg': 1, 'hat': 0, 'earr': 1, 'neckl': 0
             },
+            # The regions the season classifier was trained on: the Deep Armocromia RGB-M images keep hair, face skin, nose,
+            # brows, eyes and mouth (Stacchio et al., 2024). Ears, glasses, earrings, neck and clothes are black there,
+            # so they are black here too.  rb/lb = brows, re/le = eyes, imouth/llip/ulip = mouth.
+            'season_regions': {
+                'face': 1, 'nose': 1, 'rb': 1, 'lb': 1, 're': 1, 'le': 1,
+                'imouth': 1, 'llip': 1, 'ulip': 1, 'hair': 1,
+            },
             'face_skin': { 
                 # Pure skin for foundation/color analysis. Excludes eyes, lips, hair.
                 'face': 1, 'nose': 1 
@@ -100,7 +107,7 @@ class FaceProcessor:
     def apply_mask(self, parsed, target='face_skin', save_debug=False, debug_dir="test_output"):
         """
         Builds the RGB-M image + mask for one target (see label_mappings) from a parse() result.
-        Targets available: 'general_head', 'face_skin'
+        Targets available: 'general_head', 'season_regions', 'face_skin'
         """
         if target not in self.label_mappings:
             raise ValueError(f"Target '{target}' not found. Choose from: {list(self.label_mappings.keys())}")

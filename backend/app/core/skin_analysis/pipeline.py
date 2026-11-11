@@ -13,36 +13,27 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 print(BASE_DIR)
 
-from ml.model import ArmocromiaModel
-from ml.transforms import get_test_transform
+from ml.convnext_classifier import MODES, ConvNeXtClassifier, missing_files
 from facer_processor import FaceProcessor
 from get_color import get_dominant_lab_color
 from quality_check import PhotoQualityError, check_photo_quality, LOW_CONFIDENCE_THRESHOLD
 
 # Configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-FARL_PATH = str(BASE_DIR / "ml" / "weights" / "FaRL-Base-Patch16-LAIONFace20M-ep64.pth")
-# CKPT_PATH = str(BASE_DIR / "ml" / "weights" / "final_model.pth") <-- Model for Season Only
-CKPT_PATH = str(BASE_DIR / "ml" / "weights" / "final_sub_class_model.pth")
 
-# SEASON_TO_IDX = {"autunno": 0, "primavera": 1, "estate": 2, "inverno": 3}
-# SEASON_TO_IDX = {"autunno": 0, "primavera": 1, "estate": 2, "inverno": 3}
-# IDX_TO_SEASON = {v: k for k, v in SEASON_TO_IDX.items()}
-# UPDATED: 12-Season Mapping
-IDX_TO_SEASON = {
-    0: "Deep Autumn",
-    1: "Soft Autumn",
-    2: "Warm Autumn",
-    3: "Cool Summer",
-    4: "Light Summer",
-    5: "Soft Summer",
-    6: "Bright Winter",
-    7: "Cool Winter",
-    8: "Deep Winter",
-    9: "Bright Spring",
-    10: "Light Spring",
-    11: "Warm Spring"
-}
+# The season classifier is the thesis model: hierarchical ConvNeXt-Large (see ml/convnext_classifier.py).
+#   CLASSIFIER_MODE=hard      season model, then one sub-type model (2 passes; 31.0% on the official test set) - the default
+#   CLASSIFIER_MODE=soft      all four sub-type models (31.7%)
+#   CLASSIFIER_MODE=ensemble  3 season models + mirrored photo (33.6%); needs about 8 GiB of memory
+WEIGHTS_DIR = str(BASE_DIR / "ml" / "weights" / "convnext")
+CLASSIFIER_MODE = os.getenv("CLASSIFIER_MODE", "hard").strip().lower()
+if CLASSIFIER_MODE not in MODES:
+    raise ValueError(f"CLASSIFIER_MODE must be one of {MODES}, not {CLASSIFIER_MODE!r}")
+
+
+def classifier_weights_missing():
+    """The checkpoint files the chosen mode needs but that are not in WEIGHTS_DIR (empty list = all there)."""
+    return missing_files(WEIGHTS_DIR, CLASSIFIER_MODE)
 
 
 def gray_edge_white_balance(pil_image, sigma=1):
@@ -76,24 +67,8 @@ class AnalyzerPipeline:
         self.facer = FaceProcessor(device=DEVICE)
         
         # 2. Load the Classification Model (Season Prediction)
-        self.model = self._load_model()
-        
-    def _load_model(self):
-        """Initializes the classification model and loads weights."""
-        print("Loading classification model architecture and weights...")
-        
-        # CRITICAL UPDATE: Explicitly set num_classes=12 so the new head weights match!
-        model = ArmocromiaModel(farl_path=FARL_PATH, num_classes=12)
-        
-        if not os.path.exists(CKPT_PATH):
-            raise FileNotFoundError(f"Missing trained weights at {CKPT_PATH}")
-        
-        ckpt = torch.load(CKPT_PATH, map_location=DEVICE, weights_only=True)
-        # model.head.load_state_dict(ckpt["head_state"])
-        model.head.load_state_dict(ckpt["twelve_head_state"]) 
-        model.to(DEVICE)
-        model.eval() # Set to evaluation mode
-        return model
+        print(f"Loading the ConvNeXt season classifier (mode: {CLASSIFIER_MODE})...")
+        self.classifier = ConvNeXtClassifier(WEIGHTS_DIR, mode=CLASSIFIER_MODE, device=DEVICE)
 
     def warm_up(self):
         """
@@ -105,7 +80,8 @@ class AnalyzerPipeline:
             for _ in range(3):  # TorchScript optimises itself after its first two calls
                 self.facer.face_detector(noise.unsqueeze(0).to(DEVICE))
                 self.facer.face_parser.forward_warped(torch.zeros(1, 3, 448, 448, device=DEVICE), return_preds=False)
-                self.model(torch.zeros(1, 3, 224, 224, device=DEVICE))
+
+        self.classifier.warm_up()
 
         # the colour step's libraries (scikit-learn, scikit-image, OpenCV) also do their one-off setup on first use
         rng = np.random.RandomState(0)
@@ -150,8 +126,8 @@ class AnalyzerPipeline:
         except PhotoQualityError as e:
             return {"error": e.message, "error_code": e.code}
 
-        # 4. Segment Face for Season Model (General Head: Hair, Eyes, Lips, etc.)
-        head_data = self.facer.apply_mask(parsed, target='general_head')
+        # 4. The regions the season model was trained on (hair, face skin, nose, brows, eyes, mouth) on a black background
+        regions = self.facer.apply_mask(parsed, target='season_regions')
 
         # 5. Extract Dominant Skin Color (LAB space) using the skin mask
         try:
@@ -162,16 +138,14 @@ class AnalyzerPipeline:
             print(f"Color extraction error: {e}")
             return {"error": "Could not read the skin tone from the photo.", "error_code": "face_unclear"}
 
-        # 6. Predict Season using the general head mask
-        tensor = get_test_transform(head_data['image']).unsqueeze(0).to(DEVICE)
-        
-        with torch.no_grad():
-            logits = self.model(tensor)
-            probs = logits.softmax(dim=1)
-            confidence, pred_idx = torch.max(probs, dim=1)
-            
-        season = IDX_TO_SEASON[pred_idx.item()]
-        confidence_score = confidence.item() * 100
+        # 6. Predict the season from the ORIGINAL photo (no white balance: the model never saw one) cut to those regions.
+        # The classifier crops to the regions' bounding box, pads to a square and resizes to 224 px, as in training.
+        mask = regions['mask']
+        season_input = Image.fromarray((np.asarray(image) * mask[..., None]).astype(np.uint8))
+        prediction = self.classifier.predict(season_input, mask)
+
+        season = prediction["label"]
+        confidence_score = prediction["confidence"] * 100
 
         # 7. Return Unified Result
         return {
