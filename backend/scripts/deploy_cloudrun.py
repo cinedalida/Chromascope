@@ -73,7 +73,8 @@ def main():
     ap.add_argument("--project", required=True)
     ap.add_argument("--images-dir", required=True)
     ap.add_argument("--region", default="us-central1", help="next to Firestore (nam5 = US) keeps the backend's database calls fast")
-    ap.add_argument("--min-instances", type=int, default=0, help="0 = scales to zero (nothing billed while idle; the first visit after a pause loads the models in the background once the app calls /api/warm at sign-in); 1 = always warm (roughly $50/month idle at 4 vCPU / 4 GiB, no cold start for anyone)")
+    ap.add_argument("--min-instances", type=int, default=0, help="0 = scales to zero (nothing billed while idle; the first visit after a pause loads the models in the background once the app calls /api/warm at sign-in); 1 = always warm (roughly $50-60/month idle at 4 vCPU / 4-8 GiB, no cold start for anyone)")
+    ap.add_argument("--memory", default="8Gi", help="memory per instance. 4Gi fits the old FaRL64 head; the ConvNeXt-L models need more: about 0.73 GiB each in fp32, so the full ensemble + flip (7 models, 5.1 GiB) plus the face parser needs 8Gi. Memory is the cheap part of Cloud Run pricing (the vCPU-seconds are what cost money)")
     ap.add_argument("--max-instances", type=int, default=3, help="a cap on cost: more traffic than this waits instead of spending more")
     ap.add_argument("--secrets-file", default=os.path.abspath(os.path.join(BACKEND, "..", "..", "cloudrun_secrets.txt")))
     ap.add_argument("--dry-run", action="store_true", help="stage and print the commands, change nothing in Google Cloud")
@@ -125,7 +126,7 @@ def main():
         with open(env_file, "w", encoding="utf-8") as fh:
             fh.writelines(f"{k}: {json.dumps(v)}\n" for k, v in env_vars.items())
         run("run", "deploy", SERVICE, "--source", folder, "--project", args.project, "--region", args.region,
-            "--service-account", sa, "--allow-unauthenticated", "--cpu", "4", "--memory", "4Gi", "--cpu-boost",
+            "--service-account", sa, "--allow-unauthenticated", "--cpu", "4", "--memory", args.memory, "--cpu-boost",
             "--concurrency", "8", "--timeout", "300", "--min-instances", str(args.min_instances),
             "--max-instances", str(args.max_instances), "--env-vars-file", env_file, "--quiet")
         if not args.dry_run:
