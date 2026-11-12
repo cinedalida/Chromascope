@@ -392,24 +392,18 @@ export function ColorAnalysisPage() {
                     </div>
                   </div>
 
-                  {/* Moved and Upgraded Raw Facial Skin Shade UI below Description */}
                   {skinHex && (
-                    <div className="mt-6 bg-white/80 backdrop-blur-xl p-5 rounded-[24px] border border-white shadow-sm flex items-center justify-between group hover:shadow-md transition-all duration-300 w-full max-w-md">
-                      <div className="flex items-center gap-4">
-                         <div className="relative">
-                           <div className="w-14 h-14 rounded-full shadow-inner border-2 border-white/50 relative z-10 transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: skinHex }} />
-                           <div className="absolute inset-0 rounded-full blur-[12px] opacity-50 -z-10 group-hover:opacity-70 transition-opacity duration-300" style={{ backgroundColor: skinHex }} />
-                         </div>
-                         <div>
-                           <p className="text-sm font-bold text-[#111827]">Raw Facial Skin Shade</p>
-                           <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">Your skin tone</p>
-                         </div>
+                    <div className="mt-6 bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-[24px] border border-white shadow-sm flex items-center gap-4 w-full max-w-md">
+                      <div className="relative shrink-0">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-inner border-2 border-white/50 relative z-10" style={{ backgroundColor: skinHex }} />
+                        <div className="absolute inset-0 rounded-full blur-[12px] opacity-50 -z-10" style={{ backgroundColor: skinHex }} />
                       </div>
-                      <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)}>
-                        <div className="bg-white/60 px-4 py-2 rounded-xl border border-white shadow-inner">
-                           <p className="font-bold text-primary text-sm">{getSkinToneName(skinHex)}</p>
-                        </div>
-                      </ColorTooltip>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider sm:tracking-widest">Raw facial skin shade</p>
+                        <ColorTooltip hex={skinHex} name={getSkinToneName(skinHex)} className="mt-0.5">
+                          <p className="font-bold text-primary text-lg leading-tight">{getSkinToneName(skinHex)}</p>
+                        </ColorTooltip>
+                      </div>
                     </div>
                   )}
 
