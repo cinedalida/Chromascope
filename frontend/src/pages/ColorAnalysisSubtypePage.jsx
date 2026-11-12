@@ -207,13 +207,10 @@ export function ColorAnalysisSubtypePage() {
 
 function TransitionCard({ title, season, desc }) {
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-          {title}
-        </p>
-        <ArrowRight size={14} className="text-gray-light group-hover:text-primary transition-colors" />
-      </div>
+    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[24px] border border-white shadow-sm">
+      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">
+        {title}
+      </p>
       <h4 className="font-heading font-semibold text-xl text-[#111827] mb-2">
         {season}
       </h4>
