@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import hashlib
 import io
 import json
@@ -19,7 +20,7 @@ from ..core import bayes_engine
 from ..core.retention import purge_inactive_face_data
 import hmac
 from fastapi import Header
-from ..core.skin_analysis.pipeline import AnalyzerPipeline, CKPT_PATH, FARL_PATH
+from ..core.skin_analysis.pipeline import AnalyzerPipeline, classifier_weights_missing
 from ..core.color_matching import delta_e_ciede2000, run_color_matching
 import threading
 import copy
@@ -125,27 +126,67 @@ def _use_closest_shade(products: list, user_lab) -> None:
             p["hex_color"] = best.get("hex") or p.get("hex_color", "")
             p["best_shade"] = {"name": best.get("name"), "hex": best.get("hex"), "verdict": best.get("verdict")}
 
-# The color-analysis model loads on the first analysis request, not at startup, so the rest of the API (profile,
-# safety filter, catalog) still runs when the model weights are not on this machine (e.g. local testing).
+# The color-analysis model loads in the background right after startup (see preload_analyzer), so the first photo
+# doesn't wait for it, and the rest of the API (profile, safety filter, catalog) is up immediately. If the weights are
+# not on this machine (e.g. local testing) the analysis endpoint answers 503 and everything else still runs.
 _analyzer = None
+_analyzer_lock = threading.Lock()
+_analysis_slots = asyncio.Semaphore(int(os.getenv("MAX_CONCURRENT_ANALYSES", "1")))
 
 def get_analyzer():
     global _analyzer
     if _analyzer is None:
-        missing = [os.path.basename(p) for p in (FARL_PATH, CKPT_PATH) if not os.path.exists(p)]
-        if missing:
-            log.warning("Color analysis unavailable, missing model weights: %s", missing)
-            raise HTTPException(
-                status_code=503,
-                detail={"code": "model_unavailable", "message": "Color analysis is temporarily unavailable."},
-            )
-        _analyzer = AnalyzerPipeline()
+        with _analyzer_lock:  # one load at a time: a request arriving mid-preload waits for it instead of loading twice
+            if _analyzer is None:
+                missing = classifier_weights_missing()
+                if missing:
+                    log.warning("Color analysis unavailable, missing model weights: %s", missing)
+                    raise HTTPException(
+                        status_code=503,
+                        detail={"code": "model_unavailable", "message": "Color analysis is temporarily unavailable."},
+                    )
+                _analyzer = AnalyzerPipeline()
+                try:
+                    _analyzer.warm_up()
+                except Exception:
+                    log.exception("Analyzer warm-up failed (continuing without it)")
     return _analyzer
+
+def preload_analyzer():
+    try:
+        get_analyzer()
+    except HTTPException:
+        pass  # weights missing: already logged
+    except Exception:
+        log.exception("Analyzer preload failed; it will be retried on the first analysis request")
+
+@app.on_event("startup")
+async def _preload_analyzer_on_startup():
+    if os.getenv("PRELOAD_ANALYZER", "1") != "0":
+        threading.Thread(target=preload_analyzer, name="analyzer-preload", daemon=True).start()
 
 def server_error(where: str) -> HTTPException:
     """Log the full error on the server; the client only gets a generic message (no internals)."""
     log.exception("Unhandled error in %s", where)
     return HTTPException(status_code=500, detail="Something went wrong on our side. Please try again.")
+
+@app.get("/api/warm")
+async def warm_analyzer():
+    """
+    Loads the color-analysis models if they are not loaded yet and answers when they are ready (instantly when they are).
+
+    The frontend calls this when someone signs in. On Cloud Run a container only gets CPU while a request is open, so
+    holding a request open is what lets a freshly started instance finish loading its models while the person browses,
+    instead of making their first photo wait for it. Public on purpose: it only ever loads the models once.
+    """
+    try:
+        await asyncio.to_thread(get_analyzer)
+        return {"ready": True}
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Analyzer warm-up request failed")
+        return {"ready": False}
 
 @app.get("/")
 async def root():
@@ -317,7 +358,10 @@ async def analyze_color(file: UploadFile = File(...), user_id: str = Depends(get
         )
 
     try:
-        result = get_analyzer().analyze(image)
+        # The analysis is seconds of CPU work: run it in a worker thread so the server keeps answering other requests,
+        # and one at a time (memory, and two analyses on the same cores would only each take twice as long).
+        async with _analysis_slots:
+            result = await asyncio.to_thread(lambda: get_analyzer().analyze(image))
     except HTTPException:
         raise
     except Exception:

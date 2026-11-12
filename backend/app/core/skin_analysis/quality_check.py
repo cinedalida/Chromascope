@@ -8,7 +8,9 @@ BLUR_THRESHOLD = 3.0        # Laplacian variance below this = blurry (smooth ski
 DARK_L_THRESHOLD = 30.0     # mean skin L* (0-100) below this = too dark
 BRIGHT_L_THRESHOLD = 85.0   # mean skin L* (0-100) above this = washed out
 
-LOW_CONFIDENCE_THRESHOLD = 30.0  # season confidence (%) below this = low confidence
+# Confidence is the 12-class score P(season) x P(sub-type | season), which is small even for a good photo (median 36% on the
+# official test set). 30 flagged 28.5% of test photos, and more real selfies; 25 flags 13% and still separates right from wrong.
+LOW_CONFIDENCE_THRESHOLD = 25.0  # 12-class confidence (%) below this = low confidence
 
 
 class PhotoQualityError(Exception):

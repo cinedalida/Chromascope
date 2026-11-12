@@ -295,7 +295,7 @@ Authorization: Bearer <firebase-id-token>
       "lab_color": [62.1, 12.3, 18.7]
     }
     ```
-    `season` is one of the 12 seasons, `confidence` is a percentage, `low_confidence` is `true` when confidence is below 30%, and `lab_color` is the dominant skin color in CIE LAB.
+    `season` is one of the 12 seasons, `confidence` is a percentage, `low_confidence` is `true` when confidence is below 25%, and `lab_color` is the dominant skin color in CIE LAB.
   - **Errors**: photo problems return **422** with `{"detail": {"code": "...", "message": "..."}}`. The frontend shows a pop-up for each code:
 
     | Code            | Meaning                                                    |
@@ -333,7 +333,7 @@ Authorization: Bearer <firebase-id-token>
    If no face is detected, the request fails with error code `no_face`.
 3. **Photo quality check** (`quality_check.py`): runs on the original (not white-balanced) photo using the skin mask, and rejects the photo if too little skin is visible (`face_unclear`), the mean skin L\* is below 30 (`too_dark`) or above 85 (`too_bright`), or the face's sharpness score (Laplacian variance) is below 15 (`too_blurry`). These thresholds are plain constants at the top of `quality_check.py` and have not been tuned yet; check them against real photos.
 4. **Skin color**: K-means (k = 3) on the skin pixels in CIE LAB space; the center of the largest cluster is returned as `lab_color`. If the skin color can't be extracted, the request fails with `face_unclear`.
-5. **Season classification**: the masked head image is resized to 224×224 and passed through an **OpenCLIP ViT-B/16** image encoder loaded with **FaRL** weights, followed by a small two-layer MLP head that outputs **12 classes** (the 12 seasons). The highest-probability class is returned as `season`, with its probability as `confidence`. Results below 30% confidence are flagged `low_confidence`; the results page then shows a warning and a "Retake Photo" link.
+5. **Season classification**: the masked head image is resized to 224×224 and passed through an **OpenCLIP ViT-B/16** image encoder loaded with **FaRL** weights, followed by a small two-layer MLP head that outputs **12 classes** (the 12 seasons). The highest-probability class is returned as `season`, with its probability as `confidence`. Results below 25% confidence are flagged `low_confidence`; the results page then shows a warning and a "Retake Photo" link.
 
 **One-stage classification.** The model predicts the 12-season label directly. There is no separate step that predicts a base season first and then a sub-type.
 

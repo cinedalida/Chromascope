@@ -6,6 +6,7 @@ import { assetUrl } from "../../config";
 import { REGION_LABEL } from "../../utils/arGroups";
 import { pesoPrice, productImageSrc } from "../../utils/productDisplay";
 import { SafetyBadge } from "../catalog/SafetyBadge.jsx";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 
 const MAX_NAME = 40;
 
@@ -31,7 +32,7 @@ function ShadeDetails({ id, entry, onOpenProduct }) {
         {src && failedSrc !== src ? (
           <FadeImage src={src} alt={product.product_name} loading="lazy" onError={() => setFailedSrc(src)} className="h-full w-full object-contain p-1" />
         ) : (
-          <span aria-hidden="true" className="h-8 w-8 rounded-full ring-1 ring-black/10" style={shade.hex ? { backgroundColor: shade.hex } : undefined} />
+          <ShadeDot aria-hidden="true" hex={shade.hex} className="h-8 w-8 rounded-full ring-1 ring-black/10" />
         )}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -39,7 +40,7 @@ function ShadeDetails({ id, entry, onOpenProduct }) {
         <p className="line-clamp-2 font-heading text-sm font-semibold leading-snug text-black">{product.product_name}</p>
         {shade.name && (
           <p className="flex items-center gap-1.5 text-xs text-gray">
-            <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10" style={shade.hex ? { backgroundColor: shade.hex } : undefined} />
+            <ShadeDot aria-hidden="true" hex={shade.hex} className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10" />
             <span className="min-w-0 truncate">{shade.name}</span>
           </p>
         )}
@@ -95,11 +96,11 @@ export function LookCard({ look, resolve, onRename, onDelete, onOpenProduct, chi
       {/* The look's colors first: one band segment per shade, in the order saved. */}
       <div aria-hidden="true" className="flex h-14 overflow-hidden rounded-xl ring-1 ring-black/5">
         {items.map((entry) => (
-          <span
+          <ShadeDot
             key={`band-${entry.item.region}-${entry.item.product_id}-${entry.item.shade_id}`}
+            hex={hexOf(entry)}
             title={`${REGION_LABEL[entry.item.region] ?? entry.item.region}: ${nameOf(entry)}`}
             className="flex-1 bg-gray-lightest"
-            style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
           />
         ))}
       </div>
@@ -180,10 +181,10 @@ export function LookCard({ look, resolve, onRename, onDelete, onOpenProduct, chi
                   open ? "bg-gray-lightest/70" : ""
                 }`}
               >
-                <span
+                <ShadeDot
                   aria-hidden="true"
+                  hex={hexOf(entry)}
                   className="h-6 w-6 shrink-0 rounded-full bg-gray-lightest ring-1 ring-black/10"
-                  style={hexOf(entry) ? { backgroundColor: hexOf(entry) } : undefined}
                 />
                 {/* Phones: the region as a small label above the product name. From sm: side by side. */}
                 <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">

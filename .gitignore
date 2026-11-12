@@ -165,6 +165,9 @@ desktop.ini
 
 # Ignore weights
 *.pth
+# ConvNeXt-L checkpoints (about 375 MB each, fp16): copied in by hand and by the deploy script, never committed
+backend/app/core/skin_analysis/ml/weights/convnext/
+*.pt
 
 # Ignore rules
 CLAUDE.md

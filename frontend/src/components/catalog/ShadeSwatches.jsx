@@ -1,4 +1,5 @@
 import { catalogShades } from "../../utils/catalogShades";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 
 /**
  * ShadeSwatches: a product's colors as round dots. In the full catalog every shade is shown and the ones that fit the
@@ -12,11 +13,12 @@ export function ShadeSwatches({ product, onlyMatching = false, markFits = false,
   return (
     <span className={`flex flex-wrap items-center gap-1 ${className}`} role="img" aria-label={`${shades.length} shade${shades.length === 1 ? "" : "s"}`}>
       {shades.map((shade) => (
-        <span
+        <ShadeDot
           key={shade.id}
+          hex={shade.hex}
           title={shade.name ?? undefined}
-          className={`block shrink-0 rounded-full ${anyFit && shade.matches ? "ring-2 ring-primary ring-offset-1" : "ring-1 ring-black/10"}`}
-          style={{ backgroundColor: shade.hex, width: size, height: size }}
+          className={`shrink-0 rounded-full ${anyFit && shade.matches ? "ring-2 ring-primary ring-offset-1" : "ring-1 ring-black/10"}`}
+          style={{ width: size, height: size }}
         />
       ))}
     </span>

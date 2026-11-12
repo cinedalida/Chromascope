@@ -135,6 +135,44 @@ test("old routes redirect to the matching view", async ({ page }) => {
   await expect(page).toHaveURL(/\/catalog\?view=safe$/);
 });
 
+// Price shown on each card, in grid order (null when a card shows no price).
+const cardPrices = async (page) =>
+  (await page.locator("main ul.grid li:has(button span.font-heading)").allInnerTexts()).map((text) => {
+    const m = text.match(/₱([\d,]+(?:\.\d+)?)/);
+    return m ? Number(m[1].replace(/,/g, "")) : null;
+  });
+
+test("price sorting orders the grid, lives in the URL and survives a reload", async ({ page }) => {
+  const calls = await mockApi(page);
+  await page.goto("/catalog?view=all");
+  // Real cards, not the loading skeleton (the mock never answers the "server awake" ping, so the page waits up to 45 s).
+  await expect(page.locator("main ul.grid li button span.font-heading").first()).toBeVisible({ timeout: 90_000 });
+  const sort = page.getByRole("combobox", { name: "Sort products" });
+  await expect(sort).toHaveValue("");
+  const before = { ...calls };
+
+  await sort.selectOption("price-asc");
+  await expect(page).toHaveURL(/sort=price-asc/);
+  await expect.poll(async () => {
+    const prices = (await cardPrices(page)).filter((p) => p !== null);
+    return prices.length > 1 && prices.every((p, i) => i === 0 || prices[i - 1] <= p);
+  }).toBe(true);
+
+  await sort.selectOption("price-desc");
+  await expect(page).toHaveURL(/sort=price-desc/);
+  await expect.poll(async () => {
+    const prices = (await cardPrices(page)).filter((p) => p !== null);
+    return prices.length > 1 && prices.every((p, i) => i === 0 || prices[i - 1] >= p);
+  }).toBe(true);
+  expect(calls).toEqual(before); // sorting reuses the loaded data
+
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Sort products" })).toHaveValue("price-desc");
+
+  await page.getByRole("combobox", { name: "Sort products" }).selectOption("");
+  await expect(page).not.toHaveURL(/sort=/);
+});
+
 // Same checks as mobile-layout.spec.js (no sideways scroll, nothing past the right edge), with real cards loaded.
 test(PHONE_LAYOUT, async ({ page }, info) => {
   await mockApi(page);

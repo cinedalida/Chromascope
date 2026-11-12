@@ -2,6 +2,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 from skimage import color
 
+# Clustering every skin pixel of a large photo is slow and buys nothing: ~20k pixels already give the same cluster
+# centres (the sample is fixed-seed, so the result is repeatable). Faces with fewer pixels use all of them, as before.
+MAX_CLUSTER_PIXELS = 20000
+
+
 def get_dominant_lab_color(pil_image, mask_np, k=3):
     """
     Extracts the dominant skin color by clustering directly in LAB space.
@@ -23,6 +28,10 @@ def get_dominant_lab_color(pil_image, mask_np, k=3):
 
     if len(valid_pixels_rgb) == 0:
         raise ValueError("No valid pixels found in the image.")
+
+    if len(valid_pixels_rgb) > MAX_CLUSTER_PIXELS:
+        keep = np.random.RandomState(42).choice(len(valid_pixels_rgb), MAX_CLUSTER_PIXELS, replace=False)
+        valid_pixels_rgb = valid_pixels_rgb[np.sort(keep)]
 
     # 3. Convert pixels to LAB space BEFORE clustering
     #    skimage expects float64 in [0, 1], shape (N, 1, 3)

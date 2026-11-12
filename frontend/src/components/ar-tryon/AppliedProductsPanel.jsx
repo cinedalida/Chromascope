@@ -12,6 +12,7 @@ import { seasonChipsForCodes } from "../../utils/seasonLabels.js";
 import { seasonCodeFor, seasonsForUser } from "../../utils/arFit.js";
 import { useUserStore } from "../../store/userStore";
 import { ProductPreview } from "./ProductPreview.jsx";
+import { ShadeDot } from "../common/ShadeDot.jsx";
 
 // A look's items as comparable keys, so "changed since it was loaded" ignores field order.
 const itemKeys = (items) => (items || []).map((i) => `${i.region}|${i.source}|${i.product_id}|${i.shade_id}`).sort().join(",");
@@ -198,12 +199,12 @@ function ShadeCard({ group, selectedShades, onSelect, onPreview, showKind }) {
               title={hint}
               className="group/dot flex h-9 w-9 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span
+              <ShadeDot
                 aria-hidden="true"
-                className={`block h-8 w-8 rounded-full transition-transform group-hover/dot:scale-110 ${
+                hex={dotShade.hex}
+                className={`h-8 w-8 rounded-full transition-transform group-hover/dot:scale-110 ${
                   isCurrent ? "ring-2 ring-primary ring-offset-1" : "ring-1 ring-black/10"
                 }`}
-                style={{ backgroundColor: dotShade.hex }}
               />
             </button>
           );
@@ -444,7 +445,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
                     title={shade.shade || shade.product}
                     className="inline-flex max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-white py-1 pr-2.5 pl-1 text-[11px] text-black shadow-sm ring-1 ring-black/5"
                   >
-                    <span className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: shade.hex }} />
+                    <ShadeDot hex={shade.hex} className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" />
                     <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
                     <span className="truncate font-medium">{shortShadeName(shade.shade || shade.product)}</span>
                     <button
