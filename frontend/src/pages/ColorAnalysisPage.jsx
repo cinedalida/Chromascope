@@ -8,7 +8,9 @@ import {
   ImagePlus,
   Camera,
   Sun,
+  ZapOff,
   UserSquare,
+  ScanFace,
   Focus,
   ChevronDown,
   ArrowRight,
@@ -75,6 +77,19 @@ const PHOTO_ERRORS = {
   },
 };
 
+// Shown before upload. Each tip heads off one of the photo errors above.
+const PHOTO_GUIDELINES = [
+  { icon: Sun, title: "Well-lit space", detail: "Face a window or use soft daylight, not a dim room." },
+  { icon: ZapOff, title: "No harsh light", detail: "No flash, direct sunlight, or colored lights." },
+  { icon: UserSquare, title: "Bare face", detail: "No heavy makeup, foundation, or beauty filters." },
+  { icon: ScanFace, title: "Face fully visible", detail: "Keep hair, hands, and sunglasses away from your face." },
+  { icon: Focus, title: "Look straight ahead", detail: "Center your face and look at the camera." },
+  { icon: Camera, title: "Sharp photo", detail: "Hold steady so the photo isn't blurry." },
+];
+
+// Phones and tablets (touch as the main input) have a camera; computers have a webcam.
+const isTouchDevice = () => window.matchMedia("(pointer: coarse)").matches;
+
 export function ColorAnalysisPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -86,6 +101,9 @@ export function ColorAnalysisPage() {
   const streamRef = useRef(null);
   const [animateIn, setAnimateIn] = useState(false);
   const [showSeasonInfo, setShowSeasonInfo] = useState(false);
+  const [showGuidelines, setShowGuidelines] = useState(false);
+  const [isTouch] = useState(isTouchDevice);
+  const cameraWord = isTouch ? "camera" : "webcam";
 
   const [userProfile, setUserProfile] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -141,13 +159,14 @@ export function ColorAnalysisPage() {
 
   const startWebcam = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Front camera on phones; a hint only, so single-webcam computers are unaffected
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       streamRef.current = stream;
       setIsWebcamActive(true);
       setUploadedImage(null);
     } catch (err) {
       console.error("Error accessing webcam:", err);
-      alert("Could not access webcam. Please check your permissions.");
+      alert(`Could not access ${cameraWord}. Please check your permissions.`);
     }
   };
 
@@ -198,7 +217,7 @@ export function ColorAnalysisPage() {
             Color Analysis
           </h1>
           <p className="text-gray-600 text-lg max-w-2xl">
-            Upload a photo or use your webcam to run our clinical AI model and map your genomic color profile.
+            Upload a photo or use your {cameraWord} to run our clinical AI model and map your genomic color profile.
           </p>
         </header>
 
@@ -208,8 +227,44 @@ export function ColorAnalysisPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           <div className={`col-span-1 lg:col-span-5 space-y-6 transition-all duration-1000 delay-150 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-            
-            <div 
+
+            <div className="bg-white/60 backdrop-blur-xl px-5 sm:px-8 rounded-[32px] border border-white shadow-sm">
+              <button
+                type="button"
+                onClick={() => setShowGuidelines((open) => !open)}
+                aria-expanded={showGuidelines}
+                aria-controls="photo-guidelines"
+                className="w-full flex justify-between items-center gap-4 py-5 text-left"
+              >
+                <span>
+                  <span className="block font-heading font-semibold text-lg text-[#111827]">
+                    {showGuidelines ? "Hide photo guidelines" : "View photo guidelines"}
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    {PHOTO_GUIDELINES.length} tips for an accurate result
+                  </span>
+                </span>
+                <ChevronDown
+                  size={20}
+                  className={`shrink-0 text-primary transition-transform duration-300 ease-in-out motion-reduce:transition-none ${showGuidelines ? "rotate-180" : ""}`}
+                />
+              </button>
+              <div
+                id="photo-guidelines"
+                aria-hidden={!showGuidelines}
+                className={`grid transition-all duration-300 ease-in-out motion-reduce:transition-none ${showGuidelines ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="overflow-hidden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 sm:gap-3 pb-5 sm:pb-8">
+                    {PHOTO_GUIDELINES.map(({ icon: Icon, title, detail }) => (
+                      <ChecklistItem key={title} icon={<Icon size={18} />} text={title} detail={detail} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
               onClick={triggerFileInput}
               className={`bg-white/80 backdrop-blur-xl border-2 border-dashed border-secondary-light rounded-[32px] p-8 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 relative overflow-hidden min-h-[300px] ${!isWebcamActive ? 'cursor-pointer hover:border-primary hover:bg-primary/5 hover:shadow-md group' : ''}`}
             >
@@ -228,14 +283,14 @@ export function ColorAnalysisPage() {
                   <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 z-10">
                     <button 
                       onClick={(e) => { e.stopPropagation(); capturePhoto(); }}
-                      className="bg-white text-[#111827] px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 hover:scale-105 transition-transform text-sm"
+                      className="bg-white text-[#111827] px-4 sm:px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 hover:scale-105 transition-transform text-sm"
                     >
                       <Camera size={18} />
                       Capture Frame
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); stopWebcam(); }}
-                      className="bg-black/50 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-full font-bold shadow-xl hover:bg-black/70 transition-colors text-sm"
+                      className="bg-black/50 backdrop-blur-md border border-white/20 text-white px-4 sm:px-6 py-3 rounded-full font-bold shadow-xl hover:bg-black/70 transition-colors text-sm"
                     >
                       Cancel
                     </button>
@@ -261,7 +316,7 @@ export function ColorAnalysisPage() {
                       Upload Portrait
                     </h3>
                     <p className="text-gray-500 text-sm mt-2 max-w-[250px] mx-auto leading-relaxed">
-                      Drag and drop or click to upload a clear face photo in natural lighting.
+                      {isTouch ? "Tap" : "Click"} to upload a clear, front-facing photo in natural light.
                     </p>
                   </div>
                 </div>
@@ -271,30 +326,21 @@ export function ColorAnalysisPage() {
             {!isWebcamActive && (
               <button
                 onClick={startWebcam}
-                className="w-full py-4 border-2 border-primary/20 bg-white/50 backdrop-blur-sm text-primary rounded-full font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 shadow-sm"
+                className="w-full py-4 border-2 border-primary/20 bg-white/50 backdrop-blur-sm text-primary rounded-full font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white hover:border-primary active:bg-primary active:text-white active:border-primary active:scale-[0.98] transition-all duration-300 shadow-sm"
               >
                 <Camera size={18} />
-                Activate Webcam
+                {isTouch ? "Activate Camera" : "Activate Webcam"}
               </button>
             )}
 
             <button
               onClick={() => navigate("/color-analysis/processing", { state: { image: uploadedImage } })}
               disabled={!uploadedImage}
-              className="w-full py-5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-lg flex justify-center items-center gap-2"
+              className="w-full py-4 sm:py-5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-full font-bold shadow-xl hover:shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-base sm:text-lg flex justify-center items-center gap-2"
             >
               <Dna size={20} />
               Run Analysis
             </button>
-
-            <div className="bg-white/60 backdrop-blur-xl p-8 rounded-[32px] space-y-6 border border-white shadow-sm">
-              <h3 className="font-heading font-semibold text-xl text-[#111827]">Lighting Protocol</h3>
-              <div className="space-y-3">
-                <ChecklistItem icon={<Sun size={18} />} text="Natural daylight is heavily preferred" />
-                <ChecklistItem icon={<UserSquare size={18} />} text="Remove heavy makeup or filters" />
-                <ChecklistItem icon={<Focus size={18} />} text="Ensure face is centered and in focus" />
-              </div>
-            </div>
           </div>
 
           <div className={`col-span-1 lg:col-span-7 transition-all duration-1000 delay-300 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
@@ -501,11 +547,14 @@ function PhotoErrorModal({ error, onClose, onRetry }) {
   );
 }
 
-function ChecklistItem({ icon, text }) {
+function ChecklistItem({ icon, text, detail }) {
   return (
-    <div className="bg-white/50 p-4 rounded-xl flex items-center gap-4 border border-white/40 shadow-sm">
-      <div className="text-primary">{icon}</div>
-      <span className="text-sm font-semibold text-[#111827]">{text}</span>
+    <div className="bg-white/50 px-4 py-3 sm:p-4 rounded-xl flex items-center gap-4 border border-white/40 shadow-sm">
+      <div className="text-primary shrink-0">{icon}</div>
+      <div>
+        <p className="text-sm font-semibold text-[#111827]">{text}</p>
+        {detail && <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{detail}</p>}
+      </div>
     </div>
   );
 }
