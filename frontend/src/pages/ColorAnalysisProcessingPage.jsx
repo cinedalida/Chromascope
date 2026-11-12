@@ -152,7 +152,7 @@ export function ColorAnalysisProcessingPage() {
   };
 
   return (
-    <main className="page-shell bg-primary-lightest font-body text-black flex flex-col items-center justify-center">
+    <main className="page-shell px-4 sm:px-8 bg-primary-lightest font-body text-black flex flex-col items-center justify-center">
       <section className="max-w-4xl w-full flex flex-col items-center space-y-12">
         <div className="relative group">
           <div className="absolute inset-0 bg-primary/5 rounded-[40px] blur-3xl group-hover:bg-primary/10 transition-all duration-1000" />
@@ -176,16 +176,16 @@ export function ColorAnalysisProcessingPage() {
           </p>
         </div>
 
-        <div className="w-full max-w-2xl bg-white p-8 rounded-[32px] shadow-sm border border-primary-light/10 relative overflow-hidden">
-          <div className="flex items-center justify-between relative px-8">
-            <div className="absolute top-[18px] left-16 right-16 h-[2px] bg-gray-lightest z-0">
+        <div className="w-full max-w-2xl bg-white p-5 sm:p-8 rounded-[32px] shadow-sm border border-primary-light/10 relative overflow-hidden">
+          <div className="grid grid-cols-3 gap-2 relative sm:px-8">
+            <div className="absolute top-[18px] left-[16.667%] right-[16.667%] h-[2px] bg-gray-lightest z-0">
               <div className="h-full bg-primary w-1/2 transition-all duration-700 ease-in-out" />
             </div>
-            <Step status="complete" icon={<Check size={16} />} label="Preprocessing" active />
+            <Step status="complete" icon={<Check size={16} />} label={"Pre­processing"} active />
             <Step status="loading" icon={<Loader2 size={16} className="animate-spin" />} label="Extracting Features" active />
             <Step status="pending" icon={<Fingerprint size={16} />} label="Classifying Season" />
           </div>
-          <div className="flex gap-3 mt-10 px-4">
+          <div className="flex gap-3 mt-8 sm:mt-10 sm:px-4">
             <div className="h-1.5 flex-1 bg-primary rounded-full" />
             <div className="h-1.5 flex-1 bg-primary rounded-full" />
             <div className="h-1.5 flex-1 bg-gray-lightest rounded-full" />
@@ -281,11 +281,11 @@ function Step({ status, icon, label, active }) {
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 relative z-10">
+    <div className="flex flex-col items-center space-y-4 relative z-10 min-w-0 text-center">
       <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${getStyles()}`}>
         {icon}
       </div>
-      <span className={`text-[11px] font-black uppercase tracking-widest transition-colors duration-500 ${active ? "text-primary" : "text-gray-lighter"}`}>
+      <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-normal sm:tracking-widest leading-tight transition-colors duration-500 ${active ? "text-primary" : "text-gray-lighter"}`}>
         {label}
       </span>
     </div>
