@@ -69,11 +69,51 @@ PRODUCTS_CACHE_SECONDS = float(os.environ.get("PRODUCTS_CACHE_SECONDS", "600"))
 _products_cache = {"at": 0.0, "items": None, "body": None, "etag": None}
 _products_lock = threading.Lock()
 
+# Disk copy of the catalog, so a restarted backend (for example uvicorn --reload while coding) does not read all
+# ~1,000 product documents again: the free Firestore plan allows 50,000 reads per day. Off in the emulator sandbox
+# and when caching is off (tests). PRODUCTS_DISK_CACHE_HOURS=0 turns it off; delete backend/.cache/ after a re-import.
+_in_emulator = bool(os.environ.get("FIRESTORE_EMULATOR_HOST"))
+PRODUCTS_DISK_CACHE_HOURS = float(os.environ.get("PRODUCTS_DISK_CACHE_HOURS", "0" if _in_emulator else "12"))
+_DISK_CACHE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".cache",
+                                f"products_{db.project}_{PRODUCTS_COLLECTION}.json")
+
+
+def _read_disk_cache():
+    if PRODUCTS_DISK_CACHE_HOURS <= 0 or PRODUCTS_CACHE_SECONDS <= 0 or not os.path.exists(_DISK_CACHE_FILE):
+        return None
+    if time.time() - os.path.getmtime(_DISK_CACHE_FILE) > PRODUCTS_DISK_CACHE_HOURS * 3600:
+        return None
+    try:
+        with open(_DISK_CACHE_FILE, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _write_disk_cache(items: list) -> None:
+    if PRODUCTS_DISK_CACHE_HOURS <= 0 or PRODUCTS_CACHE_SECONDS <= 0:
+        return
+    try:
+        data = json.dumps(items)          # plain data only; anything else (e.g. timestamps) skips the disk copy
+        os.makedirs(os.path.dirname(_DISK_CACHE_FILE), exist_ok=True)
+        tmp = _DISK_CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(data)
+        os.replace(tmp, _DISK_CACHE_FILE)
+    except (TypeError, ValueError, OSError):
+        log.info("Product list not saved to disk (not plain data or no write access)")
+
 
 def _refresh_products_if_stale() -> None:
     """Caller holds _products_lock."""
     if _products_cache["items"] is None or time.monotonic() - _products_cache["at"] > PRODUCTS_CACHE_SECONDS:
-        _products_cache["items"] = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+        items = _read_disk_cache() if _products_cache["items"] is None else None
+        if items is not None:
+            log.info("Loaded %d products from the disk cache (no Firestore reads)", len(items))
+        else:
+            items = [{**d.to_dict(), "product_id": d.id} for d in db.collection(PRODUCTS_COLLECTION).stream()]
+            _write_disk_cache(items)
+        _products_cache["items"] = items
         _products_cache["at"] = time.monotonic()
         _products_cache["body"] = None  # serialized again, on the next /api/products
         _products_cache["etag"] = None
@@ -111,7 +151,9 @@ def _warm_filter_cache():
         log.warning("Could not warm the filter cache", exc_info=True)
 
 
-threading.Thread(target=_warm_filter_cache, daemon=True).start()
+# WARM_FILTER_CACHE=0 skips this startup read while coding (the first request then loads the products instead).
+if os.environ.get("WARM_FILTER_CACHE", "1").strip() != "0":
+    threading.Thread(target=_warm_filter_cache, daemon=True).start()
 
 
 def _use_closest_shade(products: list, user_lab) -> None:
