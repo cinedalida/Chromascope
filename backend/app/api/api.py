@@ -30,8 +30,8 @@ log = logging.getLogger("chromascope.api")
 app = FastAPI()
 db = firestore.client()
 
-# Only the app's own sites may call the API from a browser. Production: set ALLOWED_ORIGINS on Cloud Run to the
-# Vercel domain(s), comma-separated (e.g. https://chromascope.vercel.app). Default = local development only.
+# Only the app's own sites may call the API from a browser. Production: set ALLOWED_ORIGINS on the host to the
+# Vercel domain(s), comma-separated (e.g. https://chromascope-app.vercel.app). Default = local development only.
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
     "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173").split(",") if o.strip()]
 app.add_middleware(
