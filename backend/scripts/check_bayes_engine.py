@@ -49,7 +49,21 @@ u, _ = be.to_filter_profile("oily", ["sensitive", "metal_allergy", "pregnancy"],
 check("Sensitive concern -> Sensitive skin type", u["skin_type"] == "Sensitive")
 check("UV filters/metallic/PG/CAPB + metal allergy -> Appendix B groups",
       u["allergens"] == ["capb", "nickel", "oxybenzone", "propyleneglycol"], str(u["allergens"]))
-check("Pregnancy-safe has no effect", not u["acne"] and not u["eczema"] and not u["rosacea"])
+check("Pregnancy-safe sets only the pregnant flag", u["pregnant"] and not u["acne"] and not u["eczema"] and not u["rosacea"])
+
+print("(b2) Pregnancy-safe (app-level rule)")
+P2 = lambda inci: {"product_id": "x", "product_name": "x", "full_inci_list": inci}
+preg = lambda inci: be.filter_products([P2(inci)], "normal", ["pregnancy"], [])[0]
+r = preg("Water, Glycerin, Retinol")
+check("retinol -> excluded", r["verdict"] == "excluded" and "retinoid" in r["flagged_ingredients"][0], f"{r['verdict']} {r['flagged_ingredients'][:1]}")
+r = preg("Water, Hydroquinone")
+check("hydroquinone -> excluded", r["verdict"] == "excluded", r["verdict"])
+r = preg("Water, Glycerin, Homosalate")
+check("homosalate -> caution", r["verdict"] == "caution", f"{r['verdict']} {r['flagged_ingredients'][:1]}")
+r = preg("Water, Glycerin, Dimethicone")
+check("plain product stays safe", r["verdict"] == "safe", r["verdict"])
+r = be.filter_products([P2("Water, Glycerin, Retinol")], "normal", [], [])[0]
+check("retinol without Pregnancy-safe -> unchanged (safe)", r["verdict"] == "safe", r["verdict"])
 
 print("(c) one product per verdict through the adapter")
 P = lambda inci: {"product_id": "x", "product_name": "x", "full_inci_list": inci}

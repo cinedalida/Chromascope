@@ -23,6 +23,7 @@ let headers;
 test.beforeAll(async ({ request }) => {
   await request.patch(`${DOCS}/products/${PID}`, { headers: owner, data: { fields: {
     product_id: str(PID), product_name: str("[TEST] Four-Shade Foundation"), brand: str("TestBrand"), category: str("Face"),
+    sub_category: str("Foundation"), // the color matcher picks skin matching from the product type
     full_inci_list: str("Water, Glycerin, Dimethicone"),
     formulas: { mapValue: { fields: {
       f_safe: str("Water, Glycerin, Dimethicone"),

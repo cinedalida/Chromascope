@@ -13,7 +13,11 @@ CPTs from the survey) and maps the app's profile onto the filter's profile:
         Propylene glycol, CAPB                 -> declared Appendix B allergen groups (Excluded when present)
   avoid Alcohol, Sulfates, Silicones, Essential oils, Coconut oil, Bismuth, Phthalates
                                                -> not in Appendix B; "you chose to avoid it" -> Excluded when present
-  concerns Pregnancy-safe, Melasma, PIH        -> no rule in the paper's filter (no effect)
+  concern Pregnancy-safe                       -> app-level rule applied AFTER the evaluated filter (not part of the
+                                                  paper's scored filter): retinoids / hydroquinone -> Excluded;
+                                                  salicylic acid, chemical UV filters, formaldehyde releasers ->
+                                                  at least Caution. Without this concern every verdict is unchanged.
+  concerns Melasma, PIH                        -> no rule in the paper's filter (no effect)
 """
 import json
 import os
@@ -92,8 +96,40 @@ def to_filter_profile(skin_type: str, concerns: list, avoid_keys: list) -> tuple
                        | ({"nickel"} if "metal_allergy" in concerns else set()))
     extra = sorted({a for a in avoid_keys or [] if a not in AVOID_TO_GROUP and a in AVOID_TRIGGER_MAP})
     user = dict(skin_type=filter_skin, eczema="eczema" in concerns, rosacea="rosacea" in concerns, acne=acne,
-                allergens=allergens)
+                allergens=allergens, pregnant="pregnancy" in concerns)
     return user, extra
+
+
+# Pregnancy-safe (app-level rule, not part of the evaluated filter): (label, verdict, INCI names).
+# Matched whole-word on the parsed ingredient tokens, like the "you chose to avoid" rule below.
+PREGNANCY_RULES = [
+    ("retinoid", "excluded", ["retinol", "retinyl palmitate", "retinyl acetate", "retinyl propionate", "retinal",
+                              "retinaldehyde", "retinoic acid", "tretinoin", "adapalene",
+                              "hydroxypinacolone retinoate"]),
+    ("hydroquinone", "excluded", ["hydroquinone"]),
+    ("salicylic acid", "caution", ["salicylic acid"]),
+    ("chemical UV filter", "caution", ["oxybenzone", "benzophenone-3", "octinoxate", "ethylhexyl methoxycinnamate",
+                                       "homosalate", "octocrylene", "avobenzone", "butyl methoxydibenzoylmethane",
+                                       "octisalate", "ethylhexyl salicylate"]),
+    ("formaldehyde releaser", "caution", ["formaldehyde", "dmdm hydantoin", "imidazolidinyl urea",
+                                          "diazolidinyl urea", "quaternium-15", "bronopol",
+                                          "2-bromo-2-nitropropane-1,3-diol", "sodium hydroxymethylglycinate"]),
+]
+_PREGNANCY_PATTERNS = [(label, verdict, [(t, re.compile(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])"))
+                                         for t in terms]) for label, verdict, terms in PREGNANCY_RULES]
+
+
+def _pregnancy_hits(inci: str) -> list:
+    """[(verdict, reason)] for each pregnancy group present in the ingredient list."""
+    tokens = [" ".join(alts).lower() for alts in _MATCHER.tokens(inci)]
+    hits = []
+    for label, verdict, pats in _PREGNANCY_PATTERNS:
+        for term, pat in pats:
+            if any(pat.search(t) for t in tokens):
+                prefix = "Avoid during pregnancy" if verdict == "excluded" else "Use with caution during pregnancy"
+                hits.append((verdict, f"{prefix}: {label} ({term})"))
+                break
+    return hits
 
 
 def _avoided_present(inci: str, extra: list) -> list:
@@ -132,7 +168,15 @@ def evaluate_formula(inci: str, user: dict, extra: list) -> tuple[str, list, lis
     if avoided:
         verdict = "Excluded"
         flagged = avoided + flagged
-    return verdict.lower(), flagged, sorted({g for _t, g, _h in detail})
+    verdict = verdict.lower()
+    if user.get("pregnant"):
+        hits = _pregnancy_hits(inci)
+        if hits:
+            worst = max((v for v, _r in hits), key=ORDER.get)
+            if ORDER[worst] > ORDER[verdict]:
+                verdict = worst
+            flagged = [r for v, r in hits if v == "excluded"] + [r for v, r in hits if v != "excluded"] + flagged
+    return verdict, flagged, sorted({g for _t, g, _h in detail})
 
 
 def evaluate_product(product: dict, user: dict, extra: list) -> dict:

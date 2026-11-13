@@ -81,14 +81,15 @@ test("safety filter returns the seeded test products through the backend", async
   await page.getByRole("button", { name: /^log in/i }).first().click();
   await page.waitForURL(/\/home/);
   // The merged catalog asks the filter once per category; the seeded products are Face products.
+  // The catalog asks for every category in one /api/run-filter-batch request (catalog redesign).
   const filterCall = page.waitForResponse(
-    (r) => r.url().includes("/api/run-filter") && r.request().postDataJSON()?.category === "Face",
+    (r) => r.url().includes("/api/run-filter-batch") && r.request().postDataJSON()?.categories?.includes("Face"),
   );
   await page.goto("/catalog?view=safe");
   const res = await filterCall;
   expect(res.status()).toBe(200);
   const body = await res.json();
-  const names = body.safety_results.map((p) => p.product_name);
+  const names = body.categories.Face.color_matched.map((p) => p.product_name);
   expect(names).toEqual(expect.arrayContaining(["[TEST] Plain Foundation", "[TEST] Scented Foundation", "[TEST] Coconut Foundation"]));
   await expect(page.getByText("[TEST] Plain Foundation").first()).toBeVisible();
 });
