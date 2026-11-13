@@ -8,7 +8,8 @@ export const SKIN_CONCERNS = [
 ];
 
 // Concerns saved to the profile that the safety filter (thesis Appendix B/C) has no rule for yet.
-export const CONCERNS_WITHOUT_FILTER_RULE = ["Pregnancy-safe", "Melasma", "PIH / Dark spots"];
+// (Pregnancy-safe has an app-level rule: backend/app/core/bayes_engine.py, PREGNANCY_RULES.)
+export const CONCERNS_WITHOUT_FILTER_RULE = ["Melasma", "PIH / Dark spots"];
 
 export const AVOID_INGREDIENTS = [
   "Fragrance / Parfum", "Parabens", "Chemical UV Filters", "Formaldehyde Releaser", "Lanolin",
