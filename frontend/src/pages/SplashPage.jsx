@@ -338,11 +338,11 @@ const sdgGoals = [
     color: "#4C9F38",
   },
   {
-    number: 10,
-    title: "Reduced Inequalities",
+    number: 9,
+    title: "Industry, Innovation and Infrastructure",
     description:
-      "Color analysis and shade matching built for every skin tone, not only the ones beauty ads favor.",
-    color: "#DD1367",
+      "Brings AR try-on and ingredient analysis to beauty shopping, so trying products no longer depends on shared testers in a store.",
+    color: "#FD6925",
   },
   {
     number: 12,
