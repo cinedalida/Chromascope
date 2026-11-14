@@ -13,7 +13,7 @@ function GithubIcon(props) {
 
 const researchers = [
   "Francine Ysabel B. Dalida",
-  "Jan Lorenze B. Escander",
+  "Jan Lorenz B. Escander",
   "Marti Kier V. Trance",
 ];
 
