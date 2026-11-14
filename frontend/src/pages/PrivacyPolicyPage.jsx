@@ -8,7 +8,7 @@ const LAST_UPDATED = "November 14, 2026";
 const sections = [
   {
     title: "1. Who We Are",
-    body: "Chromascope is a research prototype built by Computer Science students of De La Salle University-Dasmariñas, College of Information and Computer Studies, for the study \"Chromascope: An Intelligent System for Personal Color Analysis and Virtual Cosmetic Recommendation.\" The study was cleared by the Department Ethics Review Committee (DERC), and all data are handled in line with Republic Act No. 10173, the Data Privacy Act of 2012.",
+    body: 'Chromascope is a research prototype built by Computer Science students of De La Salle University-Dasmariñas, College of Information and Computer Studies, for the study "Chromascope: An Intelligent System for Personal Color Analysis and Virtual Cosmetic Recommendation." The study was cleared by the Department Ethics Review Committee (DERC), and all data are handled in line with Republic Act No. 10173, the Data Privacy Act of 2012.',
   },
   {
     title: "2. What We Collect",
@@ -32,7 +32,7 @@ const sections = [
   },
   {
     title: "7. Data Retention and Deletion",
-    body: "If your account is inactive for 30 days, your color result (seasonal label, season confidence level, and skin color values) is deleted automatically. Your account, skin profile, and ingredient choices are kept until you delete them. You can delete your whole account and all data saved with it at any time with the Delete Account button on your Profile page. All study data are kept only until data analysis is completed, and no later than December 31, 2027. After that, all accounts and their data are deleted and the app and server are shut down.",
+    body: "If your account is inactive for 30 days, your color result (seasonal label, season confidence level, and skin color values) is deleted automatically. Your account, skin profile, and ingredient choices are kept until you delete them. You can delete your whole account and all data saved with it at any time with the Delete Account button on your Profile page. All study data are kept only until data analysis is completed, and no later than December 31, 2026. After that, all accounts and their data are deleted and the app and server are shut down.",
   },
   {
     title: "8. Your Rights",
@@ -63,14 +63,16 @@ export function PrivacyPolicyPage() {
         </h1>
         <p className="mt-2 text-sm text-gray">Last updated: {LAST_UPDATED}</p>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray">
-          This policy explains what Chromascope collects, why, how long it is kept, and how you
-          can delete it.
+          This policy explains what Chromascope collects, why, how long it is
+          kept, and how you can delete it.
         </p>
 
         <div className="mt-12 space-y-8">
           {sections.map(({ title, body }) => (
             <article key={title}>
-              <h2 className="font-heading text-xl font-semibold text-black">{title}</h2>
+              <h2 className="font-heading text-xl font-semibold text-black">
+                {title}
+              </h2>
               <p className="mt-2 leading-relaxed text-gray">{body}</p>
             </article>
           ))}
