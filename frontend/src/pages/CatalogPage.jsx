@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ProductGridSkeleton } from "../components/common/Skeletons.jsx";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, SlidersHorizontal, X } from "lucide-react";
 import { getCatalog, getSafetyResults } from "../services/catalogDataService";
 import { useUserStore } from "../store/userStore";
 import { ProductCard } from "../components/catalog/ProductCard.jsx";
@@ -11,6 +11,7 @@ import { CatalogFilters, CatalogSearch } from "../components/catalog/CatalogFilt
 import { CatalogSort } from "../components/catalog/CatalogSort.jsx";
 import { parseSort, sortByPrice } from "../utils/catalogSort.js";
 import { ProductDetail } from "../components/catalog/ProductDetail.jsx";
+import { SafetyStatusGuide } from "../components/catalog/SafetyStatusGuide.jsx";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { subcategoryCounts, subcategoryLabels } from "../utils/catalogSubcategories.js";
 import { fitsUser } from "../utils/arFit.js";
@@ -39,6 +40,37 @@ const parseAmount = (value) => (/^\d+$/.test(String(value ?? "")) ? Number(value
 
 // "lip,cheek" -> ["lip", "cheek"], keeping only known values, in a stable order.
 const parseList = (value, allowed) => allowed.filter((option) => String(value ?? "").split(",").includes(option));
+
+const formatCount = (n) => n.toLocaleString("en-US");
+
+/* "128 products · 90 Safe · 38 Caution", or "12 of 128 products ..." while filters are on. `split` (Safe and Caution
+   counts of the products shown) is left out in the Full catalog, which has no verdicts. */
+function CountLine({ shown, total, filtered, split }) {
+  const word = (filtered ? total : shown) === 1 ? "product" : "products";
+  // The dots are visual only; screen readers hear a comma instead.
+  const separator = (
+    <>
+      <span aria-hidden="true" className="px-1.5 text-gray-light">
+        ·
+      </span>
+      <span className="sr-only">, </span>
+    </>
+  );
+  return (
+    <>
+      <strong className="font-semibold text-black">{formatCount(shown)}</strong>
+      {filtered ? ` of ${formatCount(total)}` : ""} {word}
+      {split && (
+        <>
+          {separator}
+          <span className="font-semibold text-[var(--color-success)]">{formatCount(split.safe)} Safe</span>
+          {separator}
+          <span className="font-semibold text-[var(--color-warning)]">{formatCount(split.caution)} Caution</span>
+        </>
+      )}
+    </>
+  );
+}
 
 /* Card grid: 2 columns on phones, 3 on tablets and small laptops, 4 on laptops, 5 on wide screens. */
 function ProductGrid({ items, onSelect, onlyMatching = false, plain = false }) {
@@ -479,21 +511,28 @@ export function CatalogPage() {
   }, [categoriesKey, view, safeItems, mainItems]);
 
   // Count line for the current view, shown once its data is ready.
-  const hasSeason = Boolean(String(user?.seasonal_label ?? "").trim());
-  const safeCount = safeItems.filter((item) => verdictOf(item) === "safe").length;
-  const countText =
+  const resultCount = view === "safe" ? filteredSafe.length : filteredMain.length;
+  const countReady =
     view === "safe"
       ? !userLoading && !filterLoading && !filterFailed && safeItems.length > 0
-        ? filtersActive
-          ? `${filteredSafe.length} of ${safeItems.length} products for you`
-          : `${safeItems.length} products for your skin${hasSeason ? " and colors" : ""}: ${safeCount} Safe, ${safeItems.length - safeCount} Caution`
-        : null
-      : !userLoading && catalog?.length
-        ? filtersActive
-          ? `${filteredMain.length} of ${catalog.length} products`
-          : `${catalog.length} products`
-        : null;
-  const resultCount = view === "safe" ? filteredSafe.length : filteredMain.length;
+      : !userLoading && Boolean(catalog?.length);
+  const countTotal = view === "safe" ? safeItems.length : (catalog?.length ?? 0);
+  const countShown = filtersActive ? resultCount : countTotal;
+  // Safe and Caution counts of the products the list shows, so the split follows the filters.
+  const countSplit = useMemo(() => {
+    if (view !== "safe") return null;
+    const shown = filtersActive ? filteredSafe : safeItems;
+    const safe = shown.filter((item) => verdictOf(item) === "safe").length;
+    return { safe, caution: shown.length - safe };
+  }, [view, filtersActive, filteredSafe, safeItems]);
+  // "What status means" guide: only in Compatible with me, the one view with safety verdicts.
+  const showGuideButton = view === "safe" && hasProfile && !userLoading;
+  const [guideOpen, setGuideOpen] = useState(false);
+  const guideButtonRef = useRef(null);
+  const closeGuide = () => {
+    setGuideOpen(false);
+    guideButtonRef.current?.focus();
+  };
   const noMatches = (
     <MessageState
       title="No products match these filters"
@@ -602,11 +641,15 @@ export function CatalogPage() {
           <h1 className="font-heading text-3xl font-semibold tracking-tight">Catalog</h1>
         </header>
 
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        {/* Phones: the toggle, then search with the Filters and Sort icon buttons, then the count, then "What status
+            means". From sm: one row, with the count and guide pushed to the right. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-3">
           <CatalogViewToggle value={view} onChange={setView} />
-          {/* 28rem cap: max-w-md is 768px here (variables.css redefines --container-md). */}
-          <div className="flex items-center gap-2 sm:min-w-64 sm:flex-1 lg:max-w-112">
-            <CatalogSearch value={query} onChange={typeQuery} />
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:min-w-64 sm:flex-1 sm:gap-3">
+            {/* 28rem cap: max-w-md is 768px here (variables.css redefines --container-md). */}
+            <div className="min-w-0 flex-1 lg:max-w-112">
+              <CatalogSearch value={query} onChange={typeQuery} />
+            </div>
             {/* Phones: a round icon button (named "Filters" for screen readers). From sm: the full pill. */}
             <button
               ref={filterButtonRef}
@@ -620,11 +663,25 @@ export function CatalogPage() {
                 <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1.5 text-xs text-white sm:static">{filterCount}</span>
               )}
             </button>
+            <CatalogSort value={sort} onChange={selectSort} />
           </div>
-          <CatalogSort value={sort} onChange={selectSort} />
-          <p aria-live="polite" className="pt-1 text-sm text-gray sm:ml-auto sm:pt-0">
-            {countText}
+          <p aria-live="polite" className="basis-full text-sm text-gray sm:ml-auto sm:basis-auto">
+            {countReady && (
+              <CountLine shown={countShown} total={countTotal} filtered={filtersActive} split={countSplit} />
+            )}
           </p>
+          {showGuideButton && (
+            <button
+              ref={guideButtonRef}
+              type="button"
+              onClick={() => setGuideOpen(true)}
+              aria-haspopup="dialog"
+              className="inline-flex items-center gap-1 rounded-full text-sm font-semibold text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Info aria-hidden="true" className="h-4 w-4" />
+              What status means
+            </button>
+          )}
         </div>
 
         {/* Offline both requests fail and the lists come back empty, which would read as "no products". */}
@@ -648,7 +705,7 @@ export function CatalogPage() {
           </div>
         </div>
 
-        {filterButtonOut && !sheetOpen && !detailItem && (
+        {filterButtonOut && !sheetOpen && !detailItem && !guideOpen && (
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
@@ -665,6 +722,7 @@ export function CatalogPage() {
           </FilterSheet>
         )}
         {detailItem && <ProductDetail product={detailItem} onClose={closeDetail} plain={view === "all"} />}
+        {guideOpen && <SafetyStatusGuide onClose={closeGuide} />}
       </div>
     </main>
   );
