@@ -18,6 +18,11 @@ const navItems = [
   { label: "Favorites", icon: "favorites", path: "/favorites" },
 ];
 
+// Header titles for pages that are not in the menu (reached from another page).
+const PAGE_TITLES = {
+  "/activity": "Activity log", // from "View All" on Home and from Profile
+};
+
 const navIcons = {
   home: (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,7 +80,8 @@ export function Navbar({ onMenuToggle }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const activeItem = navItems.find((item) => item.path === location.pathname)?.label ?? "Home";
+  const activeItem =
+    navItems.find((item) => item.path === location.pathname)?.label ?? PAGE_TITLES[location.pathname] ?? "Home";
 
   const displayName = user?.display_name || user?.fullName || user?.name || "";
   const accountLabel = displayName || user?.email || "Your Account";

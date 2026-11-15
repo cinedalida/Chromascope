@@ -25,6 +25,7 @@ import {
   ProfilePage,
   CatalogPage,
   FavoritesPage,
+  ActivityLogPage,
   AdminDatabasePage,
   // DEV only: camera lab for tuning looks. null in production builds.
   ARLabPage,
@@ -204,6 +205,20 @@ export default function AppRouter() {
               <MainLayout>
                 <Lazy>
                   <FavoritesPage />
+                </Lazy>
+              </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        {/* Activity log: every color analysis and profile change (docs/DERM_FEEDBACK_PLAN.md, Phase 4). */}
+        <Route
+          path="/activity"
+          element={
+            <RequireAuth>
+              <MainLayout>
+                <Lazy>
+                  <ActivityLogPage />
                 </Lazy>
               </MainLayout>
             </RequireAuth>

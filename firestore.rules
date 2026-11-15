@@ -72,6 +72,21 @@ service cloud.firestore {
       allow create, update: if isOwner(uid) && validFavorite(request.resource.data);
     }
 
+    // Activity log (docs/DERM_FEEDBACK_PLAN.md, Phase 3): append-only. The app adds only profile entries, stamped with
+    // server time; color analysis entries come from the backend (Admin SDK). No edits or deletes from the browser
+    // (Delete account removes them on the backend). At most 4 changes: one per profile field.
+    match /users/{uid}/activity/{entryId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['type', 'at', 'changes'])
+        && request.resource.data.keys().hasAll(['type', 'at', 'changes'])
+        && request.resource.data.type in ['profile_setup', 'profile_update']
+        && request.resource.data.at == request.time
+        && request.resource.data.changes is list
+        && request.resource.data.changes.size() <= 4;
+      allow update, delete: if false;
+    }
+
     match /products/{productId} {
       allow read: if signedIn();
       allow write: if false;
