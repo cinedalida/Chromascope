@@ -1,9 +1,11 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useLocation,
+  useNavigationType,
 } from "react-router-dom";
 // Only the first pages a visitor sees are in the main file; the rest load on first visit (see lazyPages.js).
 import { SplashPage } from "../pages/SplashPage.jsx";
@@ -43,6 +45,21 @@ function Lazy({ children }) {
   );
 }
 
+// Opening another page starts at its top (the window keeps its scroll position otherwise). Only when the page itself
+// changes: a query change on the same page (e.g. Catalog filters, ?view=safe) keeps the position, and Back / Forward
+// (navigation type POP) are left to the browser.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  const lastPathname = useRef(pathname);
+  useEffect(() => {
+    if (lastPathname.current === pathname) return; // same page (query or state change): keep the position
+    lastPathname.current = pathname;
+    if (navigationType !== "POP") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname, navigationType]);
+  return null;
+}
+
 export default function AppRouter() {
   // Home is where sign-in lands: fetch it while the login page is still on screen.
   useEffect(() => {
@@ -52,6 +69,7 @@ export default function AppRouter() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Splash & Auth Flow */}
         <Route path="/" element={<SplashPage />} />
