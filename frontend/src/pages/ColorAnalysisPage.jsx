@@ -21,6 +21,9 @@ import {
   Dna
 } from "lucide-react";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
+import lightingArt from "../assets/images/S1-CA.png";
+import faceArt from "../assets/images/S2-CA.png";
+import photoArt from "../assets/images/S3-CA.png";
 import { auth, db } from "../firebase"; 
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -510,11 +513,12 @@ function useModalBehavior(onClose, initialFocusRef) {
 // modal in rem steps (this theme's max-w-lg is 1024px, see --container-lg in variables.css).
 const MODAL_FRAME = "modal flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden p-0";
 
-// The guidelines pop-up shows the 6 tips as 3 slides of 2 (revision after the dermatologist session).
+// The guidelines pop-up shows the 6 tips as 3 slides of 2 (revision after the dermatologist session), each slide
+// with its own illustration.
 const GUIDELINE_SLIDES = [
-  { title: "Lighting", tips: ["Well-lit space", "No harsh light"] },
-  { title: "Your face", tips: ["Bare face", "Face fully visible"] },
-  { title: "Taking the photo", tips: ["Look straight ahead", "Sharp photo"] },
+  { title: "Lighting", art: lightingArt, tips: ["Well-lit space", "No harsh light"] },
+  { title: "Your face", art: faceArt, tips: ["Bare face", "Face fully visible"] },
+  { title: "Taking the photo", art: photoArt, tips: ["Look straight ahead", "Sharp photo"] },
 ].map((slide) => ({ ...slide, tips: slide.tips.map((title) => PHOTO_GUIDELINES.find((tip) => tip.title === title)) }));
 
 const SWIPE_PX = 60; // a horizontal drag this long changes the slide
@@ -557,29 +561,36 @@ const slideVariants = {
   exit: ({ direction, reduceMotion }) => ({ x: reduceMotion ? 0 : direction * -48, opacity: 0 }),
 };
 
-// One slide's content: "1 of 3 · Lighting" and its 2 tips. `animate` fades the tips in one after the other.
+// One slide's content: "1 of 3 · Lighting", the slide's art card, and its 2 tips in one box below it, numbered
+// across the slides (Tip 1 to Tip 6). `animate` fades the tips in one after the other. The art is decorative: the
+// label and the tips carry the meaning.
+// The card takes the height the rest of the pop-up leaves on the screen (100dvh minus the header, tips, dots and
+// buttons: about 30rem on phones, where the tips wrap to more lines, and 29rem from sm up), between 8rem and 22rem.
 function SlideBody({ slide, index, animate = false }) {
   return (
     <>
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
         {index + 1} of {GUIDELINE_SLIDES.length} · {slide.title}
       </p>
-      <ul className="mt-3 space-y-3">
-        {slide.tips.map(({ icon: Icon, title, detail }, i) => (
+      <div className="mt-3 flex h-[clamp(8rem,calc(100dvh-30rem),22rem)] sm:h-[clamp(8rem,calc(100dvh-29rem),22rem)] items-center justify-center rounded-2xl border border-primary-lighter bg-primary-lightest">
+        <img src={slide.art} alt="" draggable="false" className="h-[88%] w-auto max-w-full object-contain" />
+      </div>
+      <ul className="mt-3 divide-y divide-primary-lighter rounded-2xl border border-gray-100 bg-primary-lightest/50 px-4">
+        {slide.tips.map((tip, i) => (
           <motion.li
-            key={title}
+            key={tip.title}
             initial={animate ? { opacity: 0, y: 10 } : false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.1 + i * 0.12 }}
-            className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-primary-lightest/50 p-4"
+            className="py-2.5 sm:py-3"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
-              <Icon size={20} aria-hidden="true" />
+            <span className="flex items-baseline gap-2">
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+                Tip {PHOTO_GUIDELINES.indexOf(tip) + 1}
+              </span>
+              <span className="text-base font-semibold text-[#111827]">{tip.title}</span>
             </span>
-            <span className="min-w-0">
-              <span className="block text-base font-semibold text-[#111827]">{title}</span>
-              <span className="mt-0.5 block text-sm leading-relaxed text-gray-600">{detail}</span>
-            </span>
+            <span className="mt-0.5 block text-sm leading-relaxed text-gray-600">{tip.detail}</span>
           </motion.li>
         ))}
       </ul>
@@ -622,14 +633,11 @@ function PhotoGuidelinesModal({ mode, cameraWord, onClose, onContinue }) {
         aria-modal="true"
         aria-labelledby="photo-guidelines-title"
         aria-describedby="photo-guidelines-intro"
-        className={`${MODAL_FRAME} max-w-112`}
+        className={`${MODAL_FRAME} max-w-128`}
         onClick={(e) => e.stopPropagation()}
       >
         <ModalCloseButton onClose={onClose} />
         <div className="shrink-0 px-6 pt-6 pb-3 sm:px-8 sm:pt-8">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary-lighter text-primary">
-            <Camera size={20} strokeWidth={2.25} />
-          </div>
           <h3 id="photo-guidelines-title" className="pr-8 font-heading text-lg sm:text-xl font-semibold text-[#111827]">
             Before you take your photo
           </h3>
@@ -675,7 +683,7 @@ function PhotoGuidelinesModal({ mode, cameraWord, onClose, onContinue }) {
           </div>
 
           {/* Progress dots: tap one to jump to that slide. */}
-          <div className="flex justify-center gap-1 py-3" role="group" aria-label="Tips">
+          <div className="flex justify-center gap-1 py-1" role="group" aria-label="Tips">
             {GUIDELINE_SLIDES.map((s, i) => (
               <button
                 key={s.title}
