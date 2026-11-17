@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShadeListSkeleton } from "../common/Skeletons.jsx";
 import { Link } from "react-router-dom";
-import { Bookmark, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Info, Palette, Search, ShieldCheck, X } from "lucide-react";
 import { useARShades } from "../../hooks/useARShades.js";
 import { cleanProductName, groupByProduct, isEverydayProduct, searchProducts, shortShadeName } from "../../utils/shadeGroups.js";
 import { ShadeFavoriteButton } from "./ProductSwatchPicker.jsx";
@@ -270,6 +270,126 @@ function ProductList({ groups, selectedShades, onSelect, onPreview, showKind }) 
   );
 }
 
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+// One applied shade's identity, so changing the shade of a region counts as new.
+const appliedKey = (shade) => `${shade.source}|${shade.id}|${shade.shadeId ?? ""}`;
+
+/* ── "On your face" chips: one sideways row. Arrows appear on a side that has more chips (a mouse cannot swipe), the
+      mouse wheel scrolls it sideways, and a newly applied shade is scrolled into view. Phones still swipe. ── */
+function AppliedShadesRow({ applied, onRemove }) {
+  const rowRef = useRef(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  const updateEdges = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: el.scrollLeft > 1, end: el.scrollLeft < max - 1 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return undefined;
+    // Vertical wheel over the row scrolls it sideways, until it reaches that end (then the panel scrolls as usual).
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("scroll", updateEdges, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: false });
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateEdges);
+    resize?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateEdges);
+      el.removeEventListener("wheel", onWheel);
+      resize?.disconnect();
+    };
+  }, [updateEdges]);
+
+  // After the chips change: refresh the arrows, and bring a newly applied (or changed) shade into view. Scrolls only
+  // the row, never the page or the panel.
+  const previousKeys = useRef(null);
+  useEffect(() => {
+    const el = rowRef.current;
+    const keys = Object.fromEntries(applied.map(([region, shade]) => [region, appliedKey(shade)]));
+    const before = previousKeys.current;
+    previousKeys.current = keys;
+    updateEdges();
+    if (!el || !before) return;
+    const changed = applied.find(([region, shade]) => before[region] !== appliedKey(shade));
+    if (!changed) return;
+    const chip = el.querySelector(`[data-region="${changed[0]}"]`);
+    if (!chip) return;
+    const pad = 12;
+    let left = null;
+    if (chip.offsetLeft < el.scrollLeft + pad) left = chip.offsetLeft - pad;
+    else if (chip.offsetLeft + chip.offsetWidth > el.scrollLeft + el.clientWidth - pad) {
+      left = chip.offsetLeft + chip.offsetWidth - el.clientWidth + pad;
+    }
+    if (left !== null) el.scrollTo({ left, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [applied, updateEdges]);
+
+  const scrollByPage = (direction) => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  };
+
+  const arrowClass =
+    "absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-md ring-1 ring-black/10 transition hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary after:absolute after:-inset-1.5 after:content-['']";
+
+  return (
+    <div className="relative -mx-3">
+      <div ref={rowRef} className={`relative flex gap-1.5 overflow-x-auto px-3 ${NO_SCROLLBAR}`}>
+        {applied.map(([region, shade]) => (
+          <span
+            key={region}
+            data-region={region}
+            title={shade.shade || shade.product}
+            className="inline-flex max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-white py-1 pr-2.5 pl-1 text-[11px] text-black shadow-sm ring-1 ring-black/5"
+          >
+            <ShadeDot hex={shade.hex} className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" />
+            <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
+            <span className="truncate font-medium">{shortShadeName(shade.shade || shade.product)}</span>
+            <button
+              type="button"
+              onClick={() => onRemove(region)}
+              aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
+              className="relative ml-0.5 shrink-0 leading-none opacity-50 hover:opacity-100 after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
+            >
+              <X size={10} strokeWidth={2.5} />
+            </button>
+          </span>
+        ))}
+      </div>
+      {/* Soft fades show that the row continues; the arrows sit on top of them. */}
+      {edges.start && (
+        <>
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-linear-to-r from-[#fbfbfb] to-transparent" />
+          <button type="button" onClick={() => scrollByPage(-1)} aria-label="Show previous shades" className={`${arrowClass} left-1`}>
+            <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} />
+          </button>
+        </>
+      )}
+      {edges.end && (
+        <>
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-[#fbfbfb] to-transparent" />
+          <button type="button" onClick={() => scrollByPage(1)} aria-label="Show more shades" className={`${arrowClass} right-1`}>
+            <ChevronRight aria-hidden="true" size={16} strokeWidth={2.5} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ── Main panel ───────────────────────────── */
 export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, initialRegion, activeLook, onActiveLookChange }) {
   const [activeGroup, setActiveGroup] = useState(() => groupOfRegion(initialRegion) ?? "lips");
@@ -437,29 +557,7 @@ export function AppliedProductsPanel({ selectedShades, onSelectShade, onClear, i
               )}
             </div>
 
-            {applied.length > 0 && (
-              <div className={`-mx-3 flex gap-1.5 overflow-x-auto px-3 ${NO_SCROLLBAR}`}>
-                {applied.map(([region, shade]) => (
-                  <span
-                    key={region}
-                    title={shade.shade || shade.product}
-                    className="inline-flex max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-white py-1 pr-2.5 pl-1 text-[11px] text-black shadow-sm ring-1 ring-black/5"
-                  >
-                    <ShadeDot hex={shade.hex} className="h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10" />
-                    <span className="shrink-0 text-[10px] font-bold text-primary">{REGION_LABEL[region] ?? region}</span>
-                    <span className="truncate font-medium">{shortShadeName(shade.shade || shade.product)}</span>
-                    <button
-                      type="button"
-                      onClick={() => onSelectShade(region, null)}
-                      aria-label={`Remove ${(REGION_LABEL[region] ?? region).toLowerCase()} shade`}
-                      className="relative ml-0.5 shrink-0 leading-none opacity-50 hover:opacity-100 after:absolute after:-inset-y-4 after:-inset-x-2 after:content-['']"
-                    >
-                      <X size={10} strokeWidth={2.5} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            {applied.length > 0 && <AppliedShadesRow applied={applied} onRemove={(region) => onSelectShade(region, null)} />}
 
             {signedIn && applied.length > 0 && !renaming && (
               <button

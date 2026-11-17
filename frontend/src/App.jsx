@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import "./App.css";
 import AppRouter from "./routes/AppRouter.jsx";
 import { auth, db } from "./firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./store/userStore";
 import { apiUrl } from "./config";
@@ -28,7 +28,12 @@ export function App() {
   useEffect(() => startARPrefetch(), []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // The signed-in user's profile, kept live: a change from another tab, another device or the backend (a new color
+    // result) reaches every page without a reload. Closed on sign-out and when the user changes.
+    let stopProfile = () => {};
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      stopProfile();
+      stopProfile = () => {};
       // Sign-in state is known before the profile loads, so a slow profile fetch never locks a user out.
       setAuthStatus(firebaseUser ? "signedIn" : "signedOut");
       if (firebaseUser) {
@@ -36,22 +41,13 @@ export function App() {
         firebaseUser.getIdToken()
           .then((token) => fetch(apiUrl("/user/active"), { method: "POST", headers: { Authorization: `Bearer ${token}` } }))
           .catch(() => {}); // best effort: never blocks or breaks the app
-        try {
-          const userRef = doc(db, "users", firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists()) {
-            setUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              ...userSnap.data(),
-            });
-          } else {
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
-          }
-        } catch (error) {
-          console.error("Profile sync error:", error);
-        }
+        const base = { uid: firebaseUser.uid, email: firebaseUser.email };
+        stopProfile = onSnapshot(
+          doc(db, "users", firebaseUser.uid),
+          (userSnap) => setUser(userSnap.exists() ? { ...base, ...userSnap.data() } : base),
+          // Offline or a rules error: keep the last profile shown; the listener resumes when it can.
+          (error) => console.error("Profile sync error:", error),
+        );
       } else {
         clearUser();
         clearRecommendedCache(); // saved recommendations are per person; drop them on sign-out
@@ -59,7 +55,10 @@ export function App() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      stopProfile();
+      unsubscribe();
+    };
   }, [setUser, clearUser, setAuthStatus]);
 
   return (

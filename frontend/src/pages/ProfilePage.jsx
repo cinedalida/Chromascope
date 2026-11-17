@@ -4,12 +4,13 @@ import { useUserStore } from "../store/userStore";
 import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
 import { auth, db } from "../firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { saveProfileWithActivity } from "../services/activityService";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { apiUrl } from "../config";
 import {
   Dna, Palette, Lock,
-  AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2
+  AlertCircle, Edit2, X, Check, RefreshCw, Settings, Trash2, History, ArrowRight
 } from "lucide-react";
 import { useSettingsStore } from "../store/settingsStore";
 import { InstallAppButton } from "../components/common/InstallAppButton.jsx";
@@ -175,8 +176,8 @@ export function ProfilePage() {
         updated_at: new Date().toISOString()
       };
 
-      const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, profileData);
+      // The profile change and its activity log entry are saved together (only real changes are logged).
+      await saveProfileWithActivity(currentUser.uid, profileData, useUserStore.getState().user);
 
       updateStoreProfile(profileData);
       setIsEditing(false);
@@ -379,6 +380,29 @@ export function ProfilePage() {
                   )}
                 </div>
               )}
+            </section>
+
+            {/* Activity log: every color analysis and profile change, newest first */}
+            <section className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <History size={20} className="mt-0.5 shrink-0 text-gray-400" />
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-[#1F1924]">Activity log</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      See when you ran a color analysis and every change to your profile.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/activity")}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border-2 border-primary/20 px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-primary hover:text-white hover:border-primary"
+                >
+                  View activity log
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </section>
 
             {/* App Settings (saved on this device) */}

@@ -1,8 +1,24 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/userStore";
 import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
 import homePageImg from "../assets/images/home-page-img.jpg";
+import { Dna, History, UserRoundPen } from "lucide-react";
+import { subscribeActivity } from "../services/activityService";
+import { activityCategory, describeActivity, formatExact, formatRelative, toDate } from "../utils/activityLog";
+
+const RECENT_COUNT = 5;
+const ACTIVITY_ICONS = { analysis: Dna, profile: UserRoundPen };
+
+function ActivityIcon({ entry }) {
+  const Icon = ACTIVITY_ICONS[activityCategory(entry)] ?? History;
+  return (
+    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-lighter text-primary">
+      <Icon size={14} aria-hidden="true" />
+    </span>
+  );
+}
 
 // Supporting both True/Warm and True/Cool naming conventions so the DB value always finds its colors
 const SEASON_PALETTES = {
@@ -127,30 +143,29 @@ export function HomePage() {
     ? labToHex(user.user_lab[0], user.user_lab[1], user.user_lab[2]) 
     : null;
 
-  // Dynamically generated session history based on actual user data
-  const dynamicSessions = [
-    {
-      type: "Full Color Profile",
-      date: user?.updated_at ? new Date(user.updated_at).toLocaleDateString() : "Latest",
-      result: userSeason || "Pending Analysis",
-      status: userSeason ? "Analyzed" : "Pending",
-      badge: userSeason ? "badge-primary" : "badge-secondary",
-    },
-    {
-      type: "Ingredient Restrictions",
-      date: "Latest",
-      result: user?.avoid_ingredients?.length ? `${user.avoid_ingredients.length} Filters` : "Safe",
-      status: "Logged",
-      badge: user?.avoid_ingredients?.length ? "badge-danger" : "badge-secondary",
-    },
-    {
-      type: "Skin Concerns",
-      date: "Latest",
-      result: user?.concerns?.length ? `${user.concerns.length} Logged` : "None",
-      status: "Saved",
-      badge: "badge-secondary",
-    },
-  ];
+  // Recent activity: the newest entries of the activity log, live (a change on another tab or device shows at once).
+  const uid = user?.uid;
+  const [recent, setRecent] = useState({ uid: null, entries: [], error: null });
+  useEffect(() => {
+    if (!uid) return undefined;
+    return subscribeActivity(
+      uid,
+      RECENT_COUNT,
+      (entries) => setRecent({ uid, entries, error: null }),
+      (error) => {
+        console.error("Recent activity error:", error);
+        setRecent((prev) => ({ ...prev, uid, error }));
+      },
+    );
+  }, [uid]);
+  const recentLoading = Boolean(uid) && recent.uid !== uid;
+
+  // Relative times ("5 min ago") refresh every minute.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <main className="page-shell bg-primary-lightest text-black">
@@ -220,111 +235,121 @@ export function HomePage() {
               ))}
             </div>
 
-            {/* Session History (Now pulls from actual User Data) */}
-            <section className="h-full rounded-2xl bg-white p-5 shadow-sm xl:col-start-1 xl:row-start-2">
+            {/* Recent activity (live), newest first; View All opens the full log. min-w-0: the one-line (truncated)
+                details must not widen the grid column on phones. */}
+            <section className="h-full min-w-0 rounded-2xl bg-white p-5 shadow-sm xl:col-start-1 xl:row-start-2">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-black">
-                    Recent session history
+                    Recent activity
                   </p>
                   <p className="mt-0.5 text-xs text-gray-light">
-                    Review your latest color and ingredient sessions.
+                    Your latest color analyses and profile changes.
                   </p>
                 </div>
-                <button className="text-xs font-semibold text-primary transition hover:text-primary-dark">
+                <button
+                  type="button"
+                  onClick={() => navigate("/activity")}
+                  className="relative shrink-0 text-xs font-semibold text-primary transition hover:text-primary-dark after:absolute after:-inset-3 after:content-['']"
+                >
                   View All
                 </button>
               </div>
 
-              {/* Mobile: stacked cards, no horizontal scroll */}
-              <div className="sm:hidden divide-y divide-primary/5">
-                {dynamicSessions.map((session) => (
-                  <div
-                    key={session.type}
-                    className="flex items-center justify-between gap-3 py-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-2 text-sm text-black">
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-lighter text-primary">
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 6v6l4 2" />
-                          <circle cx="12" cy="12" r="9" />
-                        </svg>
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{session.type}</p>
-                        <p className="text-xs text-gray-light">{session.date}</p>
-                      </div>
+              {recentLoading ? (
+                <div role="status" aria-busy="true" className="space-y-3 py-1">
+                  <span className="sr-only">Loading activity</span>
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} aria-hidden="true" className="flex items-center gap-3">
+                      <span className="skeleton h-7 w-7 shrink-0 rounded-lg" />
+                      <span className="skeleton h-3.5 w-1/2 rounded" />
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${session.badge} capitalize`}
-                      >
-                        {session.result}
-                      </span>
-                      <span className="text-xs font-semibold text-success">
-                        {session.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Tablet/desktop: table */}
-              <div className="hidden sm:block overflow-x-auto rounded-xl bg-white">
-                <div className="min-w-[600px]">
-                  <div className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] gap-3 px-4 py-3 text-xs uppercase tracking-[0.2em] text-gray-light">
-                    <span>Session Type</span>
-                    <span>Date</span>
-                    <span>Result</span>
-                    <span>Status</span>
-                  </div>
-                  <div className="divide-y divide-primary/5">
-                    {dynamicSessions.map((session) => (
-                      <div
-                        key={session.type}
-                        className="grid grid-cols-[1.8fr_1fr_1fr_0.8fr] items-center gap-3 px-4 py-3"
-                      >
-                        <div className="flex items-center gap-2 text-sm text-black">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary-lighter text-primary">
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M12 6v6l4 2" />
-                              <circle cx="12" cy="12" r="9" />
-                            </svg>
-                          </span>
-                          {session.type}
-                        </div>
-                        <div className="text-sm text-gray">{session.date}</div>
-                        <div className="text-sm">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${session.badge} capitalize`}
-                          >
-                            {session.result}
-                          </span>
-                        </div>
-                        <div className="text-sm font-semibold text-success">
-                          {session.status}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              </div>
+              ) : recent.entries.length === 0 ? (
+                <div className="rounded-xl bg-primary-lightest/60 px-4 py-6 text-center">
+                  <p className="text-sm text-gray">
+                    {recent.error ? "Couldn't load your activity right now." : "No activity yet."}
+                  </p>
+                  {!recent.error && (
+                    <button
+                      type="button"
+                      onClick={() => navigate("/color-analysis")}
+                      className="mt-2 text-xs font-semibold text-primary transition hover:text-primary-dark"
+                    >
+                      Start a color analysis
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Mobile: stacked rows, no horizontal scroll */}
+                  <ul className="divide-y divide-primary/5 sm:hidden">
+                    {recent.entries.map((entry) => {
+                      const { title, details } = describeActivity(entry);
+                      const date = toDate(entry.at);
+                      return (
+                        <li key={entry.id} className="flex items-start gap-3 py-3">
+                          <ActivityIcon entry={entry} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-black">{title}</p>
+                            {details[0] && (
+                              <p className="truncate text-xs text-gray">
+                                {details[0]}
+                                {details.length > 1 ? ` +${details.length - 1} more` : ""}
+                              </p>
+                            )}
+                            <p className="mt-0.5 text-xs text-gray-light">
+                              {date ? (
+                                <time dateTime={date.toISOString()} title={formatExact(date)}>{formatRelative(date, now)}</time>
+                              ) : (
+                                "Time not recorded"
+                              )}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {/* Tablet/desktop: table */}
+                  <div className="hidden sm:block">
+                    <div className="grid grid-cols-[1.3fr_1.7fr_1fr] gap-3 px-4 py-3 text-xs uppercase tracking-[0.2em] text-gray-light">
+                      <span>Activity</span>
+                      <span>Details</span>
+                      <span>When</span>
+                    </div>
+                    <ul className="divide-y divide-primary/5">
+                      {recent.entries.map((entry) => {
+                        const { title, details } = describeActivity(entry);
+                        const date = toDate(entry.at);
+                        return (
+                          <li key={entry.id} className="grid grid-cols-[1.3fr_1.7fr_1fr] items-center gap-3 px-4 py-3">
+                            <div className="flex min-w-0 items-center gap-2 text-sm text-black">
+                              <ActivityIcon entry={entry} />
+                              <span className="min-w-0">{title}</span>
+                            </div>
+                            <div className="min-w-0 text-xs text-gray">
+                              {details.length ? (
+                                <span className="line-clamp-2" title={details.join(" · ")}>{details.join(" · ")}</span>
+                              ) : (
+                                <span className="text-gray-light">-</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray">
+                              {date ? (
+                                <time dateTime={date.toISOString()} title={formatExact(date)}>{formatRelative(date, now)}</time>
+                              ) : (
+                                "Not recorded"
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </>
+              )}
             </section>
 
             {/* Dynamic Color Profile */}

@@ -429,12 +429,26 @@ async def save_analysis_result(data: AnalysisResultSave, user_id: str = Depends(
             detail={"code": "invalid_result", "message": "This result could not be verified. Please run the analysis again."},
         )
     try:
-        db.collection("users").document(user_id).set({
+        user_ref = db.collection("users").document(user_id)
+        activity = user_ref.collection("activity")
+        # A retake if the user has a result now, or ran an analysis before (the result may have been removed by the
+        # 30-day retention job). The log entry holds no result values, so retention never needs to touch it.
+        current = user_ref.get()
+        had_result = bool(current.exists and (current.to_dict() or {}).get("seasonal_label"))
+        ran_before = any(True for _ in activity.where("type", "==", "color_analysis").limit(1).stream())
+        batch = db.batch()
+        batch.set(user_ref, {
             "seasonal_label": data.season,
             "user_lab": data.lab_color,
             "season_confidence_level": data.confidence,
             "profile_completed": True,
         }, merge=True)
+        batch.set(activity.document(), {
+            "type": "color_analysis",
+            "at": firestore.SERVER_TIMESTAMP,
+            "retake": had_result or ran_before,
+        })
+        batch.commit()
         return {"status": "success"}
     except Exception:
         raise server_error("save_analysis_result")
@@ -443,14 +457,15 @@ async def save_analysis_result(data: AnalysisResultSave, user_id: str = Depends(
 async def delete_account(user_id: str = Depends(get_current_user)):
     """Permanently delete the signed-in user's profile record and login (RA 10173 right to erasure).
 
-    Photos are never stored. Saved favorites (users/{uid}/favorites) are removed first: Firestore does not delete a
-    document's subcollections with it. Runs with admin rights so it works without the "please log in again" step
-    Firebase requires for deletes from the browser.
+    Photos are never stored. Saved favorites (users/{uid}/favorites) and the activity log (users/{uid}/activity) are
+    removed first: Firestore does not delete a document's subcollections with it. Runs with admin rights so it works
+    without the "please log in again" step Firebase requires for deletes from the browser.
     """
     try:
         user_ref = db.collection("users").document(user_id)
-        for favorite in user_ref.collection("favorites").stream():
-            favorite.reference.delete()
+        for subcollection in ("favorites", "activity"):
+            for entry in user_ref.collection(subcollection).stream():
+                entry.reference.delete()
         user_ref.delete()
         try:
             fb_auth.delete_user(user_id)

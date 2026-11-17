@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ArrowLeft, Check, Shield, Server, Trash2, AlertCircle } from "lucide-react";
-import { doc, updateDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
+import { saveProfileWithActivity } from "../services/activityService";
 import { useUserStore } from "../store/userStore";
 import { SKIN_TYPES, SKIN_CONCERNS, AVOID_INGREDIENTS, CONCERNS_WITHOUT_FILTER_RULE } from "../constants/profileOptions";
 
@@ -110,7 +110,8 @@ export function OnboardingPage() {
           setup_at: now
         };
 
-        await updateDoc(doc(db, "users", user.uid), profileData);
+        // Saved with a "profile set up" entry in the activity log (both or neither).
+        await saveProfileWithActivity(user.uid, profileData, useUserStore.getState().user, "profile_setup");
         updateStoreProfile(profileData);
         navigate("/home");
       } catch (error) {

@@ -537,9 +537,44 @@ export function SplashPage() {
               </motion.h1>
               <motion.p
                 variants={revealItemVariants}
-                className="mt-3 max-w-2xl text-lg font-medium leading-relaxed text-gray sm:text-1g"
+                className="mt-3 flex max-w-2xl items-center justify-center gap-4 font-heading text-xl font-medium italic leading-snug tracking-wider sm:text-2xl"
               >
-                unlock the biological data beneath your surface.
+                <motion.span
+                  aria-hidden="true"
+                  className="hidden h-px w-10 bg-gray-light sm:block"
+                  style={{ opacity: 0.6 }}
+                  animate={
+                    prefersReducedMotion ? undefined : { opacity: [0.3, 0.8, 0.3] }
+                  }
+                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                {/* Soft sheen: a lighter gray band sliding across the clipped text. */}
+                <motion.span
+                  className="bg-clip-text px-1 text-center text-transparent [background-size:200%_100%]"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, var(--color-gray) 40%, var(--color-gray-light) 50%, var(--color-gray) 60%)",
+                    backgroundPositionX: "150%",
+                  }}
+                  animate={
+                    prefersReducedMotion
+                      ? undefined
+                      : { backgroundPositionX: ["150%", "-50%"] }
+                  }
+                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  Beautifully Matched,
+                  <br className="sm:hidden" /> Safely Guided!
+                </motion.span>
+                <motion.span
+                  aria-hidden="true"
+                  className="hidden h-px w-10 bg-gray-light sm:block"
+                  style={{ opacity: 0.6 }}
+                  animate={
+                    prefersReducedMotion ? undefined : { opacity: [0.3, 0.8, 0.3] }
+                  }
+                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+                />
               </motion.p>
               <motion.div variants={revealItemVariants} className="mt-8">
                 <motion.button

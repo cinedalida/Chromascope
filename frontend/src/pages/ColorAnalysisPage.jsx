@@ -1,6 +1,7 @@
 // ColorAnalysisPage begins the skin tone and palette analysis flow.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
@@ -14,11 +15,15 @@ import {
   Focus,
   ChevronDown,
   ArrowRight,
+  Info,
   Lock,
   Loader2,
   Dna
 } from "lucide-react";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
+import lightingArt from "../assets/images/S1-CA.png";
+import faceArt from "../assets/images/S2-CA.png";
+import photoArt from "../assets/images/S3-CA.png";
 import { auth, db } from "../firebase"; 
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -26,27 +31,32 @@ import { getSkinToneName } from "../utils/colorNames";
 import { ColorTooltip } from "../components/common/ColorTooltip";
 import { SEASON_DATABASE } from "../constants/seasonDatabase";
 
-// Keyed by the error code the analyze-color API returns
+// Keyed by the error code the analyze-color API returns. `tips` names the guideline(s) that fix the error, highlighted in the pop-up.
 const PHOTO_ERRORS = {
   too_blurry: {
     title: "Photo Too Blurry",
     message: "Your photo looks out of focus. Hold your camera steady, tap your face to focus, and try again.",
+    tips: ["Sharp photo"],
   },
   too_dark: {
     title: "Lighting Too Dim",
     message: "Your face is too dark for us to read your skin tone. Face a window or move to a brighter spot, then try again.",
+    tips: ["Well-lit space"],
   },
   too_bright: {
     title: "Too Much Light",
     message: "Your skin looks washed out from bright light or flash. Avoid direct sunlight and turn off the flash, then try again.",
+    tips: ["No harsh light"],
   },
   no_face: {
     title: "No Face Found",
     message: "We couldn't find a face in your photo. Make sure your whole face is visible and looking at the camera.",
+    tips: ["Face fully visible", "Look straight ahead"],
   },
   face_unclear: {
     title: "Face Not Clear",
     message: "We couldn't get a clear view of your skin. Move hair, hands, or sunglasses away from your face and look straight at the camera.",
+    tips: ["Face fully visible"],
   },
   invalid_image: {
     title: "Can't Open Photo",
@@ -87,7 +97,8 @@ export function ColorAnalysisPage() {
   const streamRef = useRef(null);
   const [animateIn, setAnimateIn] = useState(false);
   const [showSeasonInfo, setShowSeasonInfo] = useState(false);
-  const [showGuidelines, setShowGuidelines] = useState(false);
+  // Photo guidelines pop-up: "upload" and "camera" continue to that step on "Got it"; "info" only shows the tips.
+  const [guidelinesFor, setGuidelinesFor] = useState(null);
   const [isTouch] = useState(isTouchDevice);
   const cameraWord = isTouch ? "camera" : "webcam";
 
@@ -139,8 +150,18 @@ export function ColorAnalysisPage() {
     }
   };
 
+  // Every upload starts with the guidelines; the file picker opens from the pop-up's button (still a user tap).
   const triggerFileInput = () => {
-    if (!isWebcamActive) fileInputRef.current?.click();
+    if (!isWebcamActive) setGuidelinesFor("upload");
+  };
+
+  const closeGuidelines = () => setGuidelinesFor(null);
+
+  const continueFromGuidelines = () => {
+    const next = guidelinesFor;
+    setGuidelinesFor(null);
+    if (next === "upload") fileInputRef.current?.click();
+    else if (next === "camera") startWebcam();
   };
 
   const startWebcam = async () => {
@@ -214,41 +235,22 @@ export function ColorAnalysisPage() {
           
           <div className={`col-span-1 lg:col-span-5 space-y-6 transition-all duration-1000 delay-150 transform ${animateIn ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
 
-            <div className="bg-white/60 backdrop-blur-xl px-5 sm:px-8 rounded-[32px] border border-white shadow-sm">
-              <button
-                type="button"
-                onClick={() => setShowGuidelines((open) => !open)}
-                aria-expanded={showGuidelines}
-                aria-controls="photo-guidelines"
-                className="w-full flex justify-between items-center gap-4 py-5 text-left"
-              >
-                <span>
-                  <span className="block font-heading font-semibold text-lg text-[#111827]">
-                    {showGuidelines ? "Hide photo guidelines" : "View photo guidelines"}
-                  </span>
-                  <span className="block text-xs text-gray-500 mt-0.5">
-                    {PHOTO_GUIDELINES.length} tips for an accurate result
-                  </span>
+            <button
+              type="button"
+              onClick={() => setGuidelinesFor("info")}
+              aria-haspopup="dialog"
+              className="w-full bg-white/60 backdrop-blur-xl px-5 sm:px-8 py-5 rounded-[32px] border border-white shadow-sm flex justify-between items-center gap-4 text-left transition hover:border-primary/30 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span>
+                <span className="block font-heading font-semibold text-lg text-[#111827]">
+                  Photo guidelines
                 </span>
-                <ChevronDown
-                  size={20}
-                  className={`shrink-0 text-primary transition-transform duration-300 ease-in-out motion-reduce:transition-none ${showGuidelines ? "rotate-180" : ""}`}
-                />
-              </button>
-              <div
-                id="photo-guidelines"
-                aria-hidden={!showGuidelines}
-                className={`grid transition-all duration-300 ease-in-out motion-reduce:transition-none ${showGuidelines ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-              >
-                <div className="overflow-hidden">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 sm:gap-3 pb-5 sm:pb-8">
-                    {PHOTO_GUIDELINES.map(({ icon: Icon, title, detail }) => (
-                      <ChecklistItem key={title} icon={<Icon size={18} />} text={title} detail={detail} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  {PHOTO_GUIDELINES.length} tips for an accurate result
+                </span>
+              </span>
+              <Info size={20} className="shrink-0 text-primary" />
+            </button>
 
             <div
               onClick={triggerFileInput}
@@ -260,6 +262,8 @@ export function ColorAnalysisPage() {
                 className="hidden" 
                 accept="image/*"
                 onChange={handleFileChange}
+                // The picker's own click must not bubble to the upload box, which would open the guidelines again.
+                onClick={(e) => e.stopPropagation()}
               />
 
               {isWebcamActive ? (
@@ -311,7 +315,7 @@ export function ColorAnalysisPage() {
 
             {!isWebcamActive && (
               <button
-                onClick={startWebcam}
+                onClick={() => setGuidelinesFor("camera")}
                 className="w-full py-4 border-2 border-primary/20 bg-white/50 backdrop-blur-sm text-primary rounded-full font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white hover:border-primary active:bg-primary active:text-white active:border-primary active:scale-[0.98] transition-all duration-300 shadow-sm"
               >
                 <Camera size={18} />
@@ -466,47 +470,300 @@ export function ColorAnalysisPage() {
           onRetry={retryPhoto}
         />
       )}
+
+      {guidelinesFor && (
+        <PhotoGuidelinesModal
+          mode={guidelinesFor}
+          cameraWord={cameraWord}
+          onClose={closeGuidelines}
+          onContinue={continueFromGuidelines}
+        />
+      )}
     </main>
   );
 }
 
-function PhotoErrorModal({ error, onClose, onRetry }) {
+// Shared by both pop-ups: Escape closes, the page behind does not scroll, focus moves to the main button and back
+// to whatever opened the pop-up when it closes.
+// Runs once per opening: the latest onClose is read from a ref, so a parent re-render does not move focus again.
+function useModalBehavior(onClose, initialFocusRef) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    initialFocusRef.current?.focus();
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onCloseRef.current();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, [initialFocusRef]);
+}
+
+// The modal's frame: header (fixed), the tips (scroll on short screens), and the buttons (fixed). Widths are set per
+// modal in rem steps (this theme's max-w-lg is 1024px, see --container-lg in variables.css).
+const MODAL_FRAME = "modal flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden p-0";
+
+// The guidelines pop-up shows the 6 tips as 3 slides of 2 (revision after the dermatologist session), each slide
+// with its own illustration.
+const GUIDELINE_SLIDES = [
+  { title: "Lighting", art: lightingArt, tips: ["Well-lit space", "No harsh light"] },
+  { title: "Your face", art: faceArt, tips: ["Bare face", "Face fully visible"] },
+  { title: "Taking the photo", art: photoArt, tips: ["Look straight ahead", "Sharp photo"] },
+].map((slide) => ({ ...slide, tips: slide.tips.map((title) => PHOTO_GUIDELINES.find((tip) => tip.title === title)) }));
+
+const SWIPE_PX = 60; // a horizontal drag this long changes the slide
+
+function ModalCloseButton({ onClose }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Close"
+      className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
+    >
+      <X size={18} />
+    </button>
+  );
+}
+
+// All 6 tips at once (the failed-upload pop-up), fading in one after another, the fix for the error highlighted.
+function GuidelinesList({ highlight = [] }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+      {PHOTO_GUIDELINES.map(({ icon: Icon, title, detail }, i) => (
+        <motion.li
+          key={title}
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.05 + i * 0.05 }}
+        >
+          <ChecklistItem icon={<Icon size={18} />} text={title} detail={detail} highlighted={highlight.includes(title)} />
+        </motion.li>
+      ))}
+    </ul>
+  );
+}
+
+const slideVariants = {
+  enter: ({ direction, reduceMotion }) => ({ x: reduceMotion ? 0 : direction * 48, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: ({ direction, reduceMotion }) => ({ x: reduceMotion ? 0 : direction * -48, opacity: 0 }),
+};
+
+// One slide's content: "1 of 3 · Lighting", the slide's art card, and its 2 tips in one box below it, numbered
+// across the slides (Tip 1 to Tip 6). `animate` fades the tips in one after the other. The art is decorative: the
+// label and the tips carry the meaning.
+// The card takes the height the rest of the pop-up leaves on the screen (100dvh minus the header, tips, dots and
+// buttons: about 30rem on phones, where the tips wrap to more lines, and 29rem from sm up), between 8rem and 22rem.
+function SlideBody({ slide, index, animate = false }) {
+  return (
+    <>
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+        {index + 1} of {GUIDELINE_SLIDES.length} · {slide.title}
+      </p>
+      <div className="mt-3 flex h-[clamp(8rem,calc(100dvh-30rem),22rem)] sm:h-[clamp(8rem,calc(100dvh-29rem),22rem)] items-center justify-center rounded-2xl border border-primary-lighter bg-primary-lightest">
+        <img src={slide.art} alt="" draggable="false" className="h-[88%] w-auto max-w-full object-contain" />
+      </div>
+      <ul className="mt-3 divide-y divide-primary-lighter rounded-2xl border border-gray-100 bg-primary-lightest/50 px-4">
+        {slide.tips.map((tip, i) => (
+          <motion.li
+            key={tip.title}
+            initial={animate ? { opacity: 0, y: 10 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1 + i * 0.12 }}
+            className="py-2.5 sm:py-3"
+          >
+            <span className="flex items-baseline gap-2">
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+                Tip {PHOTO_GUIDELINES.indexOf(tip) + 1}
+              </span>
+              <span className="text-base font-semibold text-[#111827]">{tip.title}</span>
+            </span>
+            <span className="mt-0.5 block text-sm leading-relaxed text-gray-600">{tip.detail}</span>
+          </motion.li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// Before every upload: the 6 tips as 3 slides of 2. Next / Back, the dots, a sideways swipe, or the arrow keys move
+// between slides; the last slide continues to the upload (or the camera).
+function PhotoGuidelinesModal({ mode, cameraWord, onClose, onContinue }) {
+  const primaryRef = useRef(null);
+  useModalBehavior(onClose, primaryRef);
+  const reduceMotion = useReducedMotion();
+  const [[index, direction], setSlide] = useState([0, 1]);
+  const slide = GUIDELINE_SLIDES[index];
+  const isLast = index === GUIDELINE_SLIDES.length - 1;
+  const continueLabel = mode === "upload" ? "Got it, upload photo" : mode === "camera" ? `Got it, open ${cameraWord}` : "Got it";
+
+  const goTo = useCallback((next) => {
+    setSlide(([current]) => {
+      const target = Math.max(0, Math.min(GUIDELINE_SLIDES.length - 1, next));
+      return target === current ? [current, 1] : [target, target > current ? 1 : -1];
+    });
+  }, []);
+
+  // Left / right arrow keys change the slide (Escape is handled by useModalBehavior).
   useEffect(() => {
     function handleKeyDown(e) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") goTo(index + 1);
+      else if (e.key === "ArrowLeft") goTo(index - 1);
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [goTo, index]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop p-4 sm:p-6" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="photo-guidelines-title"
+        aria-describedby="photo-guidelines-intro"
+        className={`${MODAL_FRAME} max-w-128`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <ModalCloseButton onClose={onClose} />
+        <div className="shrink-0 px-6 pt-6 pb-3 sm:px-8 sm:pt-8">
+          <h3 id="photo-guidelines-title" className="pr-8 font-heading text-lg sm:text-xl font-semibold text-[#111827]">
+            Before you take your photo
+          </h3>
+          <p id="photo-guidelines-intro" className="mt-1 text-sm text-gray-600 leading-relaxed">
+            {PHOTO_GUIDELINES.length} quick tips for an accurate color result.
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 pb-2 sm:px-8">
+          {/* One slide at a time; min-height keeps the pop-up the same size on every slide. */}
+          {/* All 3 slides sit invisibly in the same grid cell, so the area is as tall as the tallest slide at any width
+              and the pop-up keeps one height; the visible, animated slide is drawn on top of them. */}
+          <div className="grid">
+            {GUIDELINE_SLIDES.map((s, i) => (
+              <div key={s.title} aria-hidden="true" className="invisible col-start-1 row-start-1">
+                <SlideBody slide={s} index={i} />
+              </div>
+            ))}
+            <div aria-live="polite" className="col-start-1 row-start-1">
+              <AnimatePresence mode="wait" initial={false} custom={{ direction, reduceMotion }}>
+                <motion.section
+                  key={index}
+                  aria-label={`Tips ${index + 1} of ${GUIDELINE_SLIDES.length}: ${slide.title}`}
+                  custom={{ direction, reduceMotion }}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: reduceMotion ? 0.12 : 0.22, ease: "easeOut" }}
+                  drag={reduceMotion ? false : "x"}
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.25}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.x < -SWIPE_PX) goTo(index + 1);
+                    else if (info.offset.x > SWIPE_PX) goTo(index - 1);
+                  }}
+                  className="touch-pan-y select-none"
+                >
+                  <SlideBody slide={slide} index={index} animate={!reduceMotion} />
+                </motion.section>
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Progress dots: tap one to jump to that slide. */}
+          <div className="flex justify-center gap-1 py-1" role="group" aria-label="Tips">
+            {GUIDELINE_SLIDES.map((s, i) => (
+              <button
+                key={s.title}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Show tips ${i + 1} of ${GUIDELINE_SLIDES.length}: ${s.title}`}
+                aria-current={i === index ? "step" : undefined}
+                className="flex h-8 w-8 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all duration-300 motion-reduce:transition-none ${
+                    i === index ? "w-6 bg-primary" : "w-2 bg-gray-300"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fixed button height (fits a two-line label such as "Got it, upload photo" on a phone), so the pop-up
+            keeps one height on every slide. */}
+        <div className="flex shrink-0 gap-3 border-t border-gray-100 px-6 py-4 sm:px-8 sm:py-5">
+          <button
+            type="button"
+            onClick={index === 0 ? onClose : () => goTo(index - 1)}
+            className="min-h-13 flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm leading-tight font-bold text-gray-600 transition hover:bg-gray-50"
+          >
+            {index > 0 ? "Back" : mode === "info" ? "Close" : "Cancel"}
+          </button>
+          <button
+            ref={primaryRef}
+            type="button"
+            onClick={isLast ? onContinue : () => goTo(index + 1)}
+            className="flex min-h-13 flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm leading-tight font-bold text-white transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            {isLast ? continueLabel : (
+              <>
+                Next <ArrowRight size={16} aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoErrorModal({ error, onClose, onRetry }) {
+  const primaryRef = useRef(null);
+  useModalBehavior(onClose, primaryRef);
+
+  return (
+    <div className="modal-backdrop p-4 sm:p-6" onClick={onClose}>
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="photo-error-title"
         aria-describedby="photo-error-message"
-        className="modal max-w-md"
+        className={`${MODAL_FRAME} max-w-160`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-gray-50 transition-all"
-        >
-          <X size={18} />
-        </button>
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-          <AlertTriangle size={22} strokeWidth={2.5} />
+        <ModalCloseButton onClose={onClose} />
+        <div className="shrink-0 px-6 pt-6 pb-4 sm:px-8 sm:pt-8">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+            <AlertTriangle size={20} strokeWidth={2.5} />
+          </div>
+          <h3 id="photo-error-title" className="pr-8 font-heading text-lg sm:text-xl font-semibold text-[#111827]">
+            {error.title}
+          </h3>
+          <p id="photo-error-message" className="mt-1 text-sm text-gray-600 leading-relaxed">
+            {error.message}
+          </p>
         </div>
-        <h3 id="photo-error-title" className="mb-2 font-heading text-lg font-semibold text-[#111827]">
-          {error.title}
-        </h3>
-        <p id="photo-error-message" className="mb-6 text-sm text-gray-600 leading-relaxed">
-          {error.message}
-        </p>
-        <div className="flex gap-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2 sm:px-8">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500">
+            Photo guidelines
+          </p>
+          <GuidelinesList highlight={error.tips} />
+        </div>
+        <div className="flex shrink-0 gap-3 border-t border-gray-100 px-6 py-4 sm:px-8 sm:py-5">
           <button
             type="button"
             onClick={onClose}
@@ -515,9 +772,10 @@ function PhotoErrorModal({ error, onClose, onRetry }) {
             Close
           </button>
           <button
+            ref={primaryRef}
             type="button"
             onClick={onRetry}
-            className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-primary-dark"
+            className="flex-1 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Try Another Photo
           </button>
@@ -527,12 +785,23 @@ function PhotoErrorModal({ error, onClose, onRetry }) {
   );
 }
 
-function ChecklistItem({ icon, text, detail }) {
+function ChecklistItem({ icon, text, detail, highlighted = false }) {
   return (
-    <div className="bg-white/50 px-4 py-3 sm:p-4 rounded-xl flex items-center gap-4 border border-white/40 shadow-sm">
+    <div
+      className={`h-full px-4 py-3 rounded-xl flex items-center gap-3 sm:gap-4 border shadow-sm ${
+        highlighted ? "bg-primary-lightest border-primary" : "bg-white/50 border-gray-100"
+      }`}
+    >
       <div className="text-primary shrink-0">{icon}</div>
-      <div>
-        <p className="text-sm font-semibold text-[#111827]">{text}</p>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-[#111827]">
+          {text}
+          {highlighted && (
+            <span className="ml-2 inline-block rounded-full bg-primary px-2 py-px align-middle text-[10px] font-bold uppercase tracking-wider text-white">
+              Try this
+            </span>
+          )}
+        </p>
         {detail && <p className="text-xs text-gray-500 leading-relaxed mt-0.5">{detail}</p>}
       </div>
     </div>
