@@ -103,7 +103,9 @@ function drawLandmarkNumbers(ctx, landmarks, videoW, videoH, canvasW, canvasH, o
  *  - isMock: true when CameraFeed shows the static mock background instead
  *    of a real stream — there's no <video> to track, so detection/render
  *    is skipped.
- *  - alpha: EMA smoothing factor (manuscript recommends 0.4-0.6).
+ *  - alpha: EMA smoothing factor (manuscript recommends 0.4-0.6). Used when `smoother` is not given.
+ *  - smoother: optional { type: "ema" | "oneeuro", params } from parseSmootherParams (utils/smoothing).
+ *    Omitted = EMA with `alpha`, the original behavior.
  *  - toggles: { region: boolean }. A region is hidden only when its toggle is false.
  *  - colors: { lips, cheeks, eyeshadow } hex strings, the selected shades. May be
  *    partial; a region with no color is not drawn.
@@ -126,6 +128,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   isReady,
   isMock,
   alpha = 0.5,
+  smoother,
   toggles = NO_TOGGLES,
   colors = NO_COLORS,
   finishes = NO_FINISHES,
@@ -146,11 +149,14 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const landmarkerRef = useRef(null);
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
-  // The landmark smoother (utils/smoothing): EMA by default. Rebuilt only when alpha changes.
+  // The landmark smoother (utils/smoothing): the `smoother` prop if given, else the EMA with `alpha`.
+  // Keyed by its type and parameter values, so it is rebuilt only when one of them really changes.
   const smootherRef = useRef(null);
+  const smootherKey = JSON.stringify(smoother ?? { type: "ema", params: { alpha } });
   useEffect(() => {
-    smootherRef.current = createSmoother({ type: "ema", alpha });
-  }, [alpha]);
+    const { type, params } = JSON.parse(smootherKey);
+    smootherRef.current = createSmoother({ type, ...params });
+  }, [smootherKey]);
   // Skin color ({ L, a, b } in CIELAB) for skin-adaptive makeup; re-measured every few frames and smoothed so it never flickers.
   const skinRef = useRef(null);
   const skinFramesRef = useRef(0);

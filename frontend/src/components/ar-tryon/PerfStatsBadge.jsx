@@ -7,8 +7,11 @@ const fmt = (v, digits = 0) => (v === null || v === undefined || Number.isNaN(v)
  * "Show performance stats" setting is on. Participants read the 30-second
  * average from here for survey items TR1–TR3. The average starts at the
  * first tracked face and stays fixed once the 30 s are up.
+ *
+ * smootherLabel: the active landmark smoother and its params (describeSmoother), so
+ * screenshots show which mode was running.
  */
-export function PerfStatsBadge({ stats }) {
+export function PerfStatsBadge({ stats, smootherLabel }) {
   return (
     <div
       data-testid="perf-stats"
@@ -43,6 +46,11 @@ export function PerfStatsBadge({ stats }) {
             Measuring {stats.windowSec} s avg… {Math.floor(stats.elapsedSec)} / {stats.windowSec} s
           </div>
         )
+      )}
+      {smootherLabel && (
+        <div data-testid="perf-smoother" className="text-[9px] text-white/70">
+          Smoother: {smootherLabel}
+        </div>
       )}
     </div>
   );

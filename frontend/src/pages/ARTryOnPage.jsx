@@ -7,6 +7,7 @@ import { ARControlBar } from "../components/ar-tryon/ARControlBar.jsx";
 import { useARCamera } from "../hooks/useARCamera.jsx";
 import { PerfStatsBadge } from "../components/ar-tryon/PerfStatsBadge.jsx";
 import { usePerfStats } from "../hooks/usePerfStats.js";
+import { describeSmoother, parseSmootherParams } from "../utils/smoothing/smootherConfig.js";
 import { useSettingsStore } from "../store/settingsStore.js";
 import { productToTryOn } from "../services/arRecommendedService.js";
 import { renderFinishFromText } from "../utils/arProductMap.js";
@@ -119,6 +120,10 @@ export function ARTryOnPage() {
   const setShowPerfStats = useSettingsStore((s) => s.setShowPerfStats);
   const perfEnabled = showPerfStats && started && isReady && !isMock;
   const { stats: perfStats, recordFrame } = usePerfStats({ enabled: perfEnabled });
+  // Landmark smoother from the URL (?smoother=oneeuro&minCutoff=...&beta=..., or ?alpha=... for the EMA).
+  // Read once on arrival: a Try-on hand-off later replaces the URL without its query string.
+  const [smoother] = useState(() => parseSmootherParams(location.search));
+  const smootherLabel = describeSmoother(smoother);
 
   // One toggle per group (lips, cheeks, eyes, face); the overlay gets it expanded to every region in the group.
   const [toggles, setToggles] = useState(() => Object.fromEntries(AR_GROUPS.map((group) => [group.key, true])));
@@ -317,6 +322,7 @@ export function ARTryOnPage() {
               finishes={finishes}
               render={tunerEnabled ? tuning : undefined}
               splitRef={splitRef}
+              smoother={smoother}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
 
@@ -324,7 +330,7 @@ export function ARTryOnPage() {
             {splitActive && <SplitLayer splitRef={splitRef} />}
 
             {/* PERFORMANCE STATS — FPS + latency, live and 30 s average (survey TR1–TR3) */}
-            {perfEnabled && <PerfStatsBadge stats={perfStats} />}
+            {perfEnabled && <PerfStatsBadge stats={perfStats} smootherLabel={smootherLabel} />}
             {/* Top-right: full screen, then performance stats */}
             {started && (
               <div className="absolute right-3 top-3 z-10 flex gap-2 sm:right-4 sm:top-4">
