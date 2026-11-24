@@ -112,9 +112,10 @@ function drawLandmarkNumbers(ctx, landmarks, videoW, videoH, canvasW, canvasH, o
  *  - render: per-region blend layers, opacity and feather. Defaults to
  *    REGION_RENDER; the DEV tuning panel passes its own values here.
  *  - landmarksRef: optional ref the DEV lab page passes to read the smoothed landmarks.
- *  - onFrame: optional callback(latencyMs, hasFace) called once per processed
- *    frame with the time spent on detection + smoothing + drawing and whether
- *    a face was found (usePerfStats).
+ *  - onFrame: optional callback(latencyMs, hasFace, smoothMs) called once per processed
+ *    frame with the time spent on detection + smoothing + drawing, whether
+ *    a face was found, and the time spent in smoother.smooth() alone (null
+ *    without a face) (usePerfStats).
  *
  * Exposes via ref: capture() returns the canvas (camera frame plus makeup,
  * exactly what is on screen) as a PNG data URL for ARTryOnPage's save button.
@@ -247,6 +248,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         // Read each frame from a ref, so moving the divider never restarts this loop or re-renders the page.
         const split = typeof splitRef?.current === "number" ? splitRef.current : null;
         const hasFace = result.faceLandmarks?.length > 0;
+        let smoothMs = null; // time spent in smoother.smooth() this frame; null when no face
         // The skin estimate is smoothed over time, so after the face has been gone for a while (another person may
         // appear) it is thrown away and measured again instead of slowly drifting from the old face's color.
         noFaceFramesRef.current = hasFace ? 0 : noFaceFramesRef.current + 1;
@@ -257,7 +259,10 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           const rawPoints = result.faceLandmarks[0];
 
           // Landmark smoothing (EMA, Eq. D.1, by default) before anything gets rendered from it.
+          // Timed on its own (FR8): the smoother is the only part that differs between EMA and One Euro.
+          const smoothStart = performance.now();
           const smoothed = smootherRef.current.smooth(rawPoints, frameStart);
+          smoothMs = performance.now() - smoothStart;
           // DEV lab only: lets test scripts read where the face is, in video-normalised coordinates.
           if (landmarksRef) landmarksRef.current = { points: smoothed, videoW: video.videoWidth, videoH: video.videoHeight, canvasW: canvas.width, canvasH: canvas.height, skinL: skinRef.current?.L ?? null, skin: skinRef.current };
 
@@ -284,7 +289,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         }
         if (split !== null) drawSplitDivider(ctx, canvas.width * split, canvas.width, canvas.height);
 
-        onFrameRef.current?.(performance.now() - frameStart, hasFace);
+        onFrameRef.current?.(performance.now() - frameStart, hasFace, smoothMs);
       }
 
       rafRef.current = requestAnimationFrame(tick);

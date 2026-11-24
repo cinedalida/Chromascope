@@ -37,6 +37,9 @@ export function PerfStatsBadge({ stats, smootherLabel }) {
             <div data-testid="perf-avg" className="font-bold text-[#00E676]">
               {stats.windowSec} s avg: {fmt(stats.avgFps, 1)} FPS · {fmt(stats.avgLatencyMs)} ms
             </div>
+            <div data-testid="perf-smoothing" className="text-[9px] text-white/70">
+              Median {fmt(stats.medianFps, 1)} FPS · smoothing {fmt(stats.avgSmoothMs, 3)} ms (p95 {fmt(stats.p95SmoothMs, 3)})
+            </div>
             <div data-testid="perf-face-share" className="text-[9px] text-white/70">
               Face in {fmt(stats.faceShare * 100)}% of frames
             </div>

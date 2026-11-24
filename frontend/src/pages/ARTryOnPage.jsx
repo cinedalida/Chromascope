@@ -13,7 +13,7 @@ import { productToTryOn } from "../services/arRecommendedService.js";
 import { renderFinishFromText } from "../utils/arProductMap.js";
 import { ALL_REGIONS, AR_GROUPS, REGION_LABEL, groupOfRegion } from "../utils/arGroups.js";
 import { OfflineNote } from "../components/common/OfflineBanner.jsx";
-import { Activity, Check, Maximize2, Minimize2, Smile } from "lucide-react";
+import { Activity, Check, Download, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
 
@@ -29,6 +29,35 @@ function enterBrowserFullscreen(el) {
 }
 function exitBrowserFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
+}
+
+// DEV only (FR8): saves the finished 30 s performance window as JSON in the browser, no network. Its only
+// caller sits behind import.meta.env.DEV, so production builds drop it.
+function downloadPerfLog(stats, smoother, video) {
+  const savedAt = new Date().toISOString();
+  const log = {
+    savedAt,
+    windowSec: stats.windowSec,
+    stats: {
+      avgFps: stats.avgFps,
+      medianFps: stats.medianFps,
+      avgLatencyMs: stats.avgLatencyMs,
+      avgSmoothMs: stats.avgSmoothMs,
+      p95SmoothMs: stats.p95SmoothMs,
+      smoothSamples: stats.smoothSamples,
+      faceShare: stats.faceShare,
+    },
+    smoother: { type: smoother.type, params: smoother.params },
+    userAgent: navigator.userAgent,
+    videoWidth: video?.videoWidth ?? null,
+    videoHeight: video?.videoHeight ?? null,
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(log, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ar-perf-${smoother.type}-${savedAt.replace(/[:.]/g, "-")}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Shades panel width limits (px, desktop). The max keeps the camera card from getting squeezed.
@@ -349,6 +378,14 @@ export function ARTryOnPage() {
                 >
                   <Activity size={16} strokeWidth={2.25} />
                 </FrameIconButton>
+                {import.meta.env.DEV && perfEnabled && perfStats?.windowFull && (
+                  <FrameIconButton
+                    label="Download log"
+                    onClick={() => downloadPerfLog(perfStats, smoother, cameraRef.current)}
+                  >
+                    <Download size={16} strokeWidth={2.25} />
+                  </FrameIconButton>
+                )}
               </div>
             )}
 
