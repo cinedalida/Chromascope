@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { getFaceLandmarker } from "../../services/faceLandmarkerService";
-import { smoothLandmarks } from "../../utils/landmarkSmoothing.js";
+import { createSmoother } from "../../utils/smoothing/index.js";
 import { REGION_RENDER, drawLooks, sampleSkin, toCanvasSpace } from "../../utils/arRenderer.js";
 
 /**
@@ -146,7 +146,11 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   const landmarkerRef = useRef(null);
   const rafRef = useRef(null);
   const lastVideoTimeRef = useRef(-1);
-  const smoothedLandmarksRef = useRef(null);
+  // The landmark smoother (utils/smoothing): EMA by default. Rebuilt only when alpha changes.
+  const smootherRef = useRef(null);
+  useEffect(() => {
+    smootherRef.current = createSmoother({ type: "ema", alpha });
+  }, [alpha]);
   // Skin color ({ L, a, b } in CIELAB) for skin-adaptive makeup; re-measured every few frames and smoothed so it never flickers.
   const skinRef = useRef(null);
   const skinFramesRef = useRef(0);
@@ -246,9 +250,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
 
           const rawPoints = result.faceLandmarks[0];
 
-          // EMA smoothing (Eq. D.1) before anything gets rendered from it.
-          const smoothed = smoothLandmarks(rawPoints, smoothedLandmarksRef.current, alpha);
-          smoothedLandmarksRef.current = smoothed;
+          // Landmark smoothing (EMA, Eq. D.1, by default) before anything gets rendered from it.
+          const smoothed = smootherRef.current.smooth(rawPoints, frameStart);
           // DEV lab only: lets test scripts read where the face is, in video-normalised coordinates.
           if (landmarksRef) landmarksRef.current = { points: smoothed, videoW: video.videoWidth, videoH: video.videoHeight, canvasW: canvas.width, canvasH: canvas.height, skinL: skinRef.current?.L ?? null, skin: skinRef.current };
 
@@ -269,6 +272,9 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
           drawLooks(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, { colors, toggles, finishes, render, skin: skinRef.current, video });
           if (debugLandmarks) drawLandmarkNumbers(ctx, smoothed, videoW, videoH, canvas.width, canvas.height, Array.isArray(debugLandmarks) ? debugLandmarks : null);
           if (split !== null) ctx.restore();
+        } else {
+          // Face lost: forget the smoothing history so the overlay does not slide in from the old position.
+          smootherRef.current.reset();
         }
         if (split !== null) drawSplitDivider(ctx, canvas.width * split, canvas.width, canvas.height);
 
@@ -283,7 +289,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, alpha, toggles, colors, finishes, render, debugLandmarks, landmarksRef, splitRef]);
+  }, [status, isMock, isReady, videoRef, toggles, colors, finishes, render, debugLandmarks, landmarksRef, splitRef]);
 
   return (
     <canvas
