@@ -175,6 +175,9 @@ CLAUDE.md
 research/**/*.csv
 research/**/*.xlsx
 
+# Raw face landmark recordings (biometric data, AR smoothing experiment). Only derived metric CSVs are committed.
+data/recordings/
+
 # Face images are never kept in git (decision D3). Local, consented test photos only.
 backend/app/core/skin_analysis/test/test_images/
 backend/app/core/skin_analysis/test/test_output/

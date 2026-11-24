@@ -112,6 +112,8 @@ function drawLandmarkNumbers(ctx, landmarks, videoW, videoH, canvasW, canvasH, o
  *  - render: per-region blend layers, opacity and feather. Defaults to
  *    REGION_RENDER; the DEV tuning panel passes its own values here.
  *  - landmarksRef: optional ref the DEV lab page passes to read the smoothed landmarks.
+ *  - rawFrameRef: optional DEV ref holding a function(timestampMs, rawPointsOrNull), called once per
+ *    processed frame with the raw landmarks before smoothing (the landmark recorder).
  *  - onFrame: optional callback(latencyMs, hasFace, smoothMs) called once per processed
  *    frame with the time spent on detection + smoothing + drawing, whether
  *    a face was found, and the time spent in smoother.smooth() alone (null
@@ -137,6 +139,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
   debugLandmarks = false,
   landmarksRef,
   splitRef,
+  rawFrameRef,
   onFrame,
 }, ref) {
   const canvasRef = useRef(null);
@@ -249,6 +252,8 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
         const split = typeof splitRef?.current === "number" ? splitRef.current : null;
         const hasFace = result.faceLandmarks?.length > 0;
         let smoothMs = null; // time spent in smoother.smooth() this frame; null when no face
+        // DEV recorder only: the RAW landmarks (before smoothing), or null without a face.
+        rawFrameRef?.current?.(frameStart, hasFace ? result.faceLandmarks[0] : null);
         // The skin estimate is smoothed over time, so after the face has been gone for a while (another person may
         // appear) it is thrown away and measured again instead of slowly drifting from the old face's color.
         noFaceFramesRef.current = hasFace ? 0 : noFaceFramesRef.current + 1;
@@ -300,7 +305,7 @@ export const AROverlayCanvas = forwardRef(function AROverlayCanvas({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [status, isMock, isReady, videoRef, toggles, colors, finishes, render, debugLandmarks, landmarksRef, splitRef]);
+  }, [status, isMock, isReady, videoRef, toggles, colors, finishes, render, debugLandmarks, landmarksRef, splitRef, rawFrameRef]);
 
   return (
     <canvas

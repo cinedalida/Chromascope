@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppliedProductsPanel } from "../components/ar-tryon/AppliedProductsPanel.jsx";
 import { CameraFeed } from "../components/ar-tryon/CameraFeed.jsx";
@@ -16,6 +16,10 @@ import { OfflineNote } from "../components/common/OfflineBanner.jsx";
 import { Activity, Check, Download, Maximize2, Minimize2, Smile } from "lucide-react";
 
 const NO_SHADES = Object.fromEntries(ALL_REGIONS.map((region) => [region, null]));
+
+// DEV only: raw landmark recorder for the smoothing experiment. null in production builds, so the
+// recorder code is never bundled there (TC-S4).
+const LandmarkRecorderPanel = import.meta.env.DEV ? lazy(() => import("../dev/LandmarkRecorderPanel.jsx")) : null;
 
 // DEV tuning panel options (Phase 4b). Kept for future tuning; shown only in dev when
 // Profile, App Settings, "AR blend tuning (dev)" is on.
@@ -153,6 +157,8 @@ export function ARTryOnPage() {
   // Read once on arrival: a Try-on hand-off later replaces the URL without its query string.
   const [smoother] = useState(() => parseSmootherParams(location.search));
   const smootherLabel = describeSmoother(smoother);
+  // DEV recorder: LandmarkRecorderPanel puts its frame handler here; AROverlayCanvas calls it with raw landmarks.
+  const rawFrameRef = useRef(null);
 
   // One toggle per group (lips, cheeks, eyes, face); the overlay gets it expanded to every region in the group.
   const [toggles, setToggles] = useState(() => Object.fromEntries(AR_GROUPS.map((group) => [group.key, true])));
@@ -352,6 +358,7 @@ export function ARTryOnPage() {
               render={tunerEnabled ? tuning : undefined}
               splitRef={splitRef}
               smoother={smoother}
+              rawFrameRef={LandmarkRecorderPanel ? rawFrameRef : undefined}
               onFrame={perfEnabled ? recordFrame : undefined}
             />
 
@@ -537,6 +544,11 @@ export function ARTryOnPage() {
           onChange={setTuning}
           onReset={() => setTuning(structuredClone(AROverlayCanvas.defaultRender))}
         />
+      )}
+      {LandmarkRecorderPanel && started && isReady && !isMock && (
+        <Suspense fallback={null}>
+          <LandmarkRecorderPanel rawFrameRef={rawFrameRef} videoRef={cameraRef} />
+        </Suspense>
       )}
     </main>
   );
