@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:pwa": "playwright test -c playwright.pwa.config.js",
     "test:unit": "node --test src/utils/arFit.test.js src/utils/arProductMap.test.js src/utils/arRecommendedCache.test.js src/utils/filterBatch.test.js src/utils/serverWake.test.js src/utils/lazyWithRetry.test.js src/utils/catalogShades.test.js src/utils/seasonLabels.test.js src/utils/shadeGroups.test.js src/utils/catalogSort.test.js src/utils/arRenderer.test.js src/utils/activityLog.test.js",
@@ -41,7 +42,8 @@
     "globals": "^17.5.0",
     "tailwindcss": "^4.3.0",
     "vite": "^8.0.10",
-    "vite-plugin-pwa": "^2.0.0"
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.1"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.7"
