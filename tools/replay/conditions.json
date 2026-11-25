@@ -1,0 +1,11 @@
+{
+  "conditions": [
+    { "name": "raw", "type": "raw" },
+    { "name": "ema0.2", "type": "ema", "params": { "alpha": 0.2 } },
+    { "name": "ema0.3", "type": "ema", "params": { "alpha": 0.3 } },
+    { "name": "ema0.5", "type": "ema", "params": { "alpha": 0.5 } },
+    { "name": "ema0.7", "type": "ema", "params": { "alpha": 0.7 } },
+    { "name": "ema0.9", "type": "ema", "params": { "alpha": 0.9 } },
+    { "name": "oneeuro", "type": "oneeuro", "params": "tuned" }
+  ]
+}

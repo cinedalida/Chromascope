@@ -1,0 +1,6 @@
+{
+  "name": "chromascope-replay",
+  "private": true,
+  "description": "Offline replay harness for the AR landmark smoothing experiment (docs/AR_SMOOTHING_REFACTOR_PLAN.md, Phase 7).",
+  "type": "module"
+}
