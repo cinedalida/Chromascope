@@ -1,0 +1,47 @@
+# Vitest output for the AR smoothing tests (npm test), run 2026-11-25T02:18:33Z on branch se2/ar-smoothing at 72f88bb plus uncommitted Phase 8 tests
+
+ RUN  v5.1.1 C:/Users/cine/Documents/cine/projects/Chromascope/frontend
+
+ ✓ src/utils/smoothing/__tests__/createSmoother.test.js > TC-U8: no type gives the EMA with alpha 0.5, and no warning 75ms
+ ✓ src/utils/smoothing/__tests__/createSmoother.test.js > TC-U8: 'oneeuro' gives the One Euro smoother with the given params 36ms
+ ✓ src/utils/smoothing/__tests__/createSmoother.test.js > TC-U8: an unknown type gives the EMA plus one console warning 9ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > a perfectly still clip has jitter 0 499ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > a signal delayed by exactly 0 ms gives that lag (+/- 1 ms) 876ms
+ ✓ src/utils/smoothing/__tests__/ema.golden.test.js > fixture stream > is deterministic and has the expected shape 1518ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > a signal delayed by exactly 50 ms gives that lag (+/- 1 ms) 362ms
+ ✓ src/utils/smoothing/__tests__/emaSmoother.test.js > TC-U1: EmaSmoother (alpha 0.5) matches the golden output exactly 1744ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > a signal delayed by exactly 137 ms gives that lag (+/- 1 ms) 450ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > lag is measured in 2D: movement on one axis only still gives the full delay 645ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > a faceless frame splits the signal into runs 24ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > TC-M1 > tracking error is 0 when the smoothed signal equals the centered average (linear motion) 95ms
+ ✓ ../tools/replay/__tests__/replay.test.js > TC-I1 > replaying the same clips twice gives an identical CSV 2402ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > Wilcoxon signed-rank (checked against scipy.stats.wilcoxon) > exact test, no ties 13ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > Wilcoxon signed-rank (checked against scipy.stats.wilcoxon) > normal approximation with ties 12ms
+ ✓ ../tools/replay/__tests__/metrics.test.js > Wilcoxon signed-rank (checked against scipy.stats.wilcoxon) > fewer than 8 non-zero pairs gives no p-value 1ms
+ ✓ src/utils/smoothing/__tests__/ema.golden.test.js > fixture stream > seeded PRNG gives the same sequence for the same seed 1ms
+ ✓ src/utils/smoothing/__tests__/ema.golden.test.js > EMA golden output > golden file matches its recorded settings 6ms
+ ✓ src/utils/smoothing/__tests__/ema.golden.test.js > EMA golden output > TC-U1: smoothLandmarks (alpha 0.5) matches the golden output exactly 1514ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > EMA (alpha 0.5) > TC-U2: constant input gives a constant output 3185ms
+ ✓ src/utils/smoothing/__tests__/ema.golden.test.js > EMA golden output > first golden frame equals the raw first frame 57ms
+ ✓ ../tools/replay/__tests__/replay.test.js > TC-I1 > without --timing, msPerFrame is empty; jitter only on still clips, lag and tracking error on the rest 555ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > EMA (alpha 0.5) > TC-U3: the first frame passes through unchanged 46ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > EMA (alpha 0.5) > TC-U4: after reset(), the next output equals the new raw frame 27ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > EMA (alpha 0.5) > TC-U5: 478 x 3 in gives 478 x 3 out, no NaN, a new array every frame 326ms
+ ✓ ../tools/replay/__tests__/replay.test.js > TC-I1 > the CSV round-trips through the summary step 387ms
+ ✓ ../tools/replay/__tests__/replay.test.js > TC-I1 > tuning refuses any clip that is not R1 13ms
+ ✓ ../tools/replay/__tests__/replay.test.js > TC-I1 > a malformed clip is rejected with its name 4ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > EMA (alpha 0.5) > TC-U7: uneven, repeated, negative and NaN timestamps give no NaN, Infinity or jumps 2473ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > One Euro (1, 0.01, 1) > TC-U2: constant input gives a constant output 1224ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > One Euro (1, 0.01, 1) > TC-U3: the first frame passes through unchanged 11ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > One Euro (1, 0.01, 1) > TC-U4: after reset(), the next output equals the new raw frame 9ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > One Euro (1, 0.01, 1) > TC-U5: 478 x 3 in gives 478 x 3 out, no NaN, a new array every frame 301ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > One Euro (1, 0.01, 1) > TC-U7: uneven, repeated, negative and NaN timestamps give no NaN, Infinity or jumps 1466ms
+ ✓ src/components/ar-tryon/__tests__/AROverlayCanvas.test.js > TC-I2 > EMA (default): renders without errors, smooths, draws, and resets when the face is lost 246ms
+ ✓ src/components/ar-tryon/__tests__/AROverlayCanvas.test.js > TC-I2 > One Euro (?smoother=oneeuro): renders without errors and matches the smoother fed the same timestamps 75ms
+ ✓ src/utils/smoothing/__tests__/smoothers.test.js > TC-U6: One Euro with beta = 0 equals a fixed low-pass filter at minCutoff 4750ms
+
+ Test Files  7 passed (7)
+      Tests  37 passed (37)
+   Start at  10:18:36
+   Duration  17.05s (tests 63%, environment 20%, import 11%, transform 4%, worker 1%)
+
